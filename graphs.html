@@ -219,5 +219,79 @@
   <div class="elabel" style="left:1256px; top:610px;">read archive</div>
 </div>
 
+
+<!-- ============ GRAPH 3: the tripled manager - lagged shadows ============ -->
+<div class="canvas" id="g3" style="height:840px;">
+  <h1>One decision, <span>four memories</span> — how forgetting is tested</h1>
+  <div class="sub">the manager runs 3 shadow copies of itself on older memory · if they decide differently, the cleanup lost something that mattered</div>
+
+  <svg width="1600" height="840">
+    <defs>
+      <marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+      <marker id="cg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#34d399"/></marker>
+      <marker id="co" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#f59e0b"/></marker>
+    </defs>
+    <g stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#c)">
+      <path d="M 285 445 L 340 250"/>
+      <path d="M 285 460 L 340 400"/>
+      <path d="M 285 475 L 340 550"/>
+      <path d="M 285 490 L 340 700"/>
+      <path d="M 800 215 L 890 400"/>
+      <path d="M 800 385 L 890 435"/>
+      <path d="M 800 535 L 890 470"/>
+      <path d="M 800 685 L 890 505"/>
+    </g>
+    <g stroke="#34d399" stroke-width="2" fill="none" marker-end="url(#cg)">
+      <path d="M 1120 415 L 1210 340"/>
+    </g>
+    <g stroke="#f59e0b" stroke-width="2.5" fill="none" marker-end="url(#co)" stroke-dasharray="7 5">
+      <path d="M 1120 490 L 1210 555"/>
+      <path d="M 1330 648 L 1330 780 L 60 780 L 60 250 L 332 250"/>
+    </g>
+  </svg>
+
+  <div class="pill start" style="left:96px; top:448px;">Same decision<br><span style="font-weight:400; font-size:12px;">"who takes F4 in week 7?"</span></div>
+
+  <div class="node cur" style="left:340px; top:170px; width:420px; text-align:left;">
+    <div class="nm">🧑‍💼 Manager — live memory</div>
+    <div class="rl">curated last night · smallest context, freshest view</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+  <div class="node" style="left:340px; top:330px; width:420px; text-align:left;">
+    <div class="nm">👥 Shadow — 1 day behind</div>
+    <div class="rl">yesterday's memory, before last night's cleanup</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+  <div class="node" style="left:340px; top:480px; width:420px; text-align:left;">
+    <div class="nm">👥 Shadow — 1 week behind</div>
+    <div class="rl">memory as it was a week ago</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+  <div class="node" style="left:340px; top:630px; width:420px; text-align:left;">
+    <div class="nm">👥 Oracle — never cleaned</div>
+    <div class="rl">full history, nothing ever archived</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="node" style="left:890px; top:395px; width:230px;">
+    <div class="ic">⚖️</div><div class="nm">Compare</div>
+    <div class="rl">do the four agree?</div>
+  </div>
+
+  <div class="pill end" style="left:1210px; top:308px;">all agree → forgetting was safe ✓</div>
+
+  <div class="node" style="left:1210px; top:555px; width:250px;">
+    <div class="ic">♻️</div><div class="nm">They differ</div>
+    <div class="rl">Judge finds which archived fact changed the decision · restores it</div>
+    <span class="brand liquid">Liquid LFM-2.5</span> <span class="brand rawtree">Tinybird Rawtree</span>
+  </div>
+
+  <div class="elabel" style="left:640px; top:768px;">♻️ exact fact back in the manager's memory</div>
+  <div class="elabel" style="left:296px; top:308px;">read-only replay</div>
+</div>
+
 </body>
 </html>
