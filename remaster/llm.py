@@ -4,6 +4,7 @@ Used for OpenAI (strategist / doer / cleaner / shadows) and OpenRouter (Liquid L
 All agents ask for JSON output, so every call returns a parsed dict.
 """
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -33,13 +34,27 @@ class ChatClient:
         self.usage["completion_tokens"] += u.get("completion_tokens", 0)
         self.usage["cached_tokens"] += (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0
         text = data["choices"][0]["message"].get("content") or "{}"
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            start, end = text.find("{"), text.rfind("}")
-            if start >= 0 and end > start:
-                return json.loads(text[start:end + 1])
-            raise LLMError(f"{self.name}: non-JSON output: {text[:200]}")
+        return self._coerce_json(text)
+
+    def _coerce_json(self, text):
+        """Small models wrap JSON in fences, prepend prose, or leave trailing commas."""
+        t = text.strip()
+        if t.startswith("```"):
+            t = t.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        for cand in (t,):
+            try:
+                return json.loads(cand)
+            except json.JSONDecodeError:
+                pass
+        start, end = t.find("{"), t.rfind("}")
+        if start >= 0 and end > start:
+            frag = t[start:end + 1]
+            for fix in (frag, re.sub(r",\s*([}\]])", r"\1", frag)):
+                try:
+                    return json.loads(fix)
+                except json.JSONDecodeError:
+                    continue
+        raise LLMError(f"{self.name}: non-JSON output: {text[:200]}")
 
     def _post(self, path, body, max_retries):
         payload = json.dumps(body).encode()

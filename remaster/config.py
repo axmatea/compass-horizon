@@ -28,7 +28,7 @@ def env(name, default=None):
 # --- LLMs (all Liquid AI — sponsor models) -----------------------------------
 # BRAIN=local (default): two llama-server instances on this machine, zero cost, private.
 # BRAIN=openrouter: Liquid's hosted free tier (needs OPENROUTER_API_KEY).
-BRAIN = env("REMASTER_BRAIN", "local")
+BRAIN = env("REMASTER_BRAIN", "openrouter")
 
 STRATEGIST_BASE = env("REMASTER_STRATEGIST_BASE", "http://localhost:8081/v1")
 DOER_BASE = env("REMASTER_DOER_BASE", "http://localhost:8080/v1")
