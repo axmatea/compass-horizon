@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0c">
+<title>COMPASS · The office</title>
+<meta name="description" content="COMPASS, the office: one shared memory for the whole team, live.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+html,body{margin:0;height:100%;background:#0d0d0c}
+iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0d0d0c}
+</style>
+</head>
+<body>
+<script>
+// /office shows the live office backend when public/office.json has a url (Vince's board).
+// Without a url it opens the built-in office demo.
+fetch('/office.json', { cache: 'no-store' })
+  .then(r => r.ok ? r.json() : {})
+  .then(c => {
+    const url = c && typeof c.url === 'string' ? c.url.trim() : '';
+    if (!/^https:\/\//.test(url)) { location.replace('/demo/workspace' + location.search); return; }
+    const f = document.createElement('iframe');
+    f.src = url; f.title = 'COMPASS, the office (live)';
+    f.allow = 'clipboard-write; microphone';
+    document.body.appendChild(f);
+  })
+  .catch(() => location.replace('/demo/workspace'));
+</script>
+<noscript>The office needs JavaScript.</noscript>
+</body>
+</html>
