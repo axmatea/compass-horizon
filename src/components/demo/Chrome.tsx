@@ -195,7 +195,13 @@ export function StageBar({ world, busy, canPlug, canResume, onNext, onPlug, onRe
               {busy === "wake" ? "Resuming" : "Resume run"}
             </button>
           ) : (
-            <button type="button" className="lv-btn lv-btn--danger" onClick={onPlug} disabled={!!busy || !canPlug || travel} title="Arm chaos: the next run dies after step 3 (P)">
+            <button
+              type="button"
+              className={`lv-btn lv-btn--danger${canPlug && st?.beat === 4 ? " dm-plug-ready" : ""}`}
+              onClick={onPlug}
+              disabled={!!busy || !canPlug || travel}
+              title="Arm chaos: the next run dies after step 3 (P)"
+            >
               {busy === "chaos" ? "Pulling the plug" : "Pull the plug"} <kbd>P</kbd>
             </button>
           )}

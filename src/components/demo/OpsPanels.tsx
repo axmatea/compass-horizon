@@ -150,7 +150,7 @@ function RunCard({ run }: { run: RunView }) {
         <ul className="dm-effects">
           {effects.map((e) => (
             <li key={e.key} className={`is-${e.state.toLowerCase()}`}>
-              <code>{e.key}</code>
+              <code title={e.key}>{e.key}</code>
               <span className="dm-effect-kind">{titleCase(e.kind)}</span>
               <span className={`lv-pill lv-pill--${e.state === "PERFORMED" ? "ok" : "gold"}`}>{e.state === "PERFORMED" ? "Performed" : "Skipped duplicate"}</span>
             </li>

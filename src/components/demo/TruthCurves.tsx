@@ -155,11 +155,12 @@ export function TruthCurves({ world }: { world: WorldView }) {
       </div>
       {series.some(({ c }) => c.costPerQualifiedUsd === null) && (
         <p className="dm-curves-note">
-          {series
-            .filter(({ c }) => c.costPerQualifiedUsd === null)
-            .map(({ c }) => c.key)
-            .join(" and ")}{" "}
-          has no qualified lead yet, so its cost per qualified lead is Unknown, not $0.
+          {(() => {
+            const keys = series.filter(({ c }) => c.costPerQualifiedUsd === null).map(({ c }) => c.key);
+            return keys.length > 1
+              ? `${keys.join(" and ")} have no qualified lead yet, so cost per qualified lead is Unknown, not $0.`
+              : `${keys[0]} has no qualified lead yet, so its cost per qualified lead is Unknown, not $0.`;
+          })()}
         </p>
       )}
       <div className="dm-curves-legend">

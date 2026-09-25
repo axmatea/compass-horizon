@@ -432,6 +432,12 @@
   font-variant-numeric: tabular-nums;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
+.dm-hz-handle.is-left .dm-hz-handle-chip {
+  transform: translateX(-14px);
+}
+.dm-hz-handle.is-right .dm-hz-handle-chip {
+  transform: translateX(calc(-100% + 14px));
+}
 .dm-hz-handle.is-now .dm-hz-handle-chip {
   background: var(--lv-panel-2);
   color: var(--lv-gold);
@@ -879,6 +885,7 @@
   font-size: 13px;
 }
 .dm-policy {
+  margin-top: 10px;
   font-size: 12px;
   color: var(--lv-faint);
   line-height: 1.45;
@@ -1872,6 +1879,11 @@
   min-height: 46px;
   animation: dm-pulse 1800ms var(--lv-ease) infinite;
 }
+.dm-plug-ready {
+  border-color: var(--lv-bad);
+  color: #f0c2b5;
+  box-shadow: 0 0 0 4px rgba(199, 128, 111, 0.12);
+}
 
 /* ------------------------------------------------------------ toasts */
 .dm-toasts {
@@ -2354,9 +2366,13 @@
     padding: 0 12px;
     font-size: 13px;
   }
-  .dm-stage-actions .dm-next-btn {
+  .dm-stage-actions .dm-next-btn,
+  .dm-stage-actions .dm-resume-btn {
     order: -1;
     flex-basis: 100%;
+  }
+  .dm-stage-actions:has(.dm-resume-btn) .dm-next-btn {
+    display: none;
   }
   :root {
     --lv-stagebar-h: 170px;

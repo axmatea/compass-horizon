@@ -315,7 +315,10 @@ export function Horizon({ world, handleDay, pending, onScrub }: Props) {
         aria-hidden="true"
       />
 
-      <div className={`dm-hz-handle${atNow ? " is-now" : ""}${pending ? " is-pending" : ""}`} style={{ left: hx, top: top - 22, height: axisY - top + 22 }}>
+      <div
+        className={`dm-hz-handle${atNow ? " is-now" : ""}${pending ? " is-pending" : ""}${hx - padL < 56 ? " is-left" : ""}${width - hx < 80 ? " is-right" : ""}`}
+        style={{ left: hx, top: top - 22, height: axisY - top + 22 }}
+      >
         <div className="dm-hz-handle-line" />
         <div className="dm-hz-handle-chip">{atNow ? `Now, Day ${clockDay}` : `Day ${handleDay}`}</div>
         <div
