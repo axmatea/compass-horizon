@@ -31,7 +31,7 @@ export interface SlideDef {
 export const TEAM = 'NAYL (AI Media Global) and Vincent';
 export const EVENT = 'Long Horizon Agents hackathon';
 export const TAGLINE = 'The acquisition agent that waits for the truth.';
-export const URL_PLACEHOLDER = 'longview (live link in the demo)';
+export const URL_PLACEHOLDER = 'longview-agent.vercel.app';
 export const TARGET_SECONDS = 180;
 /** delivery model for timestamps: calm, rehearsed pace */
 export const WORDS_PER_MINUTE = 155;
