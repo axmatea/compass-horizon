@@ -64,7 +64,47 @@ class ChatClient:
                     return json.loads(fix)
                 except json.JSONDecodeError:
                     continue
+        repaired = self._repair_truncated(t)
+        if repaired is not None:
+            return repaired
         raise LLMError(f"{self.name}: non-JSON output: {text[:200]}")
+
+    @staticmethod
+    def _repair_truncated(t):
+        """Output cut off by max_tokens: close open strings/brackets; if still
+        invalid, cut back to the last complete pair and close again."""
+        start = t.find("{")
+        if start < 0:
+            return None
+
+        def closed(s):
+            stack, in_str, esc = [], False, False
+            for ch in s:
+                if in_str:
+                    if esc:
+                        esc = False
+                    elif ch == "\\":
+                        esc = True
+                    elif ch == '"':
+                        in_str = False
+                elif ch == '"':
+                    in_str = True
+                elif ch in "{[":
+                    stack.append(ch)
+                elif ch in "}]" and stack:
+                    stack.pop()
+            s += '"' if in_str else ""
+            return s + "".join("}" if c == "{" else "]" for c in reversed(stack))
+
+        cand = t[start:]
+        for _ in range(40):
+            try:
+                return json.loads(re.sub(r",\s*([}\]])", r"\1", closed(cand)))
+            except json.JSONDecodeError:
+                cut = cand.rfind(",")
+                if cut <= 0:
+                    return None
+                cand = cand[:cut]
 
     def _post(self, path, body, max_retries):
         payload = json.dumps(body).encode()

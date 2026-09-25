@@ -11,7 +11,7 @@ from pathlib import Path
 from . import config, world as W
 from .agents import Cleaner, Doer, Judge, Strategist, Summarizer
 from .context import DoerMemory, NaiveMemory
-from .llm import doer_client, liquid_client, strategist_client
+from .llm import LLMError, doer_client, liquid_client, strategist_client
 from .memory import EventStore
 from .sponsors import flux, nimble
 
@@ -82,7 +82,11 @@ class Run:
         ts, wk = W.sim_ts(day), (day - 1) // 5 + 1
         # Monday: Strategist plans the week (and watches the market via Nimble).
         if day % 5 == 1:
-            plan, market = self.strategist.weekly(day, self.world.board(day), self.market)
+            try:
+                plan, market = self.strategist.weekly(day, self.world.board(day), self.market)
+            except LLMError as e:
+                self.say(f"  ⚠️ strategist weekly failed ({e}); keeping last week's plan")
+                plan, market = {}, None
             for op in plan.get("board_ops") or []:
                 t = self.world.tickets.get(op.get("ticket"))
                 if op.get("op") == "cut" and t and t["id"] not in W.LAUNCH_REQUIRED:
@@ -103,7 +107,11 @@ class Run:
             self.add_block(eid, day, "standup", text, person)
 
         # Doer decides.
-        dec = self.doer.decide(day, self.world, self.strategist.week_focus)
+        try:
+            dec = self.doer.decide(day, self.world, self.strategist.week_focus)
+        except LLMError as e:
+            self.say(f"  ⚠️ doer failed ({e}); skipping day {day}")
+            dec = {"assignments": [], "_queries": [], "report": "skipped (LLM failure)"}
         self.metrics["memory_sql_calls"] += len(dec["_queries"])
         for q in dec["_queries"]:
             self.log("doer1", "memory_sql", day, q["sql"], rows=q["rows"], error=q["error"])
