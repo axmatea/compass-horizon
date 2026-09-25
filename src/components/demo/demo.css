@@ -1889,7 +1889,7 @@
 .dm-toasts {
   position: fixed;
   right: var(--lv-gutter);
-  top: 76px;
+  bottom: calc(var(--lv-stagebar-h, 96px) + 16px);
   z-index: 90;
   display: flex;
   flex-direction: column;

@@ -3,7 +3,7 @@
 Generated from `src/app/deck/content.ts`, the same data behind the `/deck` speaker notes (press N) and the printable `/script` page. Edit the data, not this file, then regenerate with `node --no-warnings _tools/gen-script.mjs`.
 
 - Speakers: **NAYL** opens and closes, **VINCENT** drives the live demo.
-- Length: 383 spoken words (NAYL 187, VINCENT 196), about 2:56 at 155 words per minute including click time. Target 3:00.
+- Length: 384 spoken words (NAYL 187, VINCENT 197), about 2:56 at 155 words per minute including click time. Target 3:00.
 - Lines in [brackets] are clicks or actions, not words. Demo cues match the /demo stage bar: Next beat, Pull the plug, Resume, Replay webhook, and the time machine handle.
 - Honesty: the campaign data and the clock are simulated; the agent, the ledger, the crash and the resume are real; sponsor calls are live only where the screen says LIVE. Said once, on slide 6.
 
@@ -57,55 +57,55 @@ Generated from `src/app/deck/content.ts`, the same data behind the `/deck` speak
 | --- | --- | --- |
 | 0:47 | VINCENT | [Click, then switch to the /demo tab (or click the /demo link)] |
 | 0:49 | VINCENT | One honest note. The campaign data and the clock are simulated. The agent, the ledger, the crash and the resume are real. Sponsor calls are live only where the screen says LIVE. |
-| 1:01 | VINCENT | [Next beat (Day 0)] |
-| 1:03 | VINCENT | Day zero. Two campaigns, same spend. A: a free AI audit for any small business. B: close-the-books autopilot for CPA partners. |
-| 1:11 | VINCENT | [Next beat (Day 3)] |
-| 1:12 | VINCENT | Day three. A: about a dozen leads near fifty dollars. B: three, near two hundred. A dashboard says scale A. Longview only leans A, and schedules questions for missing budgets. |
-| 1:24 | VINCENT | [Next beat (Day 6)] |
-| 1:26 | VINCENT | Day six. The busy partners answer, with real budgets. Liquid extracts each field with its quote. |
-| 1:32 | VINCENT | [Replay webhook] |
+| 1:01 | VINCENT | [The demo opens on Day 0 (no click)] |
+| 1:02 | VINCENT | Day zero. Two campaigns, same spend. A: a free AI audit for any small business. B: close-the-books autopilot for CPA partners. |
+| 1:10 | VINCENT | [Next beat (Day 3)] |
+| 1:11 | VINCENT | Day three. A: about a dozen leads near fifty dollars. B: three, near two hundred. A dashboard says scale A. Longview only leans A, and schedules questions for missing budgets. |
+| 1:23 | VINCENT | [Next beat (Day 6)] |
+| 1:25 | VINCENT | Day six. The busy partners answer, with real budgets. Each field is extracted with its exact quote. |
+| 1:31 | VINCENT | [Replay webhook] |
 | 1:33 | VINCENT | Same webhook again: ignored. Nothing changes. |
-| 1:36 | VINCENT | [Next beat (Day 9)] |
+| 1:35 | VINCENT | [Next beat (Day 9)] |
 | 1:37 | VINCENT | Day nine. It changes its mind: leaning B, with a diff. And a lesson: my day three read favored fast responders. Policy version two. |
 | 1:46 | VINCENT | [Next beat (Day 11)] |
-| 1:48 | VINCENT | Day eleven. The CRM reports two calls from days five and seven. Late truth restates the past. Supported B. |
-| 1:55 | VINCENT | [Pull the plug, then Next beat (Day 14)] |
-| 1:58 | VINCENT | Day fourteen. I pulled the plug: the run died after step three. |
-| 2:02 | VINCENT | [Resume] |
-| 2:04 | VINCENT | It resumes at step four. Effects already done are skipped, not repeated. |
-| 2:09 | VINCENT | [Next beat (Day 21)] |
-| 2:10 | VINCENT | Day twenty-one. B wins an eighteen thousand dollar deal. A's only call ghosts. |
-| 2:15 | VINCENT | [Drag the time machine to Day 3] |
-| 2:17 | VINCENT | And the time machine: exactly what it knew on day three. |
+| 1:47 | VINCENT | Day eleven. The CRM reports two calls from days five and seven. Late truth restates the past. Supported B. |
+| 1:55 | VINCENT | [Pull the plug (runs the Day 14 wake and kills it after step 3)] |
+| 1:57 | VINCENT | Day fourteen. I pulled the plug: the run died after step three. |
+| 2:02 | VINCENT | [Resume run] |
+| 2:03 | VINCENT | It resumes at step four. Effects already done are skipped, not repeated. |
+| 2:08 | VINCENT | [Next beat (Day 21)] |
+| 2:09 | VINCENT | Day twenty-one. B wins an eighteen thousand dollar deal. A's only call ghosts. |
+| 2:14 | VINCENT | [Drag the time machine to Day 3] |
+| 2:16 | VINCENT | And the time machine: exactly what it knew on day three. |
 | 2:21 | VINCENT | [Drag back to Day 21. Switch to the deck tab and hand over] |
 
 ### Slide 7: How it runs
 
 | Time | Who | Line |
 | --- | --- | --- |
-| 2:23 | NAYL | [Click to slide 7] |
-| 2:24 | NAYL | Underneath: one append-only Postgres ledger. Nimble brings sourced market evidence, Liquid reads every reply, Tinybird serves metrics as of any day. Rules, not the model, decide who qualifies. |
+| 2:22 | NAYL | [Click to slide 7] |
+| 2:23 | NAYL | Underneath: one append-only Postgres ledger. Nimble brings sourced market evidence, Liquid reads every reply, Tinybird serves metrics as of any day. Rules, not the model, decide who qualifies. |
 
 ### Slide 8: What we proved
 
 | Time | Who | Line |
 | --- | --- | --- |
-| 2:35 | NAYL | [Click] |
-| 2:36 | NAYL | Every property you just saw is covered by a test. |
+| 2:34 | NAYL | [Click] |
+| 2:35 | NAYL | Every property you just saw is covered by a test. |
 
 ### Slide 9: Business
 
 | Time | Who | Line |
 | --- | --- | --- |
-| 2:40 | NAYL | [Click] |
-| 2:41 | NAYL | We run it on our own pipeline first. Early access: 299 dollars a month per business, ad spend separate. It never buys ads or sends messages. |
+| 2:39 | NAYL | [Click] |
+| 2:40 | NAYL | We run it on our own pipeline first. Early access: 299 dollars a month per business, ad spend separate. It never buys ads or sends messages. |
 
 ### Slide 10: Close
 
 | Time | Who | Line |
 | --- | --- | --- |
-| 2:51 | NAYL | [Click] |
-| 2:52 | NAYL | Your dashboard remembers the click. Longview remembers what happened next. Thank you. |
+| 2:50 | NAYL | [Click] |
+| 2:51 | NAYL | Your dashboard remembers the click. Longview remembers what happened next. Thank you. |
 
 End at about 2:56. Stay on slide 10 for questions.
 

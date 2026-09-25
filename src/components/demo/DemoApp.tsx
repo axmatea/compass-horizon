@@ -190,6 +190,7 @@ function DemoInner() {
       apply(r.world);
       const run = r.run ?? r.world.runs?.[0];
       const skipped = run?.effects?.filter((e) => e.state === "SKIPPED_DUPLICATE").length ?? 0;
+      if (run?.state !== "INTERRUPTED") setToasts((ts) => ts.filter((x) => x.tone !== "bad"));
       if (run?.state === "INTERRUPTED") toast({ tone: "bad", title: "Worker died again.", body: "Ledger intact. Resume." });
       else
         toast({

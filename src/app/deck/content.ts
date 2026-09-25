@@ -37,12 +37,12 @@ export const TARGET_SECONDS = 180;
 export const WORDS_PER_MINUTE = 155;
 
 export const DEMO_BEATS: { day: number | null; title: string; cue: string }[] = [
-  { day: 0, title: 'Launch', cue: 'Next beat' },
+  { day: 0, title: 'Launch', cue: 'Opens here' },
   { day: 3, title: 'The dashboard says A', cue: 'Next beat' },
   { day: 6, title: 'Busy buyers answer', cue: 'Next beat, Replay webhook' },
   { day: 9, title: 'The agent changes its mind', cue: 'Next beat' },
   { day: 11, title: 'Late truth', cue: 'Next beat' },
-  { day: 14, title: 'Pull the plug', cue: 'Pull the plug, Next beat, Resume' },
+  { day: 14, title: 'Pull the plug', cue: 'Pull the plug, Resume run' },
   { day: 21, title: 'Outcome', cue: 'Next beat' },
   { day: null, title: 'Time machine', cue: 'Drag to Day 3' },
 ];
@@ -142,7 +142,7 @@ export const SLIDES: SlideDef[] = [
         who: 'VINCENT',
         say: 'One honest note. The campaign data and the clock are simulated. The agent, the ledger, the crash and the resume are real. Sponsor calls are live only where the screen says LIVE.',
       },
-      { who: 'VINCENT', cue: 'Next beat (Day 0)', pause: 1.5 },
+      { who: 'VINCENT', cue: 'The demo opens on Day 0 (no click)', pause: 0.5 },
       {
         who: 'VINCENT',
         say: 'Day zero. Two campaigns, same spend. A: a free AI audit for any small business. B: close-the-books autopilot for CPA partners.',
@@ -155,7 +155,7 @@ export const SLIDES: SlideDef[] = [
       { who: 'VINCENT', cue: 'Next beat (Day 6)', pause: 1.5 },
       {
         who: 'VINCENT',
-        say: 'Day six. The busy partners answer, with real budgets. Liquid extracts each field with its quote.',
+        say: 'Day six. The busy partners answer, with real budgets. Each field is extracted with its exact quote.',
       },
       { who: 'VINCENT', cue: 'Replay webhook', pause: 1.5 },
       { who: 'VINCENT', say: 'Same webhook again: ignored. Nothing changes.' },
@@ -169,9 +169,9 @@ export const SLIDES: SlideDef[] = [
         who: 'VINCENT',
         say: 'Day eleven. The CRM reports two calls from days five and seven. Late truth restates the past. Supported B.',
       },
-      { who: 'VINCENT', cue: 'Pull the plug, then Next beat (Day 14)', pause: 2.5 },
+      { who: 'VINCENT', cue: 'Pull the plug (runs the Day 14 wake and kills it after step 3)', pause: 2.5 },
       { who: 'VINCENT', say: 'Day fourteen. I pulled the plug: the run died after step three.' },
-      { who: 'VINCENT', cue: 'Resume', pause: 1.5 },
+      { who: 'VINCENT', cue: 'Resume run', pause: 1.5 },
       { who: 'VINCENT', say: 'It resumes at step four. Effects already done are skipped, not repeated.' },
       { who: 'VINCENT', cue: 'Next beat (Day 21)', pause: 1.5 },
       { who: 'VINCENT', say: "Day twenty-one. B wins an eighteen thousand dollar deal. A's only call ghosts." },
