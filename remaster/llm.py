@@ -23,8 +23,11 @@ class ChatClient:
         self.usage = {"calls": 0, "prompt_tokens": 0, "cached_tokens": 0, "completion_tokens": 0}
 
     def json(self, messages, temperature=None, cache_key=None, max_retries=6):  # cache_key kept for API compat
-        body = {"model": self.model, "messages": messages, "max_tokens": 1800,
-                "response_format": {"type": "json_object"}}
+        # Reasoning is mandatory on this endpoint and, uncapped, eats the whole
+        # max_tokens budget leaving EMPTY content. Cap effort low + big budget.
+        body = {"model": self.model, "messages": messages, "max_tokens": 4000,
+                "response_format": {"type": "json_object"},
+                "reasoning": {"effort": "low"}}
         if temperature is not None:
             body["temperature"] = temperature
         data = self._post("/chat/completions", body, max_retries)
@@ -33,18 +36,34 @@ class ChatClient:
         self.usage["prompt_tokens"] += u.get("prompt_tokens", 0)
         self.usage["completion_tokens"] += u.get("completion_tokens", 0)
         self.usage["cached_tokens"] += (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0
-        text = data["choices"][0]["message"].get("content") or "{}"
+        text = data["choices"][0]["message"].get("content") or ""
         try:
+            if not text.strip():
+                raise LLMError(f"{self.name}: empty content "
+                               f"(finish={data['choices'][0].get('finish_reason')})")
             return self._coerce_json(text)
         except LLMError:
-            # Truncated/malformed once: ask again, insisting on brevity.
+            # Truncated/malformed: ask again, insisting on brevity. Only if THAT
+            # also fails do we fall back to repairing the cut-off JSON — a repaired
+            # answer is valid but incomplete (missing trailing keys), so the retry
+            # must come first.
             brief = messages + [{"role": "user", "content":
                 "Your previous answer was cut off. Return the SAME decision as COMPACT JSON only. "
                 "One short sentence per reason. No prose outside JSON."}]
             data = self._post("/chat/completions", {"model": self.model, "messages": brief,
-                              "max_tokens": 1800, "response_format": {"type": "json_object"}}, max_retries)
+                              "max_tokens": 4000, "response_format": {"type": "json_object"},
+                              "reasoning": {"effort": "low"}}, max_retries)
             self.usage["calls"] += 1
-            return self._coerce_json(data["choices"][0]["message"].get("content") or "{}")
+            text2 = data["choices"][0]["message"].get("content") or "{}"
+            try:
+                return self._coerce_json(text2)
+            except LLMError:
+                for t in (text2, text):
+                    repaired = self._repair_truncated(t)
+                    if repaired is not None:
+                        print(f"  🩹 {self.name}: repaired truncated JSON", flush=True)
+                        return repaired
+                raise
 
     def _coerce_json(self, text):
         """Small models wrap JSON in fences, prepend prose, or leave trailing commas."""
@@ -64,9 +83,6 @@ class ChatClient:
                     return json.loads(fix)
                 except json.JSONDecodeError:
                     continue
-        repaired = self._repair_truncated(t)
-        if repaired is not None:
-            return repaired
         raise LLMError(f"{self.name}: non-JSON output: {text[:200]}")
 
     @staticmethod
@@ -122,6 +138,10 @@ class ChatClient:
                 # Some models reject temperature; drop it and retry once.
                 if e.code == 400 and "temperature" in msg and "temperature" in body:
                     body.pop("temperature")
+                    payload = json.dumps(body).encode()
+                    continue
+                if e.code == 400 and "reasoning" in msg.lower() and "reasoning" in body:
+                    body.pop("reasoning")
                     payload = json.dumps(body).encode()
                     continue
                 if e.code not in (429, 500, 502, 503, 504):
