@@ -25,13 +25,16 @@ const notes = [
  'Vincent: under the hood. Voice runs through Gradium realtime over a server-side bridge: streaming speech to text with semantic turn detection, streaming speech back, and a barge-in simply becomes the next turn. Reasoning runs on General Compute, MiniMax M2.7: every sentence becomes a structured brief, and a change patches only the fields that moved. Then only the sections that depend on the change are rewritten and the page renders live in a sandbox. The reply comes back at once while the copy keeps running; a new sentence cancels only what it invalidated. Nebius GLM-5.3, Boson Higgs and browser speech stay wired as fallbacks.',
  'Coordinate and act. The client moves launch to October 3. COMPASS resolves goal, owner, constraint, decision and next action. Maya, Leo and Ana get their next move. The other three keep working.',
  'Memory. Press play on the horizon: day by day the agent learns, compresses the history, and revises when late facts arrive. Smarter every week. The reason behind every decision stays.',
+ 'Vincent: REMaster, the agent. By day a Strategist plans the week from live web signals (Nimble), a Company manager decides on a small working memory and talks with a 10-person team. By night a cleaner curates memory, shadows replay decisions, a Judge restores what mattered. Everything lives in Tinybird Rawtree, append-only. Models are Liquid LFM-2.5.',
+ 'Vincent: next day, what actually runs. Standups, the manager decides, a shadow check, then sleep on it: keep, fold, promote, archive. Every step logs to Rawtree and recalls with SQL.',
+ 'Vincent: how forgetting is tested. Same decision, four memories: live, one day behind, one week behind, never cleaned. If they agree, forgetting was safe. If they differ, the Judge finds the archived fact that changed the decision and puts it back.',
  'Every person. One shared memory. One team. From six people to a thousand. Website, proof and memory are all linked here. Thank you.'
 ];
 let starts = [], active = -1, position = 0, queued = false;
 let motionPaused = reducedQuery.matches, playing = false, timer = 0, scrollAnimation = 0;
 let corrected = false;
 let media = {};
-const F = 0; // stage order: open, film, idea, individuals, shared memory, proof act, change, adapt, plan, how it runs, under the hood, coordinate, memory, close
+const F = 0; // stage order: open, film, idea, individuals, shared memory, proof act, change, adapt, plan, how it runs, under the hood, coordinate, memory, remaster, next day, forgetting, close
 const LAST = scenes.length - 1;
 const FILM = scenes.indexOf($('#scene-film'));
 const CORRECTION = scenes.indexOf($('#scene-6'));
@@ -45,12 +48,12 @@ const sceneMedia = { 0: 'chaos', 5: 'speak' };
 const orbPos = [
  [80, 52, .28, 0], [50, 50, .2, 0], [50, 30, .92, 1], [50, 29, .62, 1],
  [80, 48, .53, .9], [81, 45, .44, 1], [81, 45, .44, 1], [50, 28, .58, 1],
- [50, 77, .18, 1], [88, 18, .2, 0], [88, 18, .2, 0], [50, 17, .36, .8], [88, 18, .2, 0], [50, 18, .48, 1]
+ [50, 77, .18, 1], [88, 18, .2, 0], [88, 18, .2, 0], [50, 17, .36, .8], [88, 18, .2, 0], [88, 18, .2, 0], [88, 18, .2, 0], [88, 18, .2, 0], [50, 18, .48, 1]
 ];
 const mobileOrbPos = [
  [75, 35, .25, 0], [50, 50, .2, 0], [50, 31, 1, 1], [50, 27, .7, 1],
  [84, 24, .3, .6], [84, 23, .3, .6], [84, 23, .3, .6], [50, 29, .7, 1],
- [50, 90, .14, 1], [86, 17, .18, 0], [86, 17, .18, 0], [50, 16, .4, .7], [86, 17, .18, 0], [50, 17, .55, 1]
+ [50, 90, .14, 1], [86, 17, .18, 0], [86, 17, .18, 0], [50, 16, .4, .7], [86, 17, .18, 0], [86, 17, .18, 0], [86, 17, .18, 0], [86, 17, .18, 0], [50, 17, .55, 1]
 ];
 
 $('#contents').innerHTML = scenes.map((s, i) => `<a href="#${s.id}" data-scene="${i}"><span>${String(i + 1).padStart(2, '0')}</span>${s.dataset.label}</a>`).join('');
@@ -174,7 +177,7 @@ function goTo(index, animate = true) {
 }
 function queueAdvance() {
  const current = Math.round(scrollPosition());
-  const delay = current === CORRECTION ? 7500 : current === 8 ? 9500 : current === 9 ? 8000 : current === 10 ? 9000 : current === 12 ? 16000 : 5000;
+  const delay = current === CORRECTION ? 7500 : current === 8 ? 9500 : current === 9 ? 8000 : current === 10 ? 9000 : current === 12 ? 16000 : current >= 13 && current <= 15 ? 10000 : 5000;
  // On the film scene, autoplay does not cut the film: it starts it and hands control to the presenter.
  if (current === FILM) { stopAuto(); startFilm(); return; }
  timer = window.setTimeout(() => {

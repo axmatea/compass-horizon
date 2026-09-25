@@ -8,3 +8,6 @@
 .hz-links a{color:#d4b876;text-decoration:none;opacity:.85}
 .hz-links a:hover{opacity:1;text-decoration:underline}
 @media(max-width:700px){.scene-horizon{padding:92px 4vw 100px}.hz-frame{height:70vh;border-radius:10px}}
+/* REMaster diagrams (wide, about 2:1): use the full stage width. */
+.scene-diagram[id^="scene-rm"]{padding-top:72px;padding-bottom:56px}
+.scene-diagram[id^="scene-rm"] .scene-copy{width:min(1560px,94vw,calc((100vh - 190px) * 2560 / 1264));max-width:none;margin:0 auto}
