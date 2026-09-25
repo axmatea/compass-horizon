@@ -26,7 +26,7 @@ const NODES = [['Conversations', 150], ['Documents', 330], ['Tasks', 510], ['Dec
 const nodeX = n => NODES.find(d => d[0] === n)[1]
 
 const LABELS = [
-  'Beat 1 of 8. A virtual office with six desks. Maya, Leo, Ana, Sam, Iris and Noah each hold their own context.',
+  'Beat 1 of 8. A virtual office, six desks shown as an example. Maya, Leo, Ana, Sam, Iris and Noah each hold their own context.',
   'Beat 2 of 8. Thin amber lines connect Maya’s press plan, Leo’s build schedule and Ana’s client call.',
   'Beat 3 of 8. The floor turns to glass over one shared memory: conversations, documents, tasks, decisions, meetings, relationships.',
   'Beat 4 of 8. A change arrives: Client moved launch to Oct 3.',
@@ -35,7 +35,7 @@ const LABELS = [
   'Beat 7 of 8. Next actions: Maya moves press to Oct 1. Leo freezes Sep 29. Ana confirms with the client today.',
   'Beat 8 of 8. A timeline from week 1 to week 12. Older weeks compress into one context bead.',
 ]
-const SUMMARY = 'A virtual office of six people above one shared memory. A change reaches only Maya, Leo and Ana, and twelve weeks compress into context.'
+const SUMMARY = 'A virtual office above one shared memory. A change reaches only Maya, Leo and Ana, and twelve weeks compress into context.'
 
 const at = p => {
   const dx = [190, 500, 810][p.col], dy = p.row ? 430 : 150
