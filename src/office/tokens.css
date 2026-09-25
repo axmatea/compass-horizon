@@ -1,0 +1,30 @@
+@font-face{font-family:'Office Manrope';src:url('/acquisition/fonts/manrope-variable.ttf') format('truetype');font-weight:200 800;font-display:swap}
+.office-universe{
+ --of-ivory:#f7f5ee;--of-paper:#fffdf7;--of-oak:#dac2a0;--of-oak-light:#edddc4;
+ --of-ink:#30382e;--of-muted:#687061;--of-line:#dddcd0;--of-sage:#607153;
+ --of-sage-soft:#e6eadc;--of-amber:#996122;--of-amber-soft:#f6e8cc;
+ --of-shadow:0 12px 38px #4545320b;--of-radius:16px;
+ --of-font:'Office Manrope',sans-serif;--of-display:Georgia,'Times New Roman',serif;
+ font:14px/1.6 var(--of-font);color:var(--of-ink);color-scheme:light;
+ background:var(--of-ivory);min-height:100svh;-webkit-font-smoothing:antialiased;
+}
+body:has(.office-universe){margin:0;background:#f7f5ee}
+.office-universe *,.office-universe *::before,.office-universe *::after{box-sizing:border-box}
+.office-universe :where(h1,h2,h3,h4,p,figure,blockquote){margin:0}
+.office-universe :where(button,input,select,textarea){font:inherit;color:inherit}
+.office-universe :where(button,a){-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.office-universe button{cursor:pointer}
+.office-universe button:disabled{cursor:not-allowed;opacity:.5}
+.office-universe a{color:inherit;text-decoration:none}
+.office-universe :focus-visible{outline:2px solid #617346;outline-offset:4px}
+.office-universe ::selection{background:#dce3c9}
+.of-kicker{font:650 10px/1.6 var(--of-font);text-transform:uppercase;letter-spacing:.14em;color:var(--of-muted)}
+.of-button{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:44px;padding:10px 19px;border-radius:8px;border:1px solid var(--of-line);background:var(--of-paper);font:600 12px/1.5 var(--of-font);text-align:center;transition:background .2s,border-color .2s}
+.of-button:hover{background:#efeee5;border-color:#b8bea9}
+.of-button-primary{background:var(--of-sage);border-color:var(--of-sage);color:#fffdf7!important}
+.of-button-primary:hover{background:#4e6144}
+.of-button-amber{background:var(--of-amber-soft);border-color:#dbb77e;color:#785022}
+.of-text-button{border:0;background:none;padding:10px 0;min-height:44px;text-align:left;font-size:12px;color:var(--of-sage)}
+.of-sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.of-rule{height:1px;background:var(--of-line);border:0}
+@media(prefers-reduced-motion:reduce){.office-universe *,.office-universe *::before,.office-universe *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

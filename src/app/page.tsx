@@ -1,6 +1,5 @@
-import { Compass } from "@/components/horizon/Compass";
-import "@/components/horizon/horizon.css";
+import Office from "@/office/App";
 
 export default function Home() {
-  return <Compass />;
+  return <Office />;
 }
