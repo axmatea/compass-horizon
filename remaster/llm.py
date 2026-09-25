@@ -22,7 +22,7 @@ class ChatClient:
         self.extra_headers = extra_headers or {}
         self.usage = {"calls": 0, "prompt_tokens": 0, "cached_tokens": 0, "completion_tokens": 0}
 
-    def json(self, messages, temperature=None, cache_key=None, max_retries=3):  # cache_key kept for API compat
+    def json(self, messages, temperature=None, cache_key=None, max_retries=6):  # cache_key kept for API compat
         body = {"model": self.model, "messages": messages,
                 "response_format": {"type": "json_object"}}
         if temperature is not None:
@@ -76,6 +76,9 @@ class ChatClient:
                     continue
                 if e.code not in (429, 500, 502, 503, 504):
                     raise last
+                if e.code == 429:  # shared free-tier pool: wait it out, don't die
+                    time.sleep(min(15 * (attempt + 1), 60))
+                    continue
             except Exception as e:  # network
                 last = LLMError(f"{self.name}: {e}")
             time.sleep(2 * (attempt + 1))
