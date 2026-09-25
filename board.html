@@ -17,6 +17,8 @@
   button { background:var(--accent); color:#111; border:0; border-radius:8px; padding:9px 18px;
            font-weight:700; font-size:14px; cursor:pointer; }
   button:disabled { opacity:.45; cursor:wait; }
+  select { background:var(--panel); color:var(--txt); border:1px solid var(--line);
+           border-radius:8px; padding:8px 10px; font-size:13px; }
   .wrap { display:grid; grid-template-columns: 1fr 330px; gap:14px; }
   table { border-collapse:collapse; width:100%; background:var(--panel); border-radius:10px; overflow:hidden; }
   th,td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; min-width:118px; }
@@ -64,9 +66,19 @@
   <div class="chip">archived <b id="arch">–</b></div>
   <div class="chip">SQL recalls <b id="sql">–</b></div>
   <div class="chip">restores <b id="rest">–</b></div>
+  <select id="viewas" onchange="viewChanged()"><option value="">👥 whole team</option></select>
   <button id="step" onclick="step()">▶ Next day</button>
   <span class="badge" id="busy" style="display:none">🧠 agent thinking…</span>
 </header>
+
+<div id="chat" style="display:none; margin:0 0 10px; gap:8px; align-items:center;">
+  <input id="chatmsg" placeholder="" style="flex:1; background:var(--panel); border:1px solid var(--line);
+    border-radius:8px; padding:10px 12px; color:var(--txt); font-size:14px;"
+    onkeydown="if(event.key==='Enter')say()">
+  <button onclick="say()">💬 Send</button>
+</div>
+<div id="ack" style="display:none; background:#1e293b; border:1px solid #334155; border-radius:10px;
+  padding:9px 12px; margin:0 0 10px; font-size:12.5px;"></div>
 
 <div id="diff"></div>
 
@@ -90,8 +102,8 @@
 
 <script>
 const KIND_ICON = {doer_decision:'🧑‍💼', world_event:'🚨', web_result:'🌐', cleaner_op:'🌙',
-                   restore:'♻️', divergence:'👥', memory_sql:'🔎', strategist_plan:'🧭'};
-let S = null, sel = null, lastDiffDay = 0;
+                   restore:'♻️', divergence:'👥', memory_sql:'🔎', strategist_plan:'🧭', message:'💬'};
+let S = null, sel = null, lastDiffDay = 0, me = '';
 const $ = id => document.getElementById(id);
 const modal = $('modal');
 
@@ -101,7 +113,32 @@ async function refresh() {
   $('ctx').textContent = S.memory.ctx_tokens; $('arch').textContent = S.memory.archived;
   $('sql').textContent = S.metrics.memory_sql_calls; $('rest').textContent = S.metrics.restores;
   $('step').disabled = S.busy; $('busy').style.display = S.busy ? '' : 'none';
+  if ($('viewas').options.length === 1)
+    for (const p of S.people) $('viewas').add(new Option(`🙋 ${p.name} — ${p.role}`, p.name));
+  if (S.ack && me && S.ack.person === me) {
+    $('ack').style.display = 'block';
+    $('ack').innerHTML = `🧑‍💼 <b>scrum master → ${S.ack.person}:</b> ${S.ack.text}`;
+  }
   renderGrid(); renderBacklog(); renderFeed(); renderDiff();
+}
+
+function viewChanged() {
+  me = $('viewas').value;
+  $('chat').style.display = me ? 'flex' : 'none';
+  $('ack').style.display = 'none';
+  if (me) $('chatmsg').placeholder =
+    `Talk to the scrum master as ${me}… e.g. "our provider got delayed, we'll only have it tomorrow"`;
+  if (S) { renderGrid(); renderBacklog(); }
+}
+
+async function say() {
+  const text = $('chatmsg').value.trim();
+  if (!text || !me) return;
+  $('chatmsg').value = '';
+  $('ack').style.display = 'block';
+  $('ack').innerHTML = `💬 <b>${me}:</b> ${text} <span style="color:var(--dim)">— scrum master is thinking…</span>`;
+  await fetch('/api/say', {method:'POST', body: JSON.stringify({person: me, text})});
+  refresh();
 }
 
 function week() { const w = Math.max(1, Math.ceil(Math.max(S.day,1) / 5)); return {w, d0: (w-1)*5 + 1}; }
@@ -113,6 +150,7 @@ function renderGrid() {
   let h = '<tr><th>Week ' + w + '</th>' + [1,2,3,4,5].map(i =>
     `<th ${d0+i-1===S.day?'class="today"':''}>D${i} · day ${d0+i-1}${d0+i-1===S.day?' (today)':''}</th>`).join('') + '</tr>';
   for (const p of S.people) {
+    if (me && p.name !== me) continue;
     h += `<tr><td class="person"><b>${p.name}</b><div class="r">${p.role}</div></td>`;
     for (let i = 0; i < 5; i++) {
       const d = d0 + i;
@@ -141,8 +179,15 @@ function card(t, op) {
 }
 
 function renderBacklog() {
-  const rest = Object.values(S.tickets).filter(t => !t.assignee && !t.status.startsWith('done') && t.status!=='cut');
-  $('backlog').innerHTML = '<h3 style="font-size:12px;color:var(--dim);margin:8px 0 2px">UNASSIGNED BACKLOG (click any card to inject a provider delay)</h3>'
+  let rest, label;
+  if (me) {
+    rest = Object.values(S.tickets).filter(t => t.assignee === me && !t.status.startsWith('done') && t.status!=='cut');
+    label = `${me.toUpperCase()}'S TICKETS`;
+  } else {
+    rest = Object.values(S.tickets).filter(t => !t.assignee && !t.status.startsWith('done') && t.status!=='cut');
+    label = 'UNASSIGNED BACKLOG (click any card to inject a provider delay)';
+  }
+  $('backlog').innerHTML = `<h3 style="font-size:12px;color:var(--dim);margin:8px 0 2px">${label}</h3>`
     + rest.map(t => card(t)).join('');
 }
 

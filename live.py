@@ -17,7 +17,7 @@ from remaster.sim import Run
 
 LOCK = threading.Lock()
 RUN = Run("remaster", days=W.DAYS, run_id=None, out_dir="runs", flux_weeks=set(), verbose=True)
-STATE = {"day": 0, "busy": False, "last_diff": None, "injected": []}
+STATE = {"day": 0, "busy": False, "last_diff": None, "injected": [], "ack": None}
 
 
 def snapshot_assignees():
@@ -51,6 +51,74 @@ def do_step():
     STATE["day"] = day
     STATE["last_diff"] = {"day": day, "changes": changes}
     STATE["busy"] = False
+
+
+def replan(day, trigger):
+    """Same-day emergency replan: the doer re-decides right now."""
+    before = snapshot_assignees()
+    focus = (f"{RUN.strategist.week_focus} | EMERGENCY REPLAN ({trigger}): a ticket just got "
+             f"blocked. Anyone whose ticket is blocked must be reassigned to a READY ticket "
+             f"matching their skills NOW - nobody idles.")
+    try:
+        dec = RUN.doer.decide(day, RUN.world, focus)
+        applied = RUN.world.apply_assignments(dec.get("assignments"))
+        for q in dec.get("_queries") or []:
+            RUN.log("doer1", "memory_sql", day, q["sql"], rows=q["rows"], error=q["error"])
+        if applied:
+            txt = "; ".join(f"{a['ticket']}->{a['person']}" for a in applied)
+            eid = RUN.log("doer1", "doer_decision", day,
+                          f"Emergency replan ({trigger}): {txt}. {dec.get('report', '')}",
+                          assignments=dec.get("assignments"))
+            RUN.add_block(eid, day, "doer_decision", f"Emergency replan: {txt}")
+    except Exception as e:
+        print(f"replan error: {e}", flush=True)
+        dec = {}
+    after = snapshot_assignees()
+    reasons = {(a.get("ticket") or ""): a.get("reason") or ""
+               for a in (dec.get("assignments") or [])}
+    changes = [{"ticket": t, "from": before[t], "to": after[t], "reason": reasons.get(t, "")}
+               for t in before if before[t] != after[t]]
+    STATE["last_diff"] = {"day": day, "changes": changes}
+    STATE["busy"] = False
+
+
+def do_say(person, text):
+    """A team member talks to the scrum master; it interprets, adjusts, replans."""
+    day = max(STATE["day"], 1)
+    eid = RUN.log("team", "message", day, f"{person} says: {text}", person=person)
+    RUN.add_block(eid, day, "message", f"{person} says: {text}", person)
+    blocked = []
+    try:
+        out = RUN.doer_llm.json([
+            {"role": "system", "content":
+             "You are the scrum master's intake. A team member sent a message. Decide if any "
+             "board ticket must be DELAYED because of it.\nBoard:\n" + RUN.world.board(day)},
+            {"role": "user", "content":
+             f'{person} says: "{text}"\nReturn JSON only: '
+             '{"delays": [{"ticket": "ID", "days": N}], "ack": "one short sentence to the team member"} '
+             '(delays empty if the message implies none).'}], temperature=0)
+    except Exception as e:
+        print(f"say intake error: {e}", flush=True)
+        out = {}
+    for d in out.get("delays") or []:
+        t = RUN.world.tickets.get(str(d.get("ticket", "")).strip().upper())
+        if not t or t["done_day"] is not None:
+            continue
+        until = day + 1 + max(0, int(d.get("days", 1) or 1) - 1)
+        t["not_before"] = max(t["not_before"], until + 1)
+        blocked.append({"day": day, "ticket": t["id"], "until": W.sim_ts(until + 1)})
+        ev = RUN.log("world", "world_event", day,
+                     f"🚨 Reported by {person}: {t['id']} ({t['title']}) delayed - blocked "
+                     f"until {W.sim_ts(until + 1)}.", ticket=t["id"])
+        RUN.add_block(ev, day, "world_event",
+                      f"{t['id']} blocked until {W.sim_ts(until + 1)} (reported by {person})")
+        threading.Thread(target=RUN.market,
+                         args=(day, f"{t['title']} vendor delay alternatives"),
+                         daemon=True).start()
+    STATE["injected"] += blocked
+    STATE["ack"] = {"person": person, "text": out.get("ack") or "Got it - replanning.",
+                    "day": day}
+    replan(day, f"message from {person}")
 
 
 def inject(ticket, days, note):
@@ -94,7 +162,7 @@ def state():
         for k, d, ts, txt in db.execute(
                 "select kind, day, sim_ts, substr(text,1,180) from events where kind in "
                 "('doer_decision','world_event','web_result','cleaner_op','restore','divergence',"
-                "'memory_sql','strategist_plan') order by seq desc limit 25"):
+                "'memory_sql','strategist_plan','message') order by seq desc limit 25"):
             feed.append({"kind": k, "day": d, "ts": ts, "text": txt})
         db.close()
     except Exception as e:
@@ -102,6 +170,7 @@ def state():
     return {"run_id": RUN.run_id, "day": day, "ts": W.sim_ts(max(day, 1)) if day else "-",
             "week": (max(day, 1) - 1) // 5 + 1, "demo_day": W.DEMO_DAY,
             "busy": STATE["busy"], "last_diff": STATE["last_diff"], "injected": STATE["injected"],
+            "ack": STATE["ack"],
             "people": ppl, "tickets": tickets,
             "work_log": [[d, p, t] for d, p, t, _ in RUN.world.log][-400:],
             "memory": {"ctx_tokens": mem["tokens"], "visible": mem["visible"],
@@ -146,6 +215,16 @@ class H(BaseHTTPRequestHandler):
             with LOCK:
                 return self._send(200, inject(body.get("ticket"), body.get("days", 1),
                                               body.get("note", "")))
+        if self.path == "/api/say":
+            person, text = body.get("person"), (body.get("text") or "").strip()
+            if person not in W.PEOPLE or not text:
+                return self._send(400, {"error": "need person + text"})
+            with LOCK:
+                if STATE["busy"]:
+                    return self._send(409, {"error": "busy"})
+                STATE["busy"] = True
+                threading.Thread(target=do_say, args=(person, text), daemon=True).start()
+            return self._send(200, {"ok": True})
         return self._send(404, {"error": "not found"})
 
 
