@@ -500,7 +500,7 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
         return { summary: `Belief v${num(last!.payload.version)} holds: ${ev.status}${ev.favors ? ` ${ev.favors}` : ''}${ev.pA !== null ? ` (P(A) = ${ev.pA.toFixed(2)})` : ''}`, effects: [] };
       }
       const version = (last ? num(last.payload.version) ?? 0 : 0) + 1;
-      const payload = composeBelief(view, ev, policy, version, last, prevDirectional, newFinal, runDay);
+      const payload = composeBelief(view, ev, policy, version, last, prevDirectional, newFinal);
       await append([mk(`belief:v${version}`, 'belief.recorded', { ...payload, runId, step: 6 })]);
       notes.unshift(`Belief v${version}: ${ev.status}${ev.favors ? ` ${ev.favors}` : ''}${ev.probability !== null ? ` (P = ${ev.probability.toFixed(2)})` : ''}`);
       return { summary: notes.join('. '), effects: [] };
@@ -589,7 +589,6 @@ function composeBelief(
   last: LedgerEvent | undefined,
   prevDirectional: LedgerEvent | undefined,
   newFinal: LedgerEvent[],
-  runDay: number,
 ): Record<string, unknown> {
   const A = ev.arms.find((a) => a.key === 'A');
   const B = ev.arms.find((a) => a.key === 'B');
