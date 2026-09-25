@@ -6,6 +6,7 @@ truth + dashboard). Nothing is ever deleted: context cleanup only changes what t
 Doer *sees*, never what is stored.
 """
 import json
+import re
 import sqlite3
 import threading
 import urllib.error
@@ -119,6 +120,9 @@ class RawtreeSink:
 
     def query(self, sql, limit=20):
         self.flush()
+        # Rawtree columns are ClickHouse Dynamic; `col IN (...)` needs a cast.
+        sql = re.sub(r"\b(id|run|sim_ts|agent|kind|person|text)(\s+IN\s*\()",
+                     r"toString(\1)\2", sql, flags=re.IGNORECASE)
         try:
             res = _post_json(f"{self.host}/v1/query", {"sql": sql, "format": "JSON"})
             return {"rows": (res.get("data") or [])[:limit]}

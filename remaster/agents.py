@@ -205,6 +205,9 @@ class Doer:
             else:
                 prompt = DOER_DAY.format(focus=focus, memory=mem_text, ts=W.sim_ts(day), day=day,
                                          board=world.board(day), scratch=scratch)
+                if rnd == max_rounds - 1:
+                    prompt += ("\n\nFINAL ROUND: no more memory_sql. Output your assignments "
+                               "NOW. Anyone on a blocked ticket must be moved to a ready one.")
                 out = self.llm.json([{"role": "system", "content": self.system},
                                      {"role": "user", "content": prompt}], temperature=0, cache_key=agent)
             qs = [q for q in (out.get("memory_sql") or []) if isinstance(q, str)][:2]
