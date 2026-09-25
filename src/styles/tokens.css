@@ -1,0 +1,26 @@
+/* LONGVIEW design tokens. Shared by product, landing and deck. Black, gold, cream. */
+:root {
+  --lv-bg: #0d0d0c;
+  --lv-panel: #161615;
+  --lv-panel-2: #1c1c1a;
+  --lv-line: #2a2926;
+  --lv-line-strong: #3a3833;
+  --lv-gold: #d4b876;
+  --lv-gold-soft: rgba(212, 184, 118, 0.14);
+  --lv-gold-dim: #9c8756;
+  --lv-cream: #efe7d6;
+  --lv-text: #e6dfcf;
+  --lv-muted: #8f8a7e;
+  --lv-faint: #5d5a52;
+  --lv-a: #c9c2b3;          /* Campaign A: pale stone */
+  --lv-b: #d4b876;          /* Campaign B: gold */
+  --lv-unknown: #6f6b62;    /* Unknown attribution */
+  --lv-ok: #9fbf8f;         /* supported / qualified */
+  --lv-warn: #d9a45b;       /* leaning / unresolved */
+  --lv-bad: #c7806f;        /* not a fit / interrupted */
+  --lv-serif: Georgia, "Times New Roman", serif;
+  --lv-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --lv-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --lv-radius: 14px;
+  --lv-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
