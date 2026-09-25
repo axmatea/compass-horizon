@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>REMaster · Memory X-ray</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0e1117; --panel: #161b24; --line: #262d3a; --text: #e6e9ef; --muted: #8a93a6;
+    --remaster: #5eead4; --naive: #f87171; --oracle: #7c8aa5; --accent: #fbbf24; --ok: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Inter, sans-serif; }
+  header { display: flex; align-items: baseline; gap: 16px; padding: 18px 28px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .2px; }
+  header .tag { color: var(--muted); }
+  header select { margin-left: auto; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+                  border-radius: 6px; padding: 6px 8px; }
+  main { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; padding: 16px 28px 28px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 600; }
+  .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .kpi .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .kpi .l { color: var(--muted); font-size: 12px; }
+  .kpi .v.good { color: var(--ok); } .kpi .v.bad { color: var(--naive); }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .legend { display: flex; gap: 16px; color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .feed { max-height: 520px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+  .ev { border-left: 3px solid var(--line); padding: 4px 8px; font-size: 12.5px; }
+  .ev .t { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .ev.cleaner_op { border-color: #818cf8; } .ev.divergence { border-color: var(--accent); }
+  .ev.restore, .ev.restore_verdict { border-color: var(--ok); } .ev.memory_sql { border-color: var(--remaster); }
+  .ev.web_result { border-color: #60a5fa; } .ev.compaction { border-color: var(--naive); }
+  .badge { font-size: 10.5px; padding: 1px 6px; border-radius: 9px; background: #232a37; color: var(--muted); margin-right: 6px; }
+  .alert { display: none; grid-column: 1 / -1; border: 1px solid var(--accent); background: #2a2413; border-radius: 10px;
+           padding: 12px 16px; font-size: 15px; }
+  .alert b { color: var(--accent); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  code { color: var(--remaster); }
+</style>
+</head>
+<body>
+<header>
+  <h1>REMaster · Memory X-ray</h1>
+  <span class="tag">the AI scrum master that sleeps on it</span>
+  <select id="run"></select>
+  <select id="cmp"></select>
+</header>
+<main>
+  <div class="kpis" id="kpis"></div>
+  <div class="alert" id="alert"></div>
+  <section class="panel">
+    <h2>Doer context size per day (tokens)</h2>
+    <svg id="ctx" width="100%" height="260" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+    <div class="legend">
+      <span><i style="background:var(--remaster)"></i>REMaster Doer (curated)</span>
+      <span><i style="background:var(--oracle)"></i>Keep-all (full recall shadow)</span>
+      <span><i style="background:var(--naive)"></i>Naive summarization</span>
+    </div>
+    <h2 style="margin-top:18px">Tickets done</h2>
+    <svg id="burn" width="100%" height="160" viewBox="0 0 800 160" preserveAspectRatio="none"></svg>
+  </section>
+  <section class="panel">
+    <h2>Live memory feed · Rawtree events</h2>
+    <div class="feed" id="feed"></div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let runs = [], seq = 0, cur = null, cmp = null;
+
+async function j(u) { return (await fetch(u)).json(); }
+
+function line(svg, series, maxY, days, h) {
+  const W = 800, pad = 34, x = d => pad + (d - 1) * (W - pad - 8) / Math.max(1, days - 1),
+        y = v => h - 18 - v * (h - 30) / Math.max(1, maxY);
+  let g = `<line x1="${pad}" y1="${h - 18}" x2="${W}" y2="${h - 18}" stroke="#262d3a"/>`;
+  for (let t = 0; t <= 4; t++) {
+    const v = Math.round(maxY * t / 4);
+    g += `<text x="2" y="${y(v) + 4}">${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}</text>`;
+  }
+  for (let w = 1; w <= days; w += 5) g += `<text x="${x(w) - 8}" y="${h - 3}">W${(w - 1) / 5 + 1}</text>`;
+  for (const s of series) {
+    if (!s.pts.length) continue;
+    g += `<polyline fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}
+          points="${s.pts.map(p => `${x(p[0])},${y(p[1])}`).join(' ')}"/>`;
+  }
+  (series.marks || []).forEach(d => g += `<line x1="${x(d)}" y1="10" x2="${x(d)}" y2="${h - 18}" stroke="#fbbf24" stroke-dasharray="3 3"/>`);
+  svg.innerHTML = g;
+}
+
+function kpi(v, l, cls = '') { return `<div class="kpi"><div class="v ${cls}">${v}</div><div class="l">${l}</div></div>`; }
+
+async function refresh() {
+  const [tl, tc] = await Promise.all([j(`/api/timeline?run=${cur}`), cmp ? j(`/api/timeline?run=${cmp}`) : []]);
+  const days = 60;
+  const series = [
+    { color: 'var(--naive)', pts: tc.map(r => [r.day, r.ctx_tokens]) },
+    { color: 'var(--oracle)', dash: '6 4', pts: tl.filter(r => r.oracle_tokens).map(r => [r.day, r.oracle_tokens]) },
+    { color: 'var(--remaster)', pts: tl.map(r => [r.day, r.ctx_tokens]) },
+  ];
+  const evs = await j(`/api/events?run=${cur}&after=${seq}`);
+  const feed = $('#feed');
+  for (const e of evs) {
+    seq = Math.max(seq, e.seq);
+    feed.insertAdjacentHTML('afterbegin', render(e));
+    if (e.kind === 'restore') {
+      const a = $('#alert');
+      a.style.display = 'block';
+      a.innerHTML = `<b>♻️ Memory restored at ${e.sim_ts}</b>: a shadow agent (${e.data.shadow_tier}) made a different call on
+        <b>${e.data.ticket}</b>. Root cause: a fact from <b>${e.data.from_day ? 'day ' + e.data.from_day : ''}</b>,
+        ${e.day - (e.data.from_day || e.day)} days earlier, had been archived: “${e.text}”`;
+    }
+  }
+  const marks = [...feed.querySelectorAll('.ev.restore')].map(n => +n.dataset.day);
+  series.marks = marks;
+  const maxY = Math.max(500, ...series.flatMap(s => s.pts.map(p => p[1])));
+  line($('#ctx'), series, maxY, days, 260);
+  const burn = [{ color: 'var(--naive)', pts: tc.map(r => [r.day, r.done]) },
+                { color: 'var(--remaster)', pts: tl.map(r => [r.day, r.done]) }];
+  line($('#burn'), burn, 24, days, 160);
+
+  const R = runs.find(r => r.id === cur), C = runs.find(r => r.id === cmp);
+  const last = tl[tl.length - 1] || {};
+  const avg = a => a.length ? Math.round(a.reduce((s, r) => s + r.ctx_tokens, 0) / a.length) : 0;
+  const res = x => x && x.result ? x.result.world : null;
+  const rw = res(R), cw = res(C);
+  $('#kpis').innerHTML =
+    kpi(last.ts || '—', 'simulated day') +
+    kpi(avg(tl).toLocaleString(), 'avg REMaster context (tok)', 'good') +
+    kpi(tc.length ? avg(tc).toLocaleString() : '—', 'avg naive context (tok)', 'bad') +
+    kpi(`${last.restores ?? 0} / ${last.divergences ?? 0}`, 'restores / divergences caught') +
+    kpi(rw ? (rw.made_demo_day ? `✅ ${rw.launch_ts}` : `❌ ${rw.launch_ts || 'not launched'}`) : 'running…',
+        `launch vs Demo Day W12D2${cw ? ` · naive: ${cw.made_demo_day ? '✅' : '❌'} ${cw.launch_ts || '—'}` : ''}`,
+        rw ? (rw.made_demo_day ? 'good' : 'bad') : '');
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+function render(e) {
+  let body = esc(e.text);
+  if (e.kind === 'cleaner_op') body = `<span class="badge">${e.data.op}</span>${body}${e.data.ids ? ` <span class="t">(${e.data.ids.length} items)</span>` : ''}`;
+  if (e.kind === 'divergence') body = `<span class="badge">${e.data.shadow_tier} · ${e.data.judge}</span>${e.data.ticket}: doer→${e.data.doer} vs shadow→${e.data.shadow} = <b>${e.data.verdict}</b>`;
+  if (e.kind === 'restore') body = `<span class="badge">restore ${e.data.restored_id}</span>${body}`;
+  if (e.kind === 'memory_sql') body = `<span class="badge">memory_sql</span><code>${body}</code> → ${e.data.rows} rows`;
+  if (e.kind === 'web_result') body = `<span class="badge">nimble</span>${body}`;
+  return `<div class="ev ${e.kind}" data-day="${e.day}"><span class="t">${e.sim_ts}</span><span class="badge">${e.agent}</span>${body}</div>`;
+}
+
+async function init() {
+  runs = await j('/api/runs');
+  const rem = runs.filter(r => r.mode === 'remaster'), nai = runs.filter(r => r.mode === 'naive');
+  $('#run').innerHTML = rem.map(r => `<option>${r.id}</option>`).join('');
+  $('#cmp').innerHTML = '<option value="">(no baseline)</option>' + nai.map(r => `<option>${r.id}</option>`).join('');
+  cur = rem[0] && rem[0].id; cmp = nai[0] && nai[0].id;
+  if (cmp) $('#cmp').value = cmp;
+  $('#run').onchange = e => { cur = e.target.value; seq = 0; $('#feed').innerHTML = ''; refresh(); };
+  $('#cmp').onchange = e => { cmp = e.target.value; refresh(); };
+  if (cur) refresh();
+  setInterval(async () => { runs = await j('/api/runs'); if (cur) refresh(); }, 2000);
+}
+init();
+</script>
+</body>
+</html>
