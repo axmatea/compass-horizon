@@ -23,7 +23,7 @@ class ChatClient:
         self.usage = {"calls": 0, "prompt_tokens": 0, "cached_tokens": 0, "completion_tokens": 0}
 
     def json(self, messages, temperature=None, cache_key=None, max_retries=6):  # cache_key kept for API compat
-        body = {"model": self.model, "messages": messages,
+        body = {"model": self.model, "messages": messages, "max_tokens": 1800,
                 "response_format": {"type": "json_object"}}
         if temperature is not None:
             body["temperature"] = temperature
@@ -34,7 +34,17 @@ class ChatClient:
         self.usage["completion_tokens"] += u.get("completion_tokens", 0)
         self.usage["cached_tokens"] += (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0
         text = data["choices"][0]["message"].get("content") or "{}"
-        return self._coerce_json(text)
+        try:
+            return self._coerce_json(text)
+        except LLMError:
+            # Truncated/malformed once: ask again, insisting on brevity.
+            brief = messages + [{"role": "user", "content":
+                "Your previous answer was cut off. Return the SAME decision as COMPACT JSON only. "
+                "One short sentence per reason. No prose outside JSON."}]
+            data = self._post("/chat/completions", {"model": self.model, "messages": brief,
+                              "max_tokens": 1800, "response_format": {"type": "json_object"}}, max_retries)
+            self.usage["calls"] += 1
+            return self._coerce_json(data["choices"][0]["message"].get("content") or "{}")
 
     def _coerce_json(self, text):
         """Small models wrap JSON in fences, prepend prose, or leave trailing commas."""
