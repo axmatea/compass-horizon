@@ -45,7 +45,7 @@ export const CAMPAIGNS: ScenarioCampaign[] = [
   {
     id: 'B',
     key: 'B',
-    name: 'Close-the-books Autopilot',
+    name: 'CPA Autopilot',
     angle: 'Month-end close automation for busy CPA firms',
     audience: 'CPA firm partners, firms with 5 to 50 staff',
     offer: 'Done-with-you close automation pilot, scoped in one call',

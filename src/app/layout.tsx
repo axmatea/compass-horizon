@@ -1,25 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const TITLE = "Longview: the acquisition agent that waits for the truth";
-const DESCRIPTION =
-  "Ads are judged on day one. Customers arrive on day thirty. Longview keeps every experiment open until lead quality arrives, remembers what it believed, and changes its mind with receipts.";
+const TITLE = "COMPASS";
+const DESCRIPTION = "Watch an acquisition agent learn, day by day.";
 
 export const metadata: Metadata = {
-  title: { default: TITLE, template: "%s | Longview" },
+  title: TITLE,
   description: DESCRIPTION,
-  applicationName: "Longview",
-  openGraph: {
-    title: TITLE,
-    description: DESCRIPTION,
-    siteName: "Longview",
-    type: "website",
-  },
-  twitter: {
-    card: "summary",
-    title: TITLE,
-    description: DESCRIPTION,
-  },
+  applicationName: TITLE,
+  openGraph: { title: TITLE, description: DESCRIPTION, siteName: TITLE, type: "website" },
+  twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
 };
 
 export const viewport: Viewport = {
@@ -30,12 +20,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body>
-        <a className="lv-skip" href="#main">
-          Skip to content
-        </a>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

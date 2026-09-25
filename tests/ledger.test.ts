@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dayToIso, externalEventId, type LedgerEvent } from '@/engine/events';
 import { project } from '@/engine/project';
 import { OFFLINE_CONFIG } from '@/engine/wake';
-import { MemoryStore } from '@/server/memory-store';
+import { MemoryStore } from '@/engine/memory-store';
 import { beat, demoWorkspace, world } from './helpers';
 
 const ws = demoWorkspace('test-ledger');

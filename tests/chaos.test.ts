@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dayToIso, WAKE_HOUR } from '@/engine/events';
 import { offlineProviders, SimulatedCrash, wake } from '@/engine/wake';
-import { MemoryStore } from '@/server/memory-store';
+import { MemoryStore } from '@/engine/memory-store';
 import { beat, crashFor, demoWorkspace, world } from './helpers';
 
 describe('crash-safe runs', () => {

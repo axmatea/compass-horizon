@@ -1,35 +1,27 @@
-# Longview
+# COMPASS
 
-**The acquisition agent that waits for the truth.** Ads are judged on day one; customers arrive on day thirty. Longview keeps every experiment open until lead quality actually arrives, remembers what it believed and why, changes its mind with receipts when late evidence lands, and tightens its own decision rules when it learns it was fooled.
+COMPASS shows an acquisition agent learning, day by day. Two campaigns run for 21 days: A (Free AI Audit) brings cheap, fast leads and B (CPA Autopilot) brings slow, busy buyers. The Horizon graph puts every event on a lane by the day the agent learned it. The agent leans A on Day 3, goes back to unsure on Day 6 when busy buyers answer, changes its mind on Day 9 and tightens its own rule, is confirmed on Day 11 when late CRM data arrives, and B closes $18,000 on Day 21. Drag the handle to see exactly what the agent knew on any day.
 
-- Live: https://longview-agent.vercel.app
-- Demo: https://longview-agent.vercel.app/demo (each visitor gets an isolated workspace)
-- Deck: https://longview-agent.vercel.app/deck (N speaker notes, F fullscreen) · PDF: /deck/longview-deck.pdf
-- Stage script: https://longview-agent.vercel.app/script · docs/SCRIPT.md
-- Plan and critique (RU): docs/PLAN.ru.md · Product brief: LONGVIEW_BRIEF.md · Contract: src/contract.ts
+## Simulated vs real
+- Simulated, and labeled on screen: the campaign data (scenario `ai-media-q4`, fictional people and firms) and the clock.
+- Real: the deterministic engine that turns those events into beliefs. A bitemporal ledger (when it happened, when the agent learned it), idempotent appends, a belief gate (INSUFFICIENT, LEANING, SUPPORTED), lessons that raise the decision policy version, and a time machine that re-projects the world as known on any day. All covered by tests.
 
-## What is real, what is simulated
-Simulated and labeled on screen: the campaign data (scenario `ai-media-q4`) and the clock. Real: the agent, the ledger in Neon Postgres, idempotency, late-event restatement, belief versions, lessons, the crash (`process.exit` on Vercel) and the resume. Sponsor calls show LIVE only after a real successful call; without credentials they show BLOCKED and the core keeps working.
+The page is static and works offline: no API routes, no database, no env vars, no network.
 
-## Long-horizon primitives
-1. Ledger: one append-only bitemporal table (`occurred_at`, `learned_at`), idempotent by primary key.
-2. Commitments: the agent schedules its own future work and wakes up to keep it.
-3. Beliefs: versioned, Beta-posterior gate (INSUFFICIENT / LEANING / SUPPORTED), diffs, lessons that raise the policy version.
-4. Crash-safe runs: 7 checkpointed steps, effects with deterministic keys, resume from the last checkpoint.
-5. Time machine: `GET /api/state?asOf=<day>` re-projects the world as the agent knew it.
-
-## Run locally
+## Run
 ```
 npm install
-vercel env pull .env.local   # DATABASE_URL (Neon), STAGE_KEY, CRON_SECRET
-npm test                     # 59 tests incl. one against the real Neon table
-npm run build && npx next start
+npm run dev      # http://localhost:3000
+npm test
 ```
+Open `/?day=9` to start on a given day. Keys: Left and Right jump between key days, Space plays or pauses.
 
-## Sponsor credentials (server-side env on Vercel)
-- Nimble: `NIMBLE_API_KEY`
-- Liquid AI: `LIQUID_API_KEY` + `LIQUID_BASE_URL` + `LIQUID_MODEL`, or `OPENROUTER_API_KEY` + `LIQUID_MODEL=liquid/...`
-- Tinybird: `TINYBIRD_TOKEN` (+ `TINYBIRD_HOST`), setup files in `tinybird/`
-Sponsor calls run only in the stage workspace (`/demo?stage=<STAGE_KEY>`) and LIVE workspaces; the public demo never spends paid APIs.
+## Structure
+- `src/engine`: the pure engine. Scenario, wake runs, in-memory ledger, `project(events, { asOfDay })` returns a `WorldView` (`src/contract.ts`).
+- `src/lib/sim.ts`: runs the scenario through Day 21 in the browser and serves `frameAt(day)`.
+- `src/components/horizon`: the screen. `Compass.tsx` (header, readout, controls), `Horizon.tsx` (the graph), `story.ts` (labels).
+- `src/app/page.tsx`: the only route. `/demo` redirects to `/`.
+- `tests`: ledger and idempotency, late events, policy gate, story arc, time machine, extraction, crash-safe runs, the simulation.
 
-Built by AI Media Global.
+## Feeding real data
+Replace `src/lib/sim.ts` with a fetch that returns `WorldView` frames (one per day, as the agent knew it). The screen only reads `WorldView`.

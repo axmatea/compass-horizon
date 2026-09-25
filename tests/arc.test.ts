@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MemoryStore } from '@/server/memory-store';
+import { MemoryStore } from '@/engine/memory-store';
 import { beat, demoWorkspace, world } from './helpers';
 
 describe('story arc (brief section 4) emerges from computation', () => {

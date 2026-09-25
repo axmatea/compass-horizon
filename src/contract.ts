@@ -1,7 +1,5 @@
 /**
- * LONGVIEW shared contract v1.
- * Owned by the orchestrator. Engine produces these shapes, UI and deck consume them.
- * Do not change a field without updating every consumer. Additive changes only.
+ * COMPASS contract. The engine produces a WorldView (the world as the agent knew it on a day), the UI renders it.
  * Rule: unknown is null, never 0 or false.
  */
 
@@ -69,7 +67,7 @@ export interface CampaignView {
   qualified: number;
   unresolved: number;
   notAFit: number;
-  costPerQualifiedUsd: number | null; // what Longview waits for
+  costPerQualifiedUsd: number | null; // what the agent waits for
   callsBooked: number;
   pipelineUsd: number;
   wonUsd: number;
@@ -208,24 +206,3 @@ export interface WorldView {
     cognitionCostUsd: number;
   };
 }
-
-/* ---------------- HTTP API (same origin, JSON, workspace from httpOnly cookie lv_ws) ----------------
- * GET  /api/state?asOf=<day>              -> WorldView
- * POST /api/demo/beat                     -> { world: WorldView; run?: RunView }   next stage beat, runs the agent
- * POST /api/demo/advance  {days:number}   -> { world: WorldView; run?: RunView }   advance simulated clock, agent wakes
- * POST /api/demo/reset                    -> { world: WorldView }
- * POST /api/demo/chaos    {afterStep:number} -> { armed: true }                   next run dies after that step (process.exit on Vercel)
- * POST /api/demo/replay-webhook           -> { duplicate: true; world: WorldView } re-sends last webhook with same externalId
- * POST /api/wake                          -> { world: WorldView; run: RunView }    manual wake, resumes interrupted runs first
- * POST /api/events {source, externalId, type, leadId?, occurredAt, payload} -> { duplicate: boolean; world: WorldView }
- * GET  /api/health                        -> { ok: boolean; db: 'ready'|'blocked'; providers: WorldView['providers']; deployment: string|null }
- * POST /api/early-access {email, name?, company?} -> { ok: true }  only after a durable write
- * Errors: { error: string; code?: string } with 4xx/5xx.
- */
-export type BeatResponse = { world: WorldView; run?: RunView };
-export type AdvanceResponse = { world: WorldView; run?: RunView };
-export type ResetResponse = { world: WorldView };
-export type ChaosResponse = { armed: true };
-export type ReplayResponse = { duplicate: true; world: WorldView };
-export type WakeResponse = { world: WorldView; run: RunView };
-export type HealthResponse = { ok: boolean; db: 'ready' | 'blocked'; providers: WorldView['providers']; deployment: string | null };

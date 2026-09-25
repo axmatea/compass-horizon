@@ -1,6 +1,6 @@
 import type { Mode } from '@/contract';
 
-/** Internal ledger event. Append-only, bitemporal: occurredAt = when it happened, learnedAt = when Longview learned it. */
+/** Internal ledger event. Append-only, bitemporal: occurredAt = when it happened, learnedAt = when the agent learned it. */
 export type EventType =
   | 'campaign.launched'
   | 'spend.recorded'

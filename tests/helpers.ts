@@ -3,7 +3,7 @@ import { dayToIso, WAKE_HOUR, type LedgerEvent } from '@/engine/events';
 import { project, type WorkspaceMeta } from '@/engine/project';
 import { SCENARIO_ID } from '@/engine/scenario/ai-media-q4';
 import { OFFLINE_CONFIG, offlineProviders, SimulatedCrash, wake, type WakeResult } from '@/engine/wake';
-import { MemoryStore } from '@/server/memory-store';
+import { MemoryStore } from '@/engine/memory-store';
 
 export function demoWorkspace(id = 'test-ws'): WorkspaceMeta {
   return { id, mode: 'DEMO', label: 'Demo', scenario: SCENARIO_ID, liveProviders: false };
