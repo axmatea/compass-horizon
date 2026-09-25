@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const TITLE = "COMPASS";
-const DESCRIPTION = "Watch an acquisition agent learn, day by day.";
+const DESCRIPTION = "Your own seat. One shared plan. Explore the COMPASS virtual office and shared memory concept.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -13,8 +13,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d0d0c",
-  colorScheme: "dark",
+  themeColor: "#f7f5ee",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
