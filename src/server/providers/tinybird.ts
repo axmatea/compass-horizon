@@ -76,13 +76,13 @@ export async function tinybirdMirror(
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/x-ndjson' },
         body,
-        signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 4_000),
       });
       if (!res.ok) return { provider: 'tinybird', operation: 'mirror', status: 'ERROR', latencyMs: Date.now() - started, note: `events API HTTP ${res.status}` };
     }
     const q = await f(`${host}/v0/sql?q=${encodeURIComponent(metricsAsOfSql(workspaceId, asOfIso))}`, {
       headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 4_000),
     });
     const latencyMs = Date.now() - started;
     if (!q.ok) return { provider: 'tinybird', operation: 'mirror+asof', status: 'ERROR', latencyMs, note: `mirrored ${events.length}; as-of query HTTP ${q.status}` };

@@ -243,7 +243,8 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
       if (!sources.length) return { summary: 'No new replies to read', effects: [] };
       const useLiquid = ctx.providers.canCall('liquid');
       const receipts: ReceiptInput[] = [];
-      const results = await mapLimit(sources, 4, async (src) => {
+      // Bounded fan-out keeps a live extraction inside the 30s function budget.
+      const results = await mapLimit(sources, 8, async (src) => {
         const text = (src.type === 'lead.replied' ? str(src.payload.text) : str(src.payload.note)) ?? '';
         if (useLiquid) {
           try {
@@ -530,7 +531,7 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
       const canNimble = ctx.providers.canCall('nimble');
       const evts: LedgerEvent[] = [];
       const statuses: string[] = [];
-      for (const q of queries) {
+      const scanned = await Promise.all(queries.map(async (q) => {
         let status: ProviderStatus = 'BLOCKED';
         let sources: MarketSource[] = [];
         let receipt: ReceiptInput;
@@ -549,6 +550,9 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
         } else {
           receipt = { provider: 'nimble', operation: 'search', status: ctx.providers.config.nimble.status, note: `No call made, no sources recorded. ${ctx.providers.config.nimble.detail}` };
         }
+        return { q, status, sources, receipt };
+      }));
+      for (const { q, status, sources, receipt } of scanned) {
         statuses.push(status);
         evts.push(mk(`mk:${runId}:${q.campaignId}`, 'market.scanned', { campaignId: q.campaignId, query: q.query, segment: q.segment, status, sources, runId, step: 7 }, { source: 'nimble' }));
         evts.push(receiptEvent(7, receipt));

@@ -91,7 +91,7 @@ export async function liquidExtract(
         ],
         ...(ep.via === 'openrouter' ? { usage: { include: true } } : {}),
       }),
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 5_000),
     });
     const latencyMs = Date.now() - started;
     if (!res.ok) return { extraction: null, receipt: { ...base, status: 'ERROR', latencyMs, note: `HTTP ${res.status}; rules fallback used` } };
