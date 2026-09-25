@@ -2,47 +2,110 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>REMaster LIVE — week board</title>
+<title>REMaster LIVE — the AI company manager</title>
 <style>
-  :root { --bg:#0b0e14; --panel:#121826; --line:#1f2937; --txt:#e5e7eb; --dim:#8b95a7;
+  :root { --bg:#0b0e14; --panel:#121826; --panel2:#0e1420; --line:#1f2937; --txt:#e5e7eb; --dim:#8b95a7;
           --accent:#f59e0b; --ok:#34d399; --bad:#f87171; }
   * { box-sizing:border-box; margin:0; }
   body { background:var(--bg); color:var(--txt); font:14px/1.45 -apple-system,'Segoe UI',sans-serif; padding:14px 18px; }
-  h1 { font-size:19px; letter-spacing:.3px; }
+  h1 { font-size:20px; letter-spacing:.2px; }
   .sub { color:var(--dim); font-size:12px; margin-top:2px; }
-  header { display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin-bottom:12px; }
-  .chip { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:5px 11px; font-size:12px; }
+  header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+  header .title { flex:1 1 520px; }
+  .chip { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:5px 11px; font-size:12px; color:var(--dim); white-space:nowrap; }
   .chip b { color:var(--accent); font-size:15px; }
-  .badge { font-size:10.5px; color:var(--dim); border:1px solid var(--line); border-radius:99px; padding:2px 9px; }
   button { background:var(--accent); color:#111; border:0; border-radius:8px; padding:9px 18px;
-           font-weight:700; font-size:14px; cursor:pointer; }
+           font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; }
   button:disabled { opacity:.45; cursor:wait; }
-  select { background:var(--panel); color:var(--txt); border:1px solid var(--line);
+  select { background:var(--panel); color:var(--txt); border:1px solid var(--accent);
            border-radius:8px; padding:8px 10px; font-size:13px; }
-  .wrap { display:grid; grid-template-columns: 1fr 330px; gap:14px; }
-  table { border-collapse:collapse; width:100%; background:var(--panel); border-radius:10px; overflow:hidden; }
-  th,td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; min-width:118px; }
-  th { background:#0e1420; font-size:11.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; }
-  td.person { min-width:150px; }
+
+  /* how-it-works strip */
+  .how { display:flex; gap:10px; align-items:center; background:linear-gradient(90deg,#1a1508,#121826 70%);
+         border:1px solid #3b2f12; border-radius:10px; padding:8px 14px; margin-bottom:10px; font-size:13px; flex-wrap:wrap; }
+  .how .step { display:flex; align-items:center; gap:7px; }
+  .how .n { background:var(--accent); color:#111; font-weight:800; border-radius:99px; width:20px; height:20px;
+            display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+  .how .arrow { color:var(--dim); }
+  .how .alt { margin-left:auto; color:var(--dim); font-size:12px; }
+
+  /* busy banner */
+  #busy { position:fixed; top:0; left:0; right:0; z-index:50; display:none; text-align:center; padding:9px 12px;
+          font-weight:700; font-size:14px; color:#111; letter-spacing:.3px;
+          background:linear-gradient(90deg,#f59e0b,#fcd34d,#f59e0b); background-size:200% 100%;
+          animation: slide 2s linear infinite, pulse 1.6s ease-in-out infinite; box-shadow:0 4px 24px #f59e0b55; }
+  #busy .sm { font-weight:500; opacity:.8; margin-left:8px; }
+  @keyframes slide { to { background-position:-200% 0; } }
+  @keyframes pulse { 50% { opacity:.78; } }
+  body.isbusy { padding-top:50px; }
+  body.isbusy #grid { opacity:.8; }
+
+  /* chat */
+  #chat { margin:0 0 10px; gap:12px; align-items:center; background:#1a1508; border:2px solid var(--accent);
+          border-radius:12px; padding:10px 12px; box-shadow:0 0 0 4px #f59e0b1f; }
+  .avatar { width:40px; height:40px; border-radius:99px; background:var(--accent); color:#111; font-weight:800;
+            font-size:18px; display:flex; align-items:center; justify-content:center; flex:none; text-transform:uppercase; }
+  #chat .who { flex:none; line-height:1.2; min-width:150px; }
+  #chat .who b { font-size:15px; text-transform:capitalize; }
+  #chat .who div { color:var(--dim); font-size:11.5px; }
+  #chatmsg { flex:1; background:var(--bg); border:1px solid #4b3b12; border-radius:8px; padding:11px 12px;
+             color:var(--txt); font-size:14px; outline:none; }
+  #chatmsg:focus { border-color:var(--accent); }
+  #ack { display:none; background:#1e293b; border:1px solid #334155; border-left:4px solid var(--accent);
+         border-radius:10px; padding:9px 12px; margin:0 0 10px; font-size:13px; }
+
+  .wrap { display:grid; grid-template-columns: 1fr 340px; gap:14px; }
+  table { border-collapse:separate; border-spacing:0; width:100%; background:var(--panel); border-radius:10px;
+          overflow:hidden; border:1px solid var(--line); table-layout:fixed; }
+  th,td { border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:6px 7px;
+          text-align:left; vertical-align:top; }
+  th:last-child, td:last-child { border-right:0; }
+  col.pcol { width:160px; }
+  th { background:var(--panel2); font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; }
+  th .dd { display:block; font-size:10px; text-transform:none; letter-spacing:0; font-weight:400; }
   td.person .r { color:var(--dim); font-size:11px; }
-  td.today { background:#141c2e; }
+  td.person b { text-transform:capitalize; }
+  th.today { background:#2a1f08; color:var(--accent); border-top:3px solid var(--accent); font-size:12px; }
+  td.today { background:#1d2740; box-shadow: inset 2px 0 0 #f59e0b66, inset -2px 0 0 #f59e0b66; }
+  td.future { background:#0d121c; }
+  td.future .card { opacity:.38; filter:saturate(.4); border-style:dashed; border-color:#334155; border-left-style:solid; }
+  td.past { background:#10151f; }
+  th.future { opacity:.7; }
+  .plan { font-size:9.5px; text-transform:uppercase; letter-spacing:.8px; color:#64748b; margin-bottom:2px; }
+  tr.dept td { background:var(--panel2); color:var(--accent); font-size:10.5px; font-weight:700; letter-spacing:1.4px;
+               padding:3px 8px; border-right:0; }
   .card { border-radius:6px; padding:4px 7px; font-size:11.5px; margin:2px 0; cursor:pointer;
-          border:1px solid transparent; background:#1c2434; }
+          border:1px solid transparent; background:#1c2434; overflow:hidden; }
   .card:hover { border-color:var(--accent); }
   .card .t { color:var(--dim); font-size:10.5px; }
-  .flash { animation: fl 1.6s ease-in-out 3; }
-  @keyframes fl { 50% { background:#7c2d12; border-color:var(--accent);} }
+  .card.done { background:#12291f; border-color:#166534; }
+  .card.done .t { color:var(--ok); }
+  .card .ck { color:var(--ok); font-weight:800; }
+  .changed { border-color:var(--accent); }               /* steady ring: "this moved in the last replan" */
+  .changed.pulse { animation: fl .8s ease-out 2; }        /* brief pulse only when the change first lands */
+  @keyframes fl { 40% { background:#7c2d12; } }
+  @media (prefers-reduced-motion: reduce) { .changed.pulse { animation:none; } }
   .blocked { border-color:var(--bad)!important; color:var(--bad); }
   .off { color:var(--dim); font-size:11px; font-style:italic; }
   #backlog { margin-top:12px; }
-  #backlog .card { display:inline-block; margin:3px 4px 0 0; }
+  #backlog .card { display:inline-block; margin:3px 4px 0 0; max-width:260px; vertical-align:top; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px; font-size:11px; color:var(--dim); }
+  .legend .lc { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:2px 8px; color:var(--txt); }
+  .legend .lc.done { background:#12291f; border-color:#166534; color:var(--ok); }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
-           max-height:78vh; overflow-y:auto; }
+           max-height:80vh; overflow-y:auto; }
   .panel h3 { font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
-  .ev { font-size:11.5px; border-bottom:1px solid var(--line); padding:5px 0; color:#c7cede; }
-  .ev .k { color:var(--accent); font-weight:600; }
-  #diff { background:#132015; border:1px solid #14532d; border-radius:10px; padding:9px 12px; margin:10px 0; font-size:12.5px; display:none; }
-  #modal { position:fixed; inset:0; background:#000a; display:none; align-items:center; justify-content:center; }
+  .ev { font-size:12px; border-bottom:1px solid var(--line); padding:6px 0; color:#c7cede; }
+  .ev .k { display:flex; gap:6px; align-items:center; color:var(--accent); font-weight:600; font-size:11px; }
+  .ev .k .kind { color:var(--dim); font-weight:400; }
+  .ev .x { margin-top:2px; }
+  .ev .sql { font-family:ui-monospace,Menlo,monospace; font-size:10.5px; color:#93c5fd; white-space:nowrap;
+             overflow:hidden; text-overflow:ellipsis; background:var(--panel2); padding:2px 5px; border-radius:4px; }
+  #diff { background:#132015; border:1px solid #14532d; border-radius:10px; padding:9px 12px; margin:0 0 10px; font-size:13px; display:none; }
+  #diff .mv { margin-top:4px; }
+  .pc { display:inline-block; border-radius:99px; padding:0 8px; font-size:12px; background:#1f2937; text-transform:capitalize; }
+  .pc.to { background:#14532d; color:var(--ok); font-weight:700; }
+  #modal { position:fixed; inset:0; background:#000a; display:none; align-items:center; justify-content:center; z-index:60; }
   #modal .box { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px; width:430px; }
   #modal h2 { font-size:16px; margin-bottom:6px; }
   #modal .meta { color:var(--dim); font-size:12px; margin-bottom:14px; }
@@ -53,12 +116,71 @@
   .sk-growth{border-left:3px solid #fb923c}.sk-qa{border-left:3px solid #a78bfa}
   .sk-sales{border-left:3px solid #fde047}.sk-cs{border-left:3px solid #2dd4bf}
   .sk-marketing{border-left:3px solid #f87171}
+  /* live agent activity modal (day run / manager thinking) */
+  /* right-side live panel: never covers the board, board stays interactive */
+  #dm { position:fixed; top:74px; right:14px; bottom:14px; z-index:70; display:none;
+        width:440px; max-width:calc(100vw - 28px); pointer-events:none; }
+  #dm.open { display:block; animation: dmin .25s cubic-bezier(.16,1,.3,1); }
+  @keyframes dmin { from { transform:translateX(24px); opacity:0; } }
+  @media (prefers-reduced-motion: reduce) { #dm.open { animation:none; } }
+  #dm .dmbox { width:100%; max-height:100%; overflow:hidden; pointer-events:auto;
+               display:flex; flex-direction:column; gap:12px; padding:16px 18px 14px;
+               background:#121826f5; border:1px solid #3b2f12; border-radius:14px; box-shadow:0 18px 60px #000c; }
+  #dm .dmhead { display:flex; align-items:flex-start; gap:12px; }
+  #dm .dmhead .tt { flex:1; }
+  #dm h2 { font-size:18px; letter-spacing:.2px; }
+  #dm .dmsub { color:var(--dim); font-size:12.5px; margin-top:2px; }
+  #dm .dmclock { font:600 22px/1 ui-monospace,Menlo,monospace; color:var(--accent); padding-top:2px; }
+  #dm .dmx { background:transparent; color:var(--dim); border:1px solid var(--line); padding:4px 10px; font-size:16px; font-weight:400; }
+  #dm .dmx:hover { color:var(--txt); border-color:var(--dim); }
+  #dm .stages { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+  #dm .stg { border:1px solid var(--line); background:var(--panel2); color:var(--dim); border-radius:99px;
+             padding:5px 8px; font-size:11.5px; white-space:nowrap; }
+  #dm .stg.past { color:var(--txt); border-color:#334155; }
+  #dm .stg.past::before { content:'✓ '; color:var(--ok); font-weight:700; }
+  #dm .stg.cur { color:#111; background:var(--accent); border-color:var(--accent); font-weight:700;
+                 animation: dmPulse 1.6s ease-in-out infinite; }
+  #dm .sarr { color:#475569; font-size:12px; }
+  @keyframes dmPulse { 50% { box-shadow:0 0 0 6px #f59e0b33; } }
+  #dm .now { display:flex; align-items:center; gap:12px; background:#1a1508; border:1px solid #4b3b12;
+             border-radius:10px; padding:11px 14px; font-size:14px; min-height:48px; }
+  #dm .now .dot { width:10px; height:10px; border-radius:99px; background:var(--accent); flex:none;
+                  animation: dmDot 1s ease-in-out infinite; }
+  #dm .now.idle { background:var(--panel2); border-color:var(--line); color:var(--dim); }
+  #dm .now.idle .dot { background:#475569; animation:none; }
+  #dm .now .where { color:var(--dim); font-size:12.5px; }
+  #dm .now .secs { margin-left:auto; font:600 13px ui-monospace,Menlo,monospace; color:var(--accent); }
+  @keyframes dmDot { 50% { opacity:.3; } }
+  #dm .tkh { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; display:flex; }
+  #dm .tkh span:last-child { margin-left:auto; text-transform:none; letter-spacing:0; }
+  #dm .ticker { overflow-y:auto; min-height:120px; max-height:340px; border-top:1px solid var(--line); }
+  #dm .tl { display:grid; grid-template-columns:44px 1fr; gap:10px; padding:6px 2px; border-bottom:1px solid var(--line);
+            font-size:12.5px; align-items:baseline; }
+  #dm .tl .ago { color:#64748b; font:11px ui-monospace,Menlo,monospace; text-align:right; }
+  #dm .tl .who { color:var(--txt); }
+  #dm .tl .via { color:var(--dim); }
+  #dm .tl .via b { color:var(--accent); font-weight:600; }
+  #dm .tl .sn { display:block; margin-top:2px; font:10.5px ui-monospace,Menlo,monospace; color:#93c5fd;
+                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #dm .tl.fresh { background:#f59e0b0d; }
+  #dm .empty { color:var(--dim); font-size:12.5px; padding:10px 2px; }
+  #dm .done { display:none; align-items:center; gap:14px; background:#132015; border:1px solid #14532d;
+              border-radius:10px; padding:12px 14px; font-size:14px; }
+  #dm.isdone .done { display:flex; }
+  #dm.isdone .now { display:none; }
+  #dm .done b { color:var(--ok); }
+  #dm .done button { margin-left:auto; }
+  @media (prefers-reduced-motion: reduce) {
+    #dm .stg.cur { animation:none; box-shadow:0 0 0 3px #f59e0b44; }
+    #dm .now .dot { animation:none; }
+  }
 </style>
 </head>
 <body>
+<div id="busy">🧠 agent thinking… <span class="sm">the company manager is replanning the week — takes ~60–90s <span id="busyt"></span></span></div>
 <header>
-  <div>
-    <h1>REMaster <span style="color:var(--accent)">LIVE</span> — the AI scrum master that sleeps on it</h1>
+  <div class="title">
+    <h1>REMaster <span style="color:var(--accent)">LIVE</span> — the AI company manager that sleeps on it</h1>
     <div class="sub">10-person startup · quarter goal: launch by Demo Day (W12D2) · brains: Liquid LFM-2.5 · log: Tinybird Rawtree · web: Nimble</div>
   </div>
   <div class="chip">Day <b id="day">–</b> <span id="ts"></span></div>
@@ -68,66 +190,129 @@
   <div class="chip">restores <b id="rest">–</b></div>
   <select id="viewas" onchange="viewChanged()"><option value="">👥 whole team</option></select>
   <button id="step" onclick="step()">▶ Next day</button>
-  <span class="badge" id="busy" style="display:none">🧠 agent thinking…</span>
 </header>
 
-<div id="chat" style="display:none; margin:0 0 10px; gap:8px; align-items:center;">
-  <input id="chatmsg" placeholder="" style="flex:1; background:var(--panel); border:1px solid var(--line);
-    border-radius:8px; padding:10px 12px; color:var(--txt); font-size:14px;"
-    onkeydown="if(event.key==='Enter')say()">
+<div class="how">
+  <span class="step"><span class="n">1</span> Pick a teammate <span style="color:var(--dim)">(top-right menu)</span></span><span class="arrow">→</span>
+  <span class="step"><span class="n">2</span> Tell the manager what happened</span><span class="arrow">→</span>
+  <span class="step"><span class="n">3</span> Watch it replan the week</span>
+  <span class="alt">or click any ticket to report something about it · ▶ Next day to advance time</span>
+</div>
+
+<div id="chat" style="display:none">
+  <div class="avatar" id="av">?</div>
+  <div class="who"><b id="whoname"></b><div id="whorole"></div></div>
+  <input id="chatmsg" placeholder="" onkeydown="if(event.key==='Enter')say()">
   <button onclick="say()">💬 Send</button>
 </div>
-<div id="ack" style="display:none; background:#1e293b; border:1px solid #334155; border-radius:10px;
-  padding:9px 12px; margin:0 0 10px; font-size:12.5px;"></div>
+<div id="ack"></div>
 
 <div id="diff"></div>
 
 <div class="wrap">
   <div>
     <table id="grid"></table>
+    <div class="legend" id="legend"></div>
     <div id="backlog"></div>
   </div>
-  <div class="panel"><h3>Agent feed (live from Rawtree)</h3><div id="feed"></div></div>
+  <div class="panel"><h3>What the manager is doing · live from its Rawtree memory · newest first</h3><div id="feed"></div></div>
 </div>
 
 <div id="modal" onclick="if(event.target===this)this.style.display='none'">
   <div class="box">
     <h2 id="m-title"></h2>
     <div class="meta" id="m-meta"></div>
-    <button onclick="inject(1)">🚨 Provider delayed — deliverable arrives TOMORROW</button>
-    <button onclick="inject(3)">🚨 Provider delayed — 3 days</button>
+    <input id="m-msg" placeholder="What happened with this ticket? e.g. provider slipped, spec changed, needs another pair of hands…"
+      style="width:100%; background:var(--bg); border:1px solid var(--line); border-radius:8px;
+             padding:10px 12px; color:var(--txt); font-size:13.5px;"
+      onkeydown="if(event.key==='Enter')modalSend()">
+    <button onclick="modalSend()">Tell the manager</button>
     <button class="cancel" onclick="modal.style.display='none'">cancel</button>
+  </div>
+</div>
+
+<div id="dm" role="dialog" aria-modal="true" aria-labelledby="dm-title" onclick="if(event.target===this)dayModalClose()">
+  <div class="dmbox">
+    <div class="dmhead">
+      <div class="tt"><h2 id="dm-title">Running day…</h2><div class="dmsub" id="dm-sub"></div></div>
+      <div class="dmclock" id="dm-clock">0s</div>
+      <button class="dmx" onclick="dayModalClose()" aria-label="Close">✕</button>
+    </div>
+    <div class="stages" id="dm-stages"></div>
+    <div class="now idle" id="dm-now"></div>
+    <div class="done" id="dm-done"></div>
+    <div class="tkh"><span>Live agent activity · newest first</span><span id="dm-count"></span></div>
+    <div class="ticker" id="dm-ticker"></div>
   </div>
 </div>
 
 <script>
 const KIND_ICON = {doer_decision:'🧑‍💼', world_event:'🚨', web_result:'🌐', cleaner_op:'🌙',
                    restore:'♻️', divergence:'👥', memory_sql:'🔎', strategist_plan:'🧭', message:'💬'};
-let S = null, sel = null, lastDiffDay = 0, me = '';
+const KIND_LABEL = {doer_decision:'the manager decided', world_event:'something happened',
+                   web_result:'checked the live web (Nimble)', cleaner_op:'night memory cleanup — slept on it',
+                   restore:'recovered a forgotten fact from the archive', divergence:'shadow check: memory loss detected',
+                   memory_sql:'recalled its own past (SQL over Rawtree)', strategist_plan:'strategist set the week\'s focus',
+                   message:'a teammate told the manager'};
+const DEPTS = [['ENGINEERING',['lina','tom','max','priya']], ['DESIGN',['sarah']], ['GROWTH & MARKETING',['omar','dan']],
+               ['SALES',['jules']], ['CUSTOMER SUCCESS',['mia']], ['QUALITY',['eva']]];
+const SKILLS = {backend:'#60a5fa', frontend:'#22d3ee', design:'#f472b6', mobile:'#34d399', growth:'#fb923c',
+                qa:'#a78bfa', sales:'#fde047', cs:'#2dd4bf', marketing:'#f87171'};
+let S = null, sel = null, lastDiffDay = 0, me = '', busySince = 0, localBusy = false;
+let lastFp = null, pulsedKey = null, freshDiff = false;   // render-skip + one-shot pulse state
 const $ = id => document.getElementById(id);
 const modal = $('modal');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayTs = d => `W${Math.ceil(d/5)}D${(d-1)%5+1}`;
 
 async function refresh() {
   try { S = await (await fetch('/api/state')).json(); } catch (e) { return; }
   $('day').textContent = S.day; $('ts').textContent = S.ts + ' · W' + S.week;
   $('ctx').textContent = S.memory.ctx_tokens; $('arch').textContent = S.memory.archived;
   $('sql').textContent = S.metrics.memory_sql_calls; $('rest').textContent = S.metrics.restores;
-  $('step').disabled = S.busy; $('busy').style.display = S.busy ? '' : 'none';
+  if (!S.busy && localBusy && Date.now() - busySince > 4000) localBusy = false;
+  setBusy(S.busy || localBusy);
+  if (dayModal) dayModalRender();   // before the fingerprint gate: activity changes every poll
   if ($('viewas').options.length === 1)
     for (const p of S.people) $('viewas').add(new Option(`🙋 ${p.name} — ${p.role}`, p.name));
-  if (S.ack && me && S.ack.person === me) {
+  if (S.ack && me && S.ack.person === me && !localBusy) {
     $('ack').style.display = 'block';
-    $('ack').innerHTML = `🧑‍💼 <b>scrum master → ${S.ack.person}:</b> ${S.ack.text}`;
+    $('ack').innerHTML = `🧑‍💼 <b>company manager → ${esc(S.ack.person)}:</b> ${esc(S.ack.text)}`;
   }
-  renderGrid(); renderBacklog(); renderFeed(); renderDiff();
+  // Re-render the board only when something actually changed — otherwise the
+  // 1.5s poll restarts CSS animations and churns the DOM.
+  const diffKey = S.last_diff ? S.last_diff.day + ':' + S.last_diff.changes.map(c => c.ticket).join(',') : '';
+  const fp = JSON.stringify([S.day, diffKey, me,
+    Object.values(S.tickets).map(t => [t.assignee, t.status, t.pct]),
+    (S.feed[0] || {}).text, S.feed.length]);
+  if (fp === lastFp) return;
+  freshDiff = diffKey !== pulsedKey;
+  lastFp = fp;
+  renderGrid(); renderLegend(); renderBacklog(); renderFeed(); renderDiff();
+  pulsedKey = diffKey;
+}
+
+function setBusy(b) {
+  if (b && !busySince) busySince = Date.now();
+  if (!b) busySince = 0;
+  $('busy').style.display = b ? 'block' : 'none';
+  document.body.classList.toggle('isbusy', !!b);
+  $('step').disabled = !!b;
+  $('busyt').textContent = b ? `· ${Math.round((Date.now() - busySince) / 1000)}s` : '';
 }
 
 function viewChanged() {
   me = $('viewas').value;
   $('chat').style.display = me ? 'flex' : 'none';
   $('ack').style.display = 'none';
-  if (me) $('chatmsg').placeholder =
-    `Talk to the scrum master as ${me}… e.g. "our provider got delayed, we'll only have it tomorrow"`;
+  if (me) {
+    const p = (S?.people || []).find(x => x.name === me);
+    $('av').textContent = me[0]; $('whoname').textContent = me;
+    $('whorole').textContent = (p ? p.role + ' · ' : '') + 'talking to the manager';
+    $('chatmsg').placeholder =
+      `Talk to the company manager as ${me}… e.g. "our provider got delayed, we'll only have it tomorrow"`;
+    $('chatmsg').focus();
+  }
   if (S) { renderGrid(); renderBacklog(); }
 }
 
@@ -136,9 +321,11 @@ async function say() {
   if (!text || !me) return;
   $('chatmsg').value = '';
   $('ack').style.display = 'block';
-  $('ack').innerHTML = `💬 <b>${me}:</b> ${text} <span style="color:var(--dim)">— scrum master is thinking…</span>`;
+  $('ack').innerHTML = `💬 <b>${esc(me)}:</b> ${esc(text)} <span style="color:var(--dim)">— company manager is thinking…</span>`;
+  localBusy = true; busySince = Date.now(); setBusy(true);
+  dayModalOpen('chat', Math.max(S?.day || 1, 1));
   await fetch('/api/say', {method:'POST', body: JSON.stringify({person: me, text})});
-  refresh();
+  localBusy = false; refresh();
 }
 
 function week() { const w = Math.max(1, Math.ceil(Math.max(S.day,1) / 5)); return {w, d0: (w-1)*5 + 1}; }
@@ -147,35 +334,60 @@ function renderGrid() {
   const {w, d0} = week();
   const byDay = {};                        // person -> day -> Set(tickets worked)
   for (const [d, p, t] of S.work_log) ((byDay[p] ??= {})[d] ??= new Set()).add(t);
-  let h = '<tr><th>Week ' + w + '</th>' + [1,2,3,4,5].map(i =>
-    `<th ${d0+i-1===S.day?'class="today"':''}>D${i} · day ${d0+i-1}${d0+i-1===S.day?' (today)':''}</th>`).join('') + '</tr>';
-  for (const p of S.people) {
-    if (me && p.name !== me) continue;
-    h += `<tr><td class="person"><b>${p.name}</b><div class="r">${p.role}</div></td>`;
-    for (let i = 0; i < 5; i++) {
-      const d = d0 + i;
-      let cell = '', off = p.absent.includes(d);
-      if (off) cell = '<div class="off">off 🏖</div>';
-      const worked = byDay[p.name]?.[d];
-      if (worked) for (const t of worked) cell += card(S.tickets[t]);
-      else if (d === S.day || (d > S.day && !off)) {
-        for (const t of Object.values(S.tickets))
-          if (t.assignee === p.name && !t.status.startsWith('done') && t.status !== 'cut')
-            cell += card(t, d > S.day ? .45 : 1);
+  const people = Object.fromEntries(S.people.map(p => [p.name, p]));
+  const cls = d => d === S.day ? 'today' : d > S.day ? 'future' : 'past';
+  let h = '<colgroup><col class="pcol">' + '<col>'.repeat(5) + '</colgroup>';
+  h += '<tr><th>Week ' + w + '</th>' + [1,2,3,4,5].map(i => { const d = d0+i-1;
+    const tag = d === S.day ? '● TODAY' : d > S.day ? 'planned' : 'past';
+    return `<th class="${cls(d)}">D${i} · ${tag}<span class="dd">day ${d}</span></th>`; }).join('') + '</tr>';
+  const seen = new Set();
+  const groups = DEPTS.map(([n, ms]) => [n, ms.filter(m => people[m])]);
+  const rest = S.people.map(p => p.name).filter(n => !DEPTS.some(([, ms]) => ms.includes(n)));
+  if (rest.length) groups.push(['OTHER', rest]);
+  for (const [dept, members] of groups) {
+    const shown = members.filter(n => !me || n === me);
+    if (!shown.length) continue;
+    h += `<tr class="dept"><td colspan="6">${dept}</td></tr>`;
+    for (const name of shown) {
+      const p = people[name];
+      h += `<tr><td class="person"><b>${esc(p.name)}</b><div class="r">${esc(p.role)}</div></td>`;
+      for (let i = 0; i < 5; i++) {
+        const d = d0 + i;
+        let cell = '', off = p.absent.includes(d);
+        if (off) cell = '<div class="off">off 🏖</div>';
+        const worked = byDay[p.name]?.[d];
+        if (worked) for (const t of worked) cell += card(S.tickets[t], d);
+        else if (d === S.day || (d > S.day && !off)) {
+          let c = '';
+          for (const t of Object.values(S.tickets))
+            if (t.assignee === p.name && !t.status.startsWith('done') && t.status !== 'cut') c += card(t, d);
+          if (c && d > S.day) c = '<div class="plan">planned</div>' + c;
+          cell += c;
+        }
+        h += `<td class="${cls(d)}">${cell}</td>`;
       }
-      h += `<td ${d===S.day?'class="today"':''}>${cell}</td>`;
+      h += '</tr>';
     }
-    h += '</tr>';
   }
   $('grid').innerHTML = h;
 }
 
-function card(t, op) {
+function card(t, day) {
   if (!t) return '';
-  const ch = (S.last_diff?.changes || []).some(c => c.ticket === t.id) && S.last_diff.day === S.day;
+  const ch = (S.last_diff?.changes || []).some(c => c.ticket === t.id) && S.last_diff.day === S.day
+             && (!day || day === S.day);   // ring only today's column, not planned projections
   const bl = (S.injected || []).some(i => i.ticket === t.id) && t.status.startsWith('blocked');
-  return `<div class="card sk-${t.skill} ${ch?'flash':''} ${bl?'blocked':''}" style="opacity:${op||1}"
-    onclick="openModal('${t.id}')"><b>${t.id}</b> ${t.title}<div class="t">${t.pct}% · ${t.status}</div></div>`;
+  const done = t.status.startsWith('done');
+  const doneHere = done && day && t.status === `done(${dayTs(day)})`;
+  const cls = doneHere || (done && !day) ? 'done' : '';
+  return `<div class="card sk-${t.skill} ${cls} ${ch ? 'changed' + (freshDiff ? ' pulse' : '') : ''} ${bl?'blocked':''}"
+    onclick="openModal('${t.id}')" title="${esc(t.id+' '+t.title+' · '+t.status)}">${cls?'<span class="ck">✓</span> ':''}<b>${t.id}</b> ${esc(t.title)}<div class="t">${doneHere?'finished ✓':t.pct+'% · '+esc(t.status)}</div></div>`;
+}
+
+function renderLegend() {
+  $('legend').innerHTML = 'Skill colors: ' + Object.entries(SKILLS).map(([k, c]) =>
+    `<span class="lc" style="border-left:3px solid ${c}">${k === 'cs' ? 'customer success' : k === 'qa' ? 'QA' : k}</span>`).join('')
+    + '<span class="lc done">✓ done</span><span class="lc" style="border-color:var(--bad);color:var(--bad)">blocked</span>';
 }
 
 function renderBacklog() {
@@ -185,39 +397,196 @@ function renderBacklog() {
     label = `${me.toUpperCase()}'S TICKETS`;
   } else {
     rest = Object.values(S.tickets).filter(t => !t.assignee && !t.status.startsWith('done') && t.status!=='cut');
-    label = 'UNASSIGNED BACKLOG (click any card to inject a provider delay)';
+    label = 'UNASSIGNED BACKLOG (click any card to report something about it)';
   }
-  $('backlog').innerHTML = `<h3 style="font-size:12px;color:var(--dim);margin:8px 0 2px">${label}</h3>`
+  $('backlog').innerHTML = `<h3 style="font-size:12px;color:var(--dim);margin:10px 0 2px">${label}</h3>`
     + rest.map(t => card(t)).join('');
 }
 
 function renderFeed() {
-  $('feed').innerHTML = (S.feed || []).map(e =>
-    `<div class="ev"><span class="k">${KIND_ICON[e.kind]||''} ${e.ts}</span> ${e.text}</div>`).join('');
+  $('feed').innerHTML = (S.feed || []).map(e => {
+    const cut = e.text.length >= 178 ? '…' : '';
+    const body = e.kind === 'memory_sql'
+      ? `<div class="x sql" title="${esc(e.text)}">${esc(e.text)}${cut}</div>` : `<div class="x">${esc(e.text)}${cut}</div>`;
+    return `<div class="ev"><div class="k">${KIND_ICON[e.kind]||'•'} ${esc(e.ts)} <span class="kind">${KIND_LABEL[e.kind]||esc(e.kind)}</span></div>${body}</div>`;
+  }).join('');
 }
 
 function renderDiff() {
   const d = S.last_diff;
   if (!d || !d.changes.length) { $('diff').style.display='none'; return; }
   $('diff').style.display = 'block';
-  $('diff').innerHTML = `<b>🧑‍💼 Agent replanned on day ${d.day}:</b> ` + d.changes.map(c =>
-    `${c.ticket}: ${c.from||'–'} → <b style="color:var(--ok)">${c.to||'unassigned'}</b>${c.reason?' <span style="color:var(--dim)">('+c.reason+')</span>':''}`).join(' · ');
+  $('diff').innerHTML = `<b>🧑‍💼 Agent replanned on day ${d.day}:</b>` + d.changes.map(c => {
+    const t = S.tickets[c.ticket];
+    return `<div class="mv">→ <b>${esc(c.ticket)}</b>${t?' “'+esc(t.title)+'”':''} moves from
+      <span class="pc">${esc(c.from||'unassigned')}</span> → <span class="pc to">${esc(c.to||'unassigned')}</span>${c.reason?' <span style="color:var(--dim)">because '+esc(c.reason)+'</span>':''}</div>`;
+  }).join('');
 }
 
 function openModal(tid) {
   sel = tid; const t = S.tickets[tid];
   $('m-title').textContent = `${t.id} — ${t.title}`;
   $('m-meta').textContent = `skill ${t.skill} · est ${t.est}d · ${t.pct}% · ${t.status} · assignee: ${t.assignee||'none'} · deps: ${t.deps.join(', ')||'none'}`;
+  $('m-msg').value = '';
   modal.style.display = 'flex';
+  $('m-msg').focus();
 }
 
-async function inject(days) {
+async function modalSend() {
+  const text = $('m-msg').value.trim();
+  if (!text) return;
+  const t = S.tickets[sel];
   modal.style.display = 'none';
-  await fetch('/api/inject', {method:'POST', body: JSON.stringify({ticket: sel, days})});
-  refresh();
+  localBusy = true; busySince = Date.now(); setBusy(true);
+  dayModalOpen('chat', Math.max(S?.day || 1, 1));
+  await fetch('/api/say', {method:'POST', body: JSON.stringify(
+    {person: me || t.assignee || 'founder', text, ticket: sel})});
+  localBusy = false; refresh();
 }
 
-async function step() { $('step').disabled = true; await fetch('/api/step', {method:'POST'}); refresh(); }
+async function step() {
+  localBusy = true; busySince = Date.now(); setBusy(true);
+  dayModalOpen('day', (S?.day || 0) + 1);
+  let r = null;
+  try { r = await (await fetch('/api/step', {method:'POST'})).json(); } catch (e) {}
+  if (r?.error) dayModalClose();
+  else if (dayModal && r?.stepping_to) dayModal.day = r.stepping_to;
+  localBusy = false; refresh();
+}
+
+// ---------- live agent activity modal ("dayModal*") ----------
+const DM_ROLE = {strategist:['🧭','Strategist'], manager:['🧑‍💼','Manager'], shadow:['👥','Shadow doer'],
+                 judge:['⚖️','Judge'], cleaner:['🌙','Night cleaner'], summarizer:['📝','Summarizer']};
+const DM_AGENT_ROLE = {doer:'manager', strategist:'strategist', liquid:'judge'};
+let dayModal = null;   // {mode:'day'|'chat', day, t0, stage, seenBusy, feedSeen:Map, doneAt, closeTimer}
+
+function dayModalStages(m) {
+  if (m.mode === 'chat') return [['msg','💬 Message in'], ['manager','🧑‍💼 Manager thinks'], ['replan','🗓 Replans the week']];
+  const st = [['standups','☀️ Standups'], ['manager','🧑‍💼 Manager decides'], ['shadow','👥 Shadow check'], ['night','🌙 Night memory cleanup']];
+  return m.day % 5 === 1 ? [['strategist','🧭 Strategist plans week'], ...st] : st;
+}
+
+function dayModalOpen(mode, day) {
+  clearTimeout(dayModal?.closeTimer);
+  dayModal = {mode, day, t0: Date.now() / 1000, stage: 0, seenBusy: false, feedSeen: null, doneAt: 0, closeTimer: null, calls: 0};
+  $('dm').classList.remove('isdone');
+  $('dm').classList.add('open');
+  dayModalRender();
+}
+
+function dayModalClose() {
+  if (!dayModal) return;
+  clearTimeout(dayModal.closeTimer);
+  $('dm').classList.remove('open', 'isdone');
+  dayModal = null;
+}
+
+function dmRole(c) { return c.role || DM_AGENT_ROLE[c.agent] || c.agent || 'agent'; }
+function dmWhere(model) {
+  const m = String(model || '');
+  const name = /lfm-?2\.5/i.test(m) ? 'Liquid LFM-2.5' : /lfm/i.test(m) ? 'Liquid LFM' : m;
+  const via = m.includes('/') ? 'via OpenRouter' : 'local llama-server';
+  return `<b>${esc(name)}</b> · ${via} · $0`;
+}
+function dmAgo(t) { const s = Math.max(0, Math.round(Date.now() / 1000 - t)); return s < 60 ? s + 's' : Math.floor(s / 60) + 'm'; }
+
+// Map a role / feed kind to the pipeline stage it proves we've reached.
+function dmStageKey(m, role, kind) {
+  if (m.mode === 'chat') {
+    if (kind === 'doer_decision' || kind === 'memory_sql') return 'replan';
+    return role ? 'manager' : null;
+  }
+  if (kind === 'cleaner_op' || role === 'cleaner') return 'night';
+  if (kind === 'divergence' || role === 'shadow' || role === 'judge') return 'shadow';
+  if (kind === 'memory_sql' || kind === 'doer_decision' || role === 'manager') return 'manager';
+  if (kind === 'strategist_plan') return 'standups';
+  if (role === 'strategist') return 'strategist';
+  return null;
+}
+
+const DM_FEED = {
+  memory_sql: ['🔎', 'Manager recalled its own past', 'Tinybird Rawtree — SQL over its own past'],
+  web_result: ['🌐', 'Market check', 'Nimble — live web research'],
+  cleaner_op: ['🌙', 'Night cleaner curated memory', 'sleep-on-it curation (Liquid)'],
+  doer_decision: ['🧑‍💼', 'Manager decided', 'logged to Tinybird Rawtree'],
+  divergence: ['👥', 'Shadow check flagged a divergence', 'judged by Liquid'],
+  strategist_plan: ['🧭', 'Strategist set the week\'s focus', 'logged to Tinybird Rawtree'],
+  world_event: ['🚨', 'Something happened', 'logged to Tinybird Rawtree'],
+  message: ['💬', 'A teammate told the manager', 'logged to Tinybird Rawtree'],
+};
+
+function dayModalRender() {
+  const m = dayModal;
+  if (!m || !S) return;
+  const busy = !!(S.busy || localBusy);
+  if (S.busy) m.seenBusy = true;
+  const now = Date.now() / 1000;
+  // Feed items have sim timestamps only: stamp each one with the moment it first appears.
+  const fkey = e => e.kind + '|' + e.day + '|' + e.text;
+  if (!m.feedSeen) { m.feedSeen = new Map((S.feed || []).map(e => [fkey(e), 0])); }
+  for (const e of (S.feed || [])) if (!m.feedSeen.has(fkey(e))) m.feedSeen.set(fkey(e), now);
+  const acts = (S.activity || []).filter(a => a.t >= m.t0 - 2);
+  const cur = S.current_call && S.current_call.t >= m.t0 - 2 ? S.current_call : null;
+  const fresh = (S.feed || []).filter(e => m.feedSeen.get(fkey(e)) > 0 && DM_FEED[e.kind]);
+
+  // stage: monotonic, from the latest evidence (model calls + new feed events)
+  const stages = dayModalStages(m), idx = k => stages.findIndex(s => s[0] === k);
+  let st = m.stage;
+  if (m.mode === 'chat' && busy) st = Math.max(st, 0);
+  for (const a of acts) st = Math.max(st, idx(dmStageKey(m, dmRole(a), null)));
+  for (const e of fresh) st = Math.max(st, idx(dmStageKey(m, null, e.kind)));
+  if (m.mode === 'day' && acts.length && stages[0][0] === 'standups') st = Math.max(st, idx('manager'));
+  if (m.mode === 'day' && !acts.length && m.day % 5 !== 1) st = Math.max(st, 0);
+  m.stage = st; m.calls = acts.length;
+
+  // done transition
+  const finished = !busy && (m.seenBusy || now - m.t0 > 6);
+  if (finished && !m.doneAt) {
+    m.doneAt = now;
+    const ld = S.last_diff, n = ld && (m.mode === 'chat' || ld.day === m.day) ? ld.changes.length : 0;
+    $('dm').classList.add('isdone');
+    $('dm-done').innerHTML = `<span>✅ <b>${m.mode === 'chat' ? 'The manager replied' : 'Day ' + m.day + ' done'}</b> — the manager's moves are on the board ·
+      ${n} move${n === 1 ? '' : 's'} · ${m.calls} model call${m.calls === 1 ? '' : 's'} · $0</span>
+      <button onclick="dayModalClose()">Show the board</button>`;
+    m.closeTimer = setTimeout(dayModalClose, 4000);
+  }
+
+  const el = Math.round((m.doneAt || now) - m.t0);
+  $('dm-clock').textContent = el + 's';
+  $('dm-title').textContent = m.mode === 'chat' ? 'The manager is thinking…' : `Running day ${m.day}…`;
+  $('dm-sub').textContent = m.mode === 'chat'
+    ? 'A teammate reported something — the manager reads it and may replan the week'
+    : `${dayTs(m.day)} · week ${Math.ceil(m.day / 5)}, day ${(m.day - 1) % 5 + 1} of 5 · every agent runs on Liquid LFM-2.5`;
+  if (m.doneAt) $('dm-title').textContent = m.mode === 'chat' ? 'The manager has answered' : `Day ${m.day} finished`;
+
+  $('dm-stages').innerHTML = stages.map(([k, lbl], i) =>
+    (i ? '<span class="sarr">→</span>' : '') +
+    `<span class="stg ${m.doneAt || i < st ? 'past' : i === st ? 'cur' : ''}">${lbl}</span>`).join('');
+
+  if (cur) {
+    const [ic, nm] = DM_ROLE[dmRole(cur)] || ['🤖', dmRole(cur)];
+    $('dm-now').className = 'now';
+    $('dm-now').innerHTML = `<span class="dot"></span><span><b>${ic} ${esc(nm)}</b> is calling the model
+      <span class="where">→ ${dmWhere(cur.model)}</span></span><span class="secs">${dmAgo(cur.t)}</span>`;
+  } else {
+    $('dm-now').className = 'now idle';
+    $('dm-now').innerHTML = `<span class="dot"></span><span>${acts.length ? 'Between model calls — applying moves, logging to Tinybird Rawtree…'
+      : 'Waiting for the first model call…'}</span>`;
+  }
+
+  const rows = acts.map(a => ({t: a.t, html: (() => {
+      const [ic, nm] = DM_ROLE[dmRole(a)] || ['🤖', dmRole(a)];
+      return `<span class="who">${ic} ${esc(nm)}</span> <span class="via">→ ${dmWhere(a.model)}</span>`; })(), live: a === cur || (cur && a.t === cur.t)}))
+    .concat(fresh.map(e => { const [ic, lbl, via] = DM_FEED[e.kind];
+      const sn = e.kind === 'memory_sql' || e.kind === 'web_result' ? `<span class="sn" title="${esc(e.text)}">${esc(e.text)}</span>` : '';
+      return {t: m.feedSeen.get(fkey(e)), html: `<span class="who">${ic} ${esc(lbl)}</span> <span class="via">→ <b>${esc(via)}</b></span>${sn}`}; }))
+    .sort((a, b) => b.t - a.t).slice(0, 12);
+  $('dm-ticker').innerHTML = rows.length ? rows.map(r =>
+    `<div class="tl ${r.live ? 'fresh' : ''}"><span class="ago">${dmAgo(r.t)}</span><span>${r.html}</span></div>`).join('')
+    : '<div class="empty">Agents are warming up — model calls will stream in here.</div>';
+  $('dm-count').textContent = `${acts.length} model call${acts.length === 1 ? '' : 's'} this run`;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && dayModal) dayModalClose(); });
 
 refresh(); setInterval(refresh, 1500);
 </script>

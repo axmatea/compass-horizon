@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>COMPASS voice console (dev)</title>
+<style>body{font:14px/1.45 system-ui,sans-serif;margin:24px;max-width:900px}button{font:inherit;padding:6px 14px}#status{font-weight:700}table{border-collapse:collapse}td{padding:2px 10px;border-bottom:1px solid #ddd}#log{height:320px;overflow:auto;background:#f6f6f6;padding:8px;font:12px ui-monospace,monospace;white-space:pre-wrap}</style></head>
+<body>
+<h3>COMPASS voice console (dev tool, not the product UI)</h3>
+<p><button id="start">Start talking</button> <button id="stop">Stop</button>
+<label><input type="checkbox" id="hp"> Headphones (full barge-in, no echo guard)</label></p>
+<p>Mode: <span id="mode">-</span> · Status: <span id="status">IDLE</span></p>
+<p><input id="text" size="60" placeholder="or type a turn"> <button id="send">Send</button></p>
+<table id="intent"></table>
+<p>You: <span id="you"></span><br>COMPASS: <span id="said"></span></p>
+<div id="log"></div>
+<script type="module">
+import { createCompassVoice } from '/api/voice/client.js';
+const $ = (id) => document.getElementById(id);
+const log = (...a) => { $('log').textContent += a.map((x) => typeof x === 'string' ? x : JSON.stringify(x)).join(' ') + '\n'; $('log').scrollTop = 1e9; };
+let voice;
+const fields = ['task', 'date', 'time', 'location', 'cuisine', 'party_size'];
+function renderIntent(intent, patch = []) {
+  const by = Object.fromEntries(patch.map((p) => [p.field, p]));
+  $('intent').innerHTML = fields.map((f) => { const p = by[f]; const tag = p ? (p.status === 'kept' ? 'kept' : p.change) : ''; const from = p && p.change === 'updated' ? ` <s>${p.from}</s>` : ''; return `<tr><td>${f}</td><td>${intent[f] ?? ''}${from}</td><td>${tag}</td></tr>`; }).join('');
+}
+$('start').onclick = async () => {
+  voice = createCompassVoice({
+    output: $('hp').checked ? 'headphones' : 'speakers',
+    onStatus: (s) => { $('status').textContent = s; log('status', s); },
+    onMode: (m) => { $('mode').textContent = m; log('mode', m); },
+    onEvent: (e) => { if (e.type === 'state_patch') renderIntent(e.intent, e.patch); if (['state_patch', 'action_invalidated', 'tool_call', 'tool_result', 'say'].includes(e.type)) log(e.type, e.text || e.changed || e.tool || ''); },
+    onTranscript: (t) => { if (t.role === 'user') $('you').textContent = t.text; else $('said').textContent = t.text; log(t.role, t.text); },
+    onMetrics: (m) => log('metrics', m),
+    onError: (e) => log('error', e),
+  });
+  await voice.start();
+};
+$('stop').onclick = () => voice?.stop();
+$('send').onclick = () => { voice?.sendText($('text').value); $('text').value = ''; };
+</script></body></html>

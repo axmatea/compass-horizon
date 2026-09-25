@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://compass-web-production-da39.up.railway.app/sitemap.xml

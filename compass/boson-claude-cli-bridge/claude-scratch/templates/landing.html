@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- SLOT: page title = headline -->
+<title>{{HEADLINE}}</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg-2: #0e0e16;
+    --ink: #f2f2f7;
+    --ink-dim: rgba(242, 242, 247, 0.62);
+    --violet: #7c5cff;
+    --cyan: #38e1ff;
+    --card: rgba(255, 255, 255, 0.045);
+    --card-border: rgba(255, 255, 255, 0.09);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .lp-glow-field {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(600px 420px at 18% -8%, rgba(124, 92, 255, 0.28), transparent 65%),
+      radial-gradient(700px 480px at 85% 12%, rgba(56, 225, 255, 0.14), transparent 65%),
+      radial-gradient(900px 600px at 50% 115%, rgba(124, 92, 255, 0.16), transparent 70%);
+  }
+  .lp-wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Hero ---------- */
+  .lp-hero { padding: 120px 0 72px; text-align: center; }
+  .lp-eyebrow {
+    display: inline-block;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    border: 1px solid rgba(56, 225, 255, 0.28);
+    background: rgba(56, 225, 255, 0.06);
+    border-radius: 999px;
+    padding: 7px 18px;
+    margin-bottom: 34px;
+  }
+  .lp-headline {
+    font-size: clamp(44px, 7.5vw, 84px);
+    font-weight: 800;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+    background: linear-gradient(120deg, #ffffff 30%, #b9a8ff 70%, #7fe8ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 auto 26px;
+    max-width: 15ch;
+  }
+  .lp-subhead {
+    font-size: clamp(17px, 2.2vw, 21px);
+    line-height: 1.6;
+    color: var(--ink-dim);
+    max-width: 56ch;
+    margin: 0 auto 44px;
+  }
+  .lp-cta {
+    display: inline-block;
+    font-size: 17px;
+    font-weight: 700;
+    color: #0a0a0f;
+    text-decoration: none;
+    background: linear-gradient(120deg, var(--violet), var(--cyan));
+    border-radius: 14px;
+    padding: 17px 42px;
+    box-shadow: 0 0 40px rgba(124, 92, 255, 0.45), 0 8px 24px rgba(0, 0, 0, 0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .lp-cta:hover { transform: translateY(-2px); box-shadow: 0 0 60px rgba(124, 92, 255, 0.6), 0 12px 28px rgba(0, 0, 0, 0.5); }
+
+  /* ---------- Hero image (graceful fallback: broken/empty img collapses) ---------- */
+  .lp-hero-media { margin: 72px auto 0; max-width: 920px; }
+  .lp-hero-media img {
+    width: 100%;
+    display: block;
+    border-radius: 18px;
+    border: 1px solid var(--card-border);
+    box-shadow: 0 0 80px rgba(124, 92, 255, 0.22), 0 24px 60px rgba(0, 0, 0, 0.55);
+  }
+  /* if the src token is unfilled or 404s, hide the frame entirely */
+  .lp-hero-media img:not([src]), .lp-hero-media img[src=""], .lp-hero-media img[src^="{{"] { display: none; }
+
+  /* ---------- Features ---------- */
+  .lp-features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    padding: 72px 0 96px;
+  }
+  @media (max-width: 820px) { .lp-features { grid-template-columns: 1fr; } .lp-hero { padding-top: 80px; } }
+  .lp-card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 32px 28px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .lp-card:hover { transform: translateY(-3px); border-color: rgba(124, 92, 255, 0.4); }
+  .lp-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 24px; right: 24px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(124, 92, 255, 0.7), transparent);
+  }
+  .lp-card h3 {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .lp-card p { font-size: 15.5px; line-height: 1.65; color: var(--ink-dim); }
+  .lp-card-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(120deg, var(--violet), var(--cyan));
+    box-shadow: 0 0 14px rgba(124, 92, 255, 0.8);
+    margin-bottom: 20px;
+  }
+
+  /* ---------- Footer ---------- */
+  .lp-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 40px 0 56px;
+    text-align: center;
+    font-size: 14px;
+    color: rgba(242, 242, 247, 0.4);
+    letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body>
+<div class="lp-glow-field"></div>
+<div class="lp-wrap">
+
+  <!-- ===== HERO ===== -->
+  <header class="lp-hero">
+    <!-- SLOT: main headline (short, punchy, ~4-8 words) -->
+    <h1 class="lp-headline">{{HEADLINE}}</h1>
+    <!-- SLOT: subheadline (1-2 sentences, value proposition) -->
+    <p class="lp-subhead">{{SUBHEAD}}</p>
+    <!-- SLOT: call-to-action button text -->
+    <a class="lp-cta" href="#">{{CTA}}</a>
+    <!-- SLOT: optional hero image. Leave the token untouched (or src="") for no image — it hides itself. -->
+    <div class="lp-hero-media"><img src="{{HERO_IMAGE_SRC}}" alt="" onerror="this.style.display='none'"></div>
+  </header>
+
+  <!-- ===== FEATURES (three glass cards) ===== -->
+  <section class="lp-features">
+    <div class="lp-card">
+      <div class="lp-card-dot"></div>
+      <!-- SLOT: feature 1 -->
+      <h3>{{FEATURE_1_TITLE}}</h3>
+      <p>{{FEATURE_1_TEXT}}</p>
+    </div>
+    <div class="lp-card">
+      <div class="lp-card-dot"></div>
+      <!-- SLOT: feature 2 -->
+      <h3>{{FEATURE_2_TITLE}}</h3>
+      <p>{{FEATURE_2_TEXT}}</p>
+    </div>
+    <div class="lp-card">
+      <div class="lp-card-dot"></div>
+      <!-- SLOT: feature 3 -->
+      <h3>{{FEATURE_3_TITLE}}</h3>
+      <p>{{FEATURE_3_TEXT}}</p>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="lp-footer">
+    <!-- SLOT: single footer line (event details, copyright, contact...) -->
+    {{FOOTER_LINE}}
+  </footer>
+
+</div>
+</body>
+</html>

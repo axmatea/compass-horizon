@@ -6,18 +6,66 @@ Holds one in-memory Run. Endpoints:
   POST /api/step          advance one simulated day (async; busy flag in state)
   POST /api/inject        {"ticket": "B3", "days": 1, "note": "..."} provider delay
 """
+import collections
 import json
 import sqlite3
+import sys
 import threading
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 from remaster import world as W
+from remaster.ops import idle_fallback, staff_free
 from remaster.sim import Run
 
 LOCK = threading.Lock()
 RUN = Run("remaster", days=W.DAYS, run_id=None, out_dir="runs", flux_weeks=set(), verbose=True)
-STATE = {"day": 0, "busy": False, "last_diff": None, "injected": [], "ack": None}
+STATE = {"day": 0, "busy": False, "last_diff": None, "injected": [], "ack": None,
+         "activity": collections.deque(maxlen=30), "current_call": None}
+
+_ROLE_BY_CLASS = {"Strategist": "strategist", "Cleaner": "cleaner", "Judge": "judge",
+                  "Summarizer": "summarizer"}
+
+
+def _caller_role():
+    """Best-effort: which agent (by calling class) is making this LLM call."""
+    f = sys._getframe(2)
+    for _ in range(12):
+        if f is None:
+            break
+        me = f.f_locals.get("self")
+        cls = type(me).__name__ if me is not None else ""
+        if cls in _ROLE_BY_CLASS:
+            return _ROLE_BY_CLASS[cls]
+        if cls == "Doer":
+            ag = str(f.f_locals.get("agent") or "")
+            return "shadow" if ag.startswith("shadow") or ag == "oracle" else "manager"
+        f = f.f_back
+    return "manager"
+
+
+def _wrap_llm(client):
+    orig = client.json
+    name = str(getattr(client, "name", "llm"))
+    agent, _, model = name.partition(":")
+
+    def json_logged(*a, **kw):
+        call = {"agent": agent, "model": model, "t": time.time(), "role": _caller_role()}
+        STATE["activity"].append(call)
+        STATE["current_call"] = call
+        try:
+            return orig(*a, **kw)
+        finally:
+            STATE["current_call"] = None
+    client.json = json_logged
+
+
+_seen = set()
+for _c in (getattr(RUN, "doer_llm", None), getattr(RUN, "strat_llm", None), getattr(RUN, "liquid", None)):
+    if _c is not None and id(_c) not in _seen:
+        _seen.add(id(_c))
+        _wrap_llm(_c)
 
 
 def snapshot_assignees():
@@ -31,16 +79,21 @@ def do_step():
         RUN.step(day)
     except Exception as e:  # keep the demo alive no matter what
         print(f"step {day} error: {e}", flush=True)
+    fb = staff_free(RUN.world, day) + idle_fallback(RUN.world, day)
+    if fb:
+        RUN.world.apply_assignments(fb)
+        txt = "; ".join(f"{a['ticket']}->{a['person']}" for a in fb)
+        eid = RUN.log("doer1", "doer_decision", day, f"Staffing policy: {txt}", assignments=fb)
+        RUN.add_block(eid, day, "doer_decision", f"Staffing policy: {txt}")
     after = snapshot_assignees()
     changes = [{"ticket": t, "from": before[t], "to": after[t]}
                for t in before if before[t] != after[t]]
     reasons = {}
     try:
         db = sqlite3.connect(RUN.dir / "events.db")
-        row = db.execute("select data from events where kind='doer_decision' and day=? "
-                         "order by seq desc limit 1", (day,)).fetchone()
-        if row and row[0]:
-            for a in (json.loads(row[0]).get("assignments") or []):
+        for (data,) in db.execute("select data from events where kind='doer_decision' "
+                                  "and day=? order by seq", (day,)):
+            for a in (json.loads(data or "{}").get("assignments") or []):
                 if a.get("ticket") and a.get("reason"):
                     reasons[a["ticket"]] = a["reason"]
         db.close()
@@ -73,9 +126,18 @@ def replan(day, trigger):
     except Exception as e:
         print(f"replan error: {e}", flush=True)
         dec = {}
+    # Nobody-idles policy: if the model left someone parked on a blocked ticket,
+    # move them mechanically to their best ready ticket.
+    fb = idle_fallback(RUN.world, day)
+    if fb:
+        RUN.world.apply_assignments(fb)
+        txt = "; ".join(f"{a['ticket']}->{a['person']}" for a in fb)
+        eid = RUN.log("doer1", "doer_decision", day,
+                      f"Nobody-idles policy: {txt}", assignments=fb)
+        RUN.add_block(eid, day, "doer_decision", f"Nobody-idles policy: {txt}")
     after = snapshot_assignees()
     reasons = {(a.get("ticket") or ""): a.get("reason") or ""
-               for a in (dec.get("assignments") or [])}
+               for a in list(dec.get("assignments") or []) + fb}
     changes = [{"ticket": t, "from": before[t], "to": after[t], "reason": reasons.get(t, "")}
                for t in before if before[t] != after[t]]
     STATE["last_diff"] = {"day": day, "changes": changes}
@@ -83,7 +145,7 @@ def replan(day, trigger):
 
 
 def do_say(person, text):
-    """A team member talks to the scrum master; it interprets, adjusts, replans."""
+    """A team member talks to the company manager; it interprets, adjusts, replans."""
     day = max(STATE["day"], 1)
     eid = RUN.log("team", "message", day, f"{person} says: {text}", person=person)
     RUN.add_block(eid, day, "message", f"{person} says: {text}", person)
@@ -91,7 +153,7 @@ def do_say(person, text):
     try:
         out = RUN.doer_llm.json([
             {"role": "system", "content":
-             "You are the scrum master's intake. A team member sent a message. Decide if any "
+             "You are the company manager's intake. A team member sent a message. Decide if any "
              "board ticket must be DELAYED because of it.\nBoard:\n" + RUN.world.board(day)},
             {"role": "user", "content":
              f'{person} says: "{text}"\nReturn JSON only: '
@@ -171,6 +233,7 @@ def state():
             "week": (max(day, 1) - 1) // 5 + 1, "demo_day": W.DEMO_DAY,
             "busy": STATE["busy"], "last_diff": STATE["last_diff"], "injected": STATE["injected"],
             "ack": STATE["ack"],
+            "activity": list(STATE["activity"]), "current_call": STATE["current_call"],
             "people": ppl, "tickets": tickets,
             "work_log": [[d, p, t] for d, p, t, _ in RUN.world.log][-400:],
             "memory": {"ctx_tokens": mem["tokens"], "visible": mem["visible"],
@@ -216,9 +279,13 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, inject(body.get("ticket"), body.get("days", 1),
                                               body.get("note", "")))
         if self.path == "/api/say":
-            person, text = body.get("person"), (body.get("text") or "").strip()
-            if person not in W.PEOPLE or not text:
+            person, text = body.get("person") or "founder", (body.get("text") or "").strip()
+            if (person not in W.PEOPLE and person != "founder") or not text:
                 return self._send(400, {"error": "need person + text"})
+            tid = str(body.get("ticket") or "").strip().upper()
+            t = RUN.world.tickets.get(tid)
+            if t:
+                text = f"[about {t['id']} - {t['title']}] {text}"
             with LOCK:
                 if STATE["busy"]:
                     return self._send(409, {"error": "busy"})

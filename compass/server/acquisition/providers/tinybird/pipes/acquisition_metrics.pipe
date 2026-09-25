@@ -1,0 +1,28 @@
+DESCRIPTION >
+    Latest state per lead and tenant, independent of insertion order and retry count.
+    Backend-only. tenant_key is required; never expose a workspace token to a browser.
+
+NODE latest_leads
+SQL >
+    %
+    SELECT tenant_key, lead_key,
+        argMax(tuple(experiment_key, qualification, deleted), tuple(version, event_id)) AS current
+    FROM acquisition_lead_versions
+    WHERE tenant_key = {{ String(tenant_key) }}
+        AND mode = {{ String(mode) }}
+    GROUP BY tenant_key, lead_key
+
+NODE metrics
+SQL >
+    SELECT
+        tupleElement(current, 1) AS experiment_key,
+        count() AS total,
+        countIf(tupleElement(current, 2) = 'QUALIFIED') AS qualified,
+        countIf(tupleElement(current, 2) = 'NEEDS_CONTEXT') AS unresolved,
+        countIf(tupleElement(current, 2) = 'NOT_ICP') AS not_icp
+    FROM latest_leads
+    WHERE tupleElement(current, 3) = 0
+    GROUP BY experiment_key
+    ORDER BY experiment_key
+
+TYPE ENDPOINT

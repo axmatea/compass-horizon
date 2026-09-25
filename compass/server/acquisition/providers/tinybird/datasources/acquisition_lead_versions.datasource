@@ -1,0 +1,16 @@
+DESCRIPTION >
+    HMAC-pseudonymized lead states. No contact identifiers, free text, budgets or raw events.
+    Retain versions for deterministic query-time deduplication. Not an event counter.
+
+SCHEMA >
+    `tenant_key` String `json:$.tenant_key`,
+    `lead_key` String `json:$.lead_key`,
+    `mode` String `json:$.mode`,
+    `version` UInt64 `json:$.version`,
+    `experiment_key` String `json:$.experiment_key`,
+    `qualification` String `json:$.qualification`,
+    `deleted` UInt8 `json:$.deleted`,
+    `event_id` String `json:$.event_id`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "tenant_key, lead_key, version, event_id"

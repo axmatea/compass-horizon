@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>REMaster — how it works</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; color: #1a1f2b; background: #fff; }
+  .page { width: 296mm; height: 209mm; padding: 12mm 16mm; page-break-after: always; position: relative; }
+  .page:last-child { page-break-after: auto; }
+  .kick { color: #b45309; font-weight: 800; font-size: 11px; letter-spacing: 2px; }
+  h1 { font-size: 26px; letter-spacing: -.3px; margin: 2mm 0 1.5mm; }
+  .lede { color: #4b5563; font-size: 13.5px; }
+  .lede b { color: #111; }
+  img.graph { width: 100%; border-radius: 10px; margin-top: 5mm; display: block; }
+  .quote { background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 10px;
+           padding: 3.5mm 5mm; margin-top: 5mm; font-size: 13px; line-height: 1.5; color: #453a16; }
+  .quote b { color: #92400e; }
+  .srow { display: flex; gap: 6mm; margin: 6.5mm 0; align-items: center; }
+  .stag { flex: none; width: 52mm; border-radius: 9px; padding: 4mm; font-weight: 800; font-size: 15px; text-align: center; }
+  .liquid { background: #f5f0fa; color: #7e22ce; border: 1.5px solid #d8c3ee; }
+  .rawtree { background: #ecfdf8; color: #0f766e; border: 1.5px solid #99e5d3; }
+  .nimble { background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfd7fe; }
+  .flux { background: #fdf1f4; color: #be123c; border: 1.5px solid #fbcfd8; }
+  .srow p { font-size: 15px; line-height: 1.5; color: #374151; }
+  .srow b { color: #111; }
+  .foot { position: absolute; bottom: 7mm; left: 16mm; right: 16mm; display: flex;
+          justify-content: space-between; color: #9ca3af; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="kick">REMASTER · LONG HORIZON AGENTS HACKATHON</div>
+  <h1>The AI company manager that sleeps on it</h1>
+  <p class="lede">It ran a 10-person startup for a full quarter on a <b>~400-token working memory</b> —
+  because it <b>forgets on purpose</b>, tests its own forgetting with three delayed copies of itself,
+  and restores the <b>exact fact</b> when a decision would change.</p>
+
+  <img class="graph" src="runs/graph_innovation.png" alt="The innovation">
+
+  <div class="foot"><span>REMaster · the innovation</span><span>1 / 2</span></div>
+</div>
+
+<div class="page">
+  <div class="kick">REMASTER · THE STACK</div>
+  <h1>Four tools, four load-bearing jobs</h1>
+
+  <div style="margin-top:7mm;"></div>
+
+  <div class="srow">
+    <div class="stag liquid">Liquid<br>LFM-2.5 · 2.6B</div>
+    <p><b>Every brain.</b> All six agent roles think with one tiny model, via API — <b>$0 total</b>.
+    Long horizons need architecture, not giant models.</p>
+  </div>
+
+  <div class="srow">
+    <div class="stag rawtree">Tinybird<br>Rawtree</div>
+    <p><b>The memory.</b> Every event appended forever. The manager runs <b>SQL over its own past</b> —
+    and lost facts are restored from here.</p>
+  </div>
+
+  <div class="srow">
+    <div class="stag nimble">Nimble</div>
+    <p><b>The outside world.</b> "Our vendor slipped" → the agent researches alternatives on the
+    <b>live web</b> before replanning.</p>
+  </div>
+
+  <div class="srow">
+    <div class="stag flux">Black Forest Labs<br>FLUX 3</div>
+    <p><b>The Monday briefing.</b> The weekly plan becomes a 10-second <b>voiced video</b> for the team.</p>
+  </div>
+
+  <div class="quote"><b>Live demo:</b> pick any teammate on the week board, type "our provider got
+  delayed" — watch it recall (Rawtree), research (Nimble), reply and reshuffle the week. Every
+  thought is Liquid.</div>
+
+  <div class="foot"><span>REMaster · the stack</span><span>2 / 2</span></div>
+</div>
+
+</body>
+</html>

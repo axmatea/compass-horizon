@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#05080b">
+  <title>COMPASS · Proof: change intent mid-action</title>
+  <meta name="description" content="Proof of the core COMPASS capability: change your intent while the agent is already acting. It keeps what still holds, drops what the change invalidated, and adapts the next action.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    @font-face{font-family:Compass;src:url("/fonts/dm-sans.ttf") format("truetype");font-display:swap;font-weight:100 1000}
+    html{background:#05080b;color-scheme:dark}
+    body{margin:0;min-height:100svh;background:radial-gradient(60% 45% at 50% 26%,#0d1a22 0,transparent 70%),radial-gradient(120% 40% at 50% 115%,#12283599 0,transparent 60%),#05080b;color:#f0f5f8;font-family:'Avenir Next',Compass,Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    .masthead{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:27px 4.5vw;background:linear-gradient(#05080be6,#05080b00);font-size:12px}
+    .wordmark{font-size:15px;letter-spacing:.44em;font-weight:500}
+    .wordmark{display:inline-flex;align-items:center;gap:11px;font-family:'Sora',system-ui,sans-serif;font-weight:380;font-size:15px;letter-spacing:.34em}
+    .wordmark svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.3}
+    @font-face{font-family:'Sora';src:url(/src/site/fonts/sora-variable.ttf) format('truetype-variations');font-weight:100 900;font-display:swap}
+    .concept{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.09em;color:#c1cbd1;display:flex;align-items:center;gap:8px}
+    .concept i{width:4px;height:4px;border-radius:50%;background:#bedced;box-shadow:0 0 10px #b7e0ff}
+    .header-actions{display:flex;gap:28px}
+    .header-actions a{opacity:.8}.header-actions a:hover{opacity:1}
+    .live-page{max-width:1500px;margin:0 auto;padding:1vh 3vw 40px}
+    .live-head{margin:2vh 0 30px}
+    .live-head p{margin:0 0 16px;font-size:10px;letter-spacing:.2em;color:#9fb3bf}
+    .live-head h1{margin:0;font-size:clamp(34px,4.6vw,64px);line-height:1.06;letter-spacing:-.035em;font-weight:400}
+    .live-head h1 span{color:#8fa9b8}
+    .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    @view-transition{navigation:auto}
+    ::view-transition-group(compass-orb){animation-duration:.55s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+    @media(prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+    
+    .compass-demo .cd-disclosure{color:#8fa2ad}.compass-demo .cd-disclosure-dot{background:#bedced;box-shadow:0 0 8px #b7e0ff}
+    @media(max-width:700px){.masthead{padding:20px 6vw}.wordmark{font-size:12px;letter-spacing:.35em}.concept{display:none}.header-actions{gap:16px;font-size:11px}.live-page{padding:4px 4vw 50px}.live-head{margin:0 0 16px}.live-head h1{font-size:clamp(26px,7.4vw,34px)}.live-head p{margin-bottom:10px}}
+  </style>
+</head>
+<body>
+  <header class="masthead"><a class="wordmark" href="/" aria-label="COMPASS home"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</a><nav class="header-actions" aria-label="Site"><a href="/presentation">Presentation</a></nav></header>
+  <main class="live-page">
+    <h1 class="sr-only">Proof: change your intent mid-action</h1>
+    <div id="compass-live-root"></div>
+  </main>
+  <script type="module" src="/src/site-demo/main.tsx"></script>
+</body>
+</html>

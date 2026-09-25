@@ -7,6 +7,8 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Override default ignores of eslint-config-next.
   globalIgnores([
+    // The COMPASS site (Vite + Node) lives in compass/ with its own toolchain.
+    "compass/**",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",

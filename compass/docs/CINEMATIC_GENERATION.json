@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "approved_cap": 200,
+  "approval": "User explicitly approved up to 200 credits for 3 images and 3 clips, no paid retries or credit purchases.",
+  "submitted_estimated_credits": 181.5,
+  "planned_total": 181.5,
+  "balance_before": 706.7,
+  "jobs": [
+    {
+      "key": "01-chaos",
+      "prompt": "Use the reference image as the exact fictional adult woman's identity anchor (about 28 years old): same facial features, dark hair in a low bun, tailored black jacket over a dark top. Same refined dark blue-hour studio with large window, desk and unbranded black phone, restrained silver blue practical light, cinematic natural skin, premium photographic realism. 16:9 landscape, safe central subject framing also usable as portrait crop. No lettering, no UI, no logos, no holograms, no generated orb. Wide medium portrait at the start of a work session. She sits at her desk with closed notebook and laptop and holds her phone at chest height, a thoughtful slightly uncertain expression, no theatrical distress. Woman in center-right, face at x62% y38%, generous dark negative space on left for later real HTML copy. Medium 50mm lens, elegant disciplined composition. Incoming transition: immediate human scene out of black. Outgoing transition: camera will push slightly toward the phone and her face to connect to a speaking close-up. Single clean frame, not a storyboard.",
+      "image_job": "734decea-44f7-4b24-b75d-d16cf8ebacc7",
+      "image_model": "gpt_image_2",
+      "image_cost": 6.5,
+      "status": "video_pending",
+      "video_model": "seedance_2_5",
+      "video_duration": 6,
+      "video_cost_estimate": 54,
+      "image_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3BjoAsbSmrEddtgkWbdaoElDQLd/hf_20260918_035945_734decea-44f7-4b24-b75d-d16cf8ebacc7.png",
+      "video_job": "4a8ac890-fd55-453b-bf9f-66e6f3a2c668",
+      "video_prompt": "A single continuous 6-second cinematic take starting from this exact frame. Preserve this same adult woman's identity, black tailored jacket and dark top, low bun, desk, phone and blue-hour lighting. She glances from her phone toward the laptop, takes a small natural breath and raises the phone slightly to begin a thought. A precise 5 percent camera push-in resolves within the first 2 seconds, then holds; natural real-time motion, never slow motion. Keep the adult face sharp, hands physically correct, no new props, no inserted cuts. Leave the left side quiet for real HTML typography later. No text, no subtitles, no UI, no holograms, no artificial orb, no audio. This is the uncertainty-to-speaking transition in a continuous website."
+    },
+    {
+      "key": "02-speak",
+      "prompt": "Use the reference image as the exact fictional adult woman's identity anchor (about 28 years old): same facial features, dark hair in a low bun, tailored black jacket over a dark top. Same refined dark blue-hour studio with large window, desk and unbranded black phone, restrained silver blue practical light, cinematic natural skin, premium photographic realism. 16:9 landscape, safe central subject framing also usable as portrait crop. No lettering, no UI, no logos, no holograms, no generated orb. Intimate three-quarter side profile close-up of the exact same woman in the same position at the same desk. Phone held below chin, she is about to speak thoughtfully, lips relaxed slightly parted, natural human behavior. Frame face and phone together in central-right portion, camera at eye height with 85mm portrait feel. Window light makes one subtle circular reflection on phone surface which will match into a digitally composited orb. Incoming: continue controlled push from medium portrait. Outgoing: background falls softly to darkness so a composited white orb can carry the scene. Single still.",
+      "image_job": "dfe357d8-6590-427b-b25a-129d6d52b1a3",
+      "image_model": "gpt_image_2",
+      "image_cost": 6.5,
+      "status": "video_pending",
+      "video_model": "seedance_2_5",
+      "video_duration": 6,
+      "video_cost_estimate": 54,
+      "image_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3BjoAsbSmrEddtgkWbdaoElDQLd/hf_20260918_035948_dfe357d8-6590-427b-b25a-129d6d52b1a3.png",
+      "video_job": "abc85bee-5a1b-472a-b064-3097da1ff543",
+      "video_prompt": "A single continuous 6-second cinematic close-up starting from the exact reference. Preserve the same adult woman's facial identity, low bun, dark jacket, phone and blue-hour studio. She speaks one brief thoughtful phrase softly without exaggerated mouth movement, then pauses to think, with a tiny natural correction gesture using the wrist holding the phone. Gentle 3 percent controlled camera push, eye level, realistic breathing and blinking; natural real-time motion. Do not change location, outfit, phone, or light; no text, no subtitle, no UI, no orb and no audio. The last second holds still with dark negative space at left to transition into a digitally rendered sphere."
+    },
+    {
+      "key": "03-progress",
+      "prompt": "Use the reference image as the exact fictional adult woman's identity anchor (about 28 years old): same facial features, dark hair in a low bun, tailored black jacket over a dark top. Same refined dark blue-hour studio with large window, desk and unbranded black phone, restrained silver blue practical light, cinematic natural skin, premium photographic realism. 16:9 landscape, safe central subject framing also usable as portrait crop. No lettering, no UI, no logos, no holograms, no generated orb. Medium-wide side view of same woman at same desk and same blue-hour lighting. She is calmly setting her unbranded black phone down beside her laptop and returning attention to her work, a subtle relieved focused expression. Upright natural posture; no artificial smile; hands physically plausible. Keep laptop display oblique with plain dark content, no text. Subject centered so face remains inside mobile crop. Incoming: upward wipe reveals the human behind a draft UI. Outgoing: clean dark desk foreground with vertical laptop edge provides an elegant wipe into the real HTML product demo. Single photographic frame.",
+      "image_job": "82173978-7b66-4c8f-8064-a6d1b08db638",
+      "image_model": "gpt_image_2",
+      "image_cost": 6.5,
+      "status": "video_pending",
+      "video_model": "seedance_2_5",
+      "video_duration": 6,
+      "video_cost_estimate": 54,
+      "image_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3BjoAsbSmrEddtgkWbdaoElDQLd/hf_20260918_035951_82173978-7b66-4c8f-8064-a6d1b08db638.png",
+      "video_job": "1c37d989-dc51-485e-9852-c5c3f4dfa077",
+      "video_prompt": "A single continuous 6-second cinematic shot starting from this exact reference. The same adult woman in her black jacket at the same blue-hour desk shifts attention fully to the laptop and types a few calm keystrokes, her phone remaining motionless on the desk. Subtle focused relief, believable hands, no dramatic smiles. The camera tracks smoothly upward by a small amount then settles, no lateral whip, no cuts. Preserve face, wardrobe and environment, keep screen oblique and unreadable. No generated words, no logos, no UI, no orb, no sound. Website transition meaning: an unsent reply draft has freed her attention to resume work. Natural real-time human behavior, not slow motion."
+    }
+  ]
+}

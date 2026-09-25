@@ -1,0 +1,13 @@
+/* Presentation scene: the live Horizon inside /presentation. */
+.scene-horizon{justify-content:center;padding-top:84px;padding-bottom:64px}
+.scene-horizon .scene-copy{width:min(1400px,92vw);max-width:none;margin:0 auto}
+.scene-horizon h2{margin-bottom:0}
+.hz-frame{margin:18px 0 0;width:100%;height:min(62vh,calc(92vw * 9 / 16));border-radius:16px;overflow:hidden;border:1px solid #d4b87633;background:#0d0d0c;box-shadow:0 50px 140px -50px #000}
+.hz-frame iframe{display:block;width:100%;height:100%;border:0;background:#0d0d0c}
+.hz-links{display:flex;gap:20px;margin-top:14px;font-size:13px;letter-spacing:.04em}
+.hz-links a{color:#d4b876;text-decoration:none;opacity:.85}
+.hz-links a:hover{opacity:1;text-decoration:underline}
+@media(max-width:700px){.scene-horizon{padding:92px 4vw 100px}.hz-frame{height:70vh;border-radius:10px}}
+/* REMaster diagrams (wide, about 2:1): use the full stage width. */
+.scene-diagram[id^="scene-rm"]{padding-top:72px;padding-bottom:56px}
+.scene-diagram[id^="scene-rm"] .scene-copy{width:min(1560px,94vw,calc((100vh - 190px) * 2560 / 1264));max-width:none;margin:0 auto}

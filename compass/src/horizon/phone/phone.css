@@ -1,0 +1,327 @@
+/* COMPASS phone view. Device frame on desktop, full screen on a real phone. */
+
+.ph-page {
+  --ph-bg: #0d0d0c;
+  --ph-gold: #d4b876;
+  --ph-cream: #efe7d6;
+  --ph-muted: rgba(239, 231, 214, 0.5);
+  --ph-tick: rgba(239, 231, 214, 0.28);
+  --ph-faint: rgba(239, 231, 214, 0.12);
+  --ph-serif: Georgia, "Times New Roman", serif;
+  --ph-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: var(--ph-bg);
+  color: var(--ph-cream);
+  font-family: var(--ph-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Device: 390 x 844 logical, scaled to fit the viewport height. */
+.ph-device {
+  --ph-h: min(844px, calc(100svh - 40px));
+  position: relative;
+  height: var(--ph-h);
+  width: calc(var(--ph-h) * 0.46209);
+  aspect-ratio: 390 / 844;
+  container-type: size;
+  padding: 3px;
+  border-radius: 56px;
+  background: linear-gradient(145deg, #57554f 0%, #2a2926 38%, #1b1a18 62%, #45433e 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.85),
+    0 40px 90px -24px rgba(0, 0, 0, 0.75),
+    0 0 80px -30px rgba(212, 184, 118, 0.18);
+}
+
+.ph-bezel {
+  height: 100%;
+  padding: 9px;
+  border-radius: 53px;
+  background: #000;
+}
+
+.ph-screen {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 2cqh;
+  padding: 7cqh 22px 3.2cqh;
+  background:
+    radial-gradient(120% 55% at 50% 30%, rgba(212, 184, 118, 0.07), transparent 62%),
+    var(--ph-bg);
+}
+
+.ph-island {
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  width: 31%;
+  height: 4.1cqh;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #000;
+}
+
+.ph-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.ph-mark {
+  font-family: var(--ph-serif);
+  font-size: 13px;
+  letter-spacing: 0.38em;
+  color: var(--ph-cream);
+}
+
+.ph-day {
+  font-family: var(--ph-serif);
+  font-size: 15px;
+  color: var(--ph-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.ph-hero {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1cqh;
+  text-align: center;
+}
+
+.ph-dial {
+  display: block;
+  width: min(220px, 27cqh, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.ph-letter {
+  font-family: var(--ph-serif);
+  font-size: 17px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  transition: fill 400ms ease;
+}
+
+.ph-needle {
+  transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ph-num {
+  font-family: var(--ph-serif);
+  font-size: min(68px, 8.4cqh);
+  line-height: 1.05;
+  min-height: 1.05em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ph-cream);
+  font-variant-numeric: tabular-nums;
+}
+
+.ph-num-text {
+  font-size: min(28px, 3.6cqh);
+  letter-spacing: 0.02em;
+  color: var(--ph-cream);
+}
+
+.ph-status {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ph-gold);
+}
+
+.ph-caption {
+  margin: 0.4cqh 0 0;
+  max-width: 30ch;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ph-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Mini timeline */
+.ph-time {
+  display: grid;
+  gap: 8px;
+}
+
+.ph-strip {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ph-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  accent-color: var(--ph-gold);
+}
+
+.ph-range::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--ph-gold) var(--ph-fill, 0%), var(--ph-faint) var(--ph-fill, 0%));
+}
+
+.ph-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--ph-bg);
+  border: 1.5px solid var(--ph-gold);
+  box-shadow: 0 0 0 4px rgba(212, 184, 118, 0.12);
+}
+
+.ph-range::-moz-range-track {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ph-faint);
+}
+
+.ph-range::-moz-range-progress {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ph-gold);
+}
+
+.ph-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ph-bg);
+  border: 1.5px solid var(--ph-gold);
+  box-shadow: 0 0 0 4px rgba(212, 184, 118, 0.12);
+}
+
+.ph-range:focus-visible {
+  outline: 1px solid var(--ph-gold);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+/* Bottom */
+.ph-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2cqh;
+}
+
+.ph-play {
+  width: min(64px, 8cqh);
+  aspect-ratio: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--ph-gold);
+  background: rgba(212, 184, 118, 0.06);
+  color: var(--ph-gold);
+  cursor: pointer;
+  transition: background 200ms ease, transform 150ms ease;
+}
+
+.ph-play:hover {
+  background: rgba(212, 184, 118, 0.14);
+}
+
+.ph-play:active {
+  transform: scale(0.96);
+}
+
+.ph-play:focus-visible {
+  outline: 1px solid var(--ph-gold);
+  outline-offset: 4px;
+}
+
+.ph-play svg {
+  width: 42%;
+  height: 42%;
+  fill: currentColor;
+}
+
+.ph-honest {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--ph-muted);
+}
+
+/* Reduced motion: no transitions. */
+.ph-still .ph-needle,
+.ph-still .ph-letter,
+.ph-still .ph-play {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ph-needle,
+  .ph-letter,
+  .ph-play {
+    transition: none;
+  }
+}
+
+/* Real phone: no frame, fill the screen, respect safe areas.
+   Bottom padding leaves room for the fixed view switcher (.cp-phone-bar). */
+@media (max-width: 520px) {
+  .ph-page {
+    display: block;
+    padding: 0;
+  }
+
+  .ph-device {
+    --ph-h: 100svh;
+    width: 100%;
+    height: 100svh;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .ph-bezel {
+    padding: 0;
+    border-radius: 0;
+    background: none;
+  }
+
+  .ph-screen {
+    border-radius: 0;
+    padding:
+      calc(16px + env(safe-area-inset-top))
+      calc(20px + env(safe-area-inset-right))
+      calc(64px + env(safe-area-inset-bottom))
+      calc(20px + env(safe-area-inset-left));
+  }
+
+  .ph-island {
+    display: none;
+  }
+}

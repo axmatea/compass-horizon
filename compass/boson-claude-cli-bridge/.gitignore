@@ -1,0 +1,11 @@
+# runtime artifacts — never commit
+.access-token
+*.log
+session-archive/
+qa/
+demo-baseline/
+# claude-scratch is Claude's live working dir; only the playbook and
+# templates are part of the system
+claude-scratch/*
+!claude-scratch/CLAUDE.md
+!claude-scratch/templates/

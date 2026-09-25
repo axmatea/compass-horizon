@@ -16,6 +16,11 @@ Vincent's Python backend is preserved in `remaster/` but not connected to this U
 See [migration boundaries](docs/OFFICE_DESIGN_MIGRATION.md) and
 [speaker script](src/office/story/SPEAKER_SCRIPT.md).
 
+## COMPASS product (compass/)
+
+The full COMPASS product lives in `compass/`: the cinematic website (Six people. One shared memory. One team.), the office workspace (`/office`, `/app`), the presentation (`/presentation`), the voice proof (`/demo`) and the Horizon (`/horizon`). Narrative source of truth: `compass/docs/NARRATIVE.md`.
+It has its own toolchain (Vite + Node): `cd compass && npm ci && npm run build && node server.mjs`. Live at https://mycompass.world (Railway). The root Next.js app ignores this folder (tsconfig, eslint, .vercelignore).
+
 ## Preserved Horizon example
 
 COMPASS shows an acquisition agent learning, day by day. Two campaigns run for 21 days: A (Free AI Audit) brings cheap, fast leads and B (CPA Autopilot) brings slow, busy buyers. The Horizon graph puts every event on a lane by the day the agent learned it. The agent leans A on Day 3, goes back to unsure on Day 6 when busy buyers answer, changes its mind on Day 9 and tightens its own rule, is confirmed on Day 11 when late CRM data arrives, and B closes $18,000 on Day 21. Drag the handle to see exactly what the agent knew on any day.

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>REMaster — the AI company manager that sleeps on it</title>
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  :root { --ink:#111827; --mute:#4b5563; --line:#e5e7eb; --soft:#f9fafb; --acc:#f59e0b; --acc-soft:#fef3c7; --acc-ink:#92400e; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:#fff; color:var(--ink);
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; }
+  .page { width:210mm; height:297mm; padding:15mm 18mm 14mm; position:relative; overflow:hidden;
+    page-break-after: always; break-after: page; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .kicker { font-size:9pt; letter-spacing:.14em; text-transform:uppercase; color:var(--acc-ink); font-weight:700; margin:0 0 4mm; }
+  .kicker b { display:inline-block; background:var(--acc); color:#fff; border-radius:3px; padding:0 6px; margin-right:6px; }
+  h1 { font-size:30pt; line-height:1.05; margin:0 0 3mm; letter-spacing:-.02em; }
+  h2 { font-size:21pt; line-height:1.15; margin:0 0 4mm; letter-spacing:-.01em; }
+  h3 { font-size:13pt; margin:0 0 2mm; }
+  p { margin:0 0 3.5mm; }
+  .lead { font-size:12.5pt; color:var(--mute); line-height:1.4; margin-bottom:5mm; }
+  .acc { color:var(--acc-ink); }
+  .rule { height:4px; width:28mm; background:var(--acc); border-radius:2px; margin:0 0 5mm; }
+  .foot { position:absolute; left:18mm; right:18mm; bottom:9mm; font-size:8.5pt; color:#9ca3af;
+    display:flex; justify-content:space-between; border-top:1px solid var(--line); padding-top:2mm; }
+  code { font-family: Menlo, Consolas, monospace; font-size:.9em; background:var(--soft); border:1px solid var(--line); padding:0 4px; border-radius:3px; }
+
+  /* page 1 */
+  .deaths { display:grid; grid-template-columns:1fr 1fr; gap:5mm; margin:3mm 0 5mm; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:4mm 5mm; background:#fff; }
+  .card.soft { background:var(--soft); }
+  .card h3 .tag { font-size:8.5pt; font-weight:700; color:#b91c1c; background:#fee2e2; border-radius:3px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
+  .facts { display:grid; grid-template-columns:1fr 1fr; gap:3mm; margin:2mm 0 4mm; }
+  .fact { border-left:4px solid var(--acc); background:var(--acc-soft); padding:2.2mm 4mm; border-radius:0 6px 6px 0; font-weight:600; }
+  .timeline { display:flex; align-items:stretch; gap:0; margin:3mm 0 5mm; }
+  .tl { flex:1; padding:3mm 4mm; border:1px solid var(--line); background:#fff; font-size:10pt; }
+  .tl + .tl { border-left:none; }
+  .tl .wk { font-weight:800; font-size:9pt; color:var(--mute); letter-spacing:.08em; }
+  .tl.bad { background:#fef2f2; border-color:#fecaca; }
+  .callout { border:2px solid var(--acc); border-radius:10px; padding:4mm 5mm; font-size:11.5pt; }
+
+  /* page 2: loop */
+  .loop { display:grid; grid-template-columns: 1fr 9mm 1fr; grid-template-rows: auto 7mm auto; gap:0; margin:2mm 0 5mm; }
+  .step { border:1.5px solid var(--ink); border-radius:10px; padding:4mm 5mm; background:#fff; min-height:40mm; }
+  .step .n { display:inline-block; width:7mm; height:7mm; line-height:7mm; text-align:center; border-radius:50%; background:var(--acc); color:#fff; font-weight:800; font-size:10pt; margin-right:2mm; }
+  .step h3 { font-size:14pt; display:flex; align-items:center; margin-bottom:2mm; }
+  .step p { font-size:10pt; margin:0 0 1.5mm; color:#1f2937; }
+  .step .who { font-size:8.5pt; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); font-weight:700; margin-bottom:1.5mm; }
+  .ops { display:flex; gap:1.5mm; flex-wrap:wrap; margin-top:1.5mm; }
+  .op { font-size:8.5pt; font-weight:700; border:1px solid var(--acc); color:var(--acc-ink); background:var(--acc-soft); border-radius:20px; padding:0 7px; }
+  .arr { display:flex; align-items:center; justify-content:center; color:var(--acc); font-size:20pt; font-weight:900; }
+  .center { display:flex; align-items:center; justify-content:center; }
+  .log { grid-column: 1 / span 3; margin-top:4mm; border:2px dashed var(--acc); border-radius:10px; background:var(--acc-soft);
+    padding:3.5mm 5mm; display:flex; align-items:center; gap:5mm; }
+  .log .big { font-size:22pt; }
+  .log b { font-size:12pt; }
+  .log p { margin:0; font-size:10pt; }
+  .policies { display:grid; grid-template-columns:1fr 1fr; gap:5mm; }
+  .policies .card p { font-size:10pt; margin:0; }
+  .brainnote { font-size:10pt; color:var(--mute); margin-top:4mm; }
+
+  /* page 3 */
+  .why { display:grid; grid-template-columns:repeat(3,1fr); gap:4mm; margin:2mm 0 5mm; }
+  .why .card { border-top:5px solid var(--acc); }
+  .why .card .big { font-size:20pt; font-weight:800; color:var(--acc-ink); line-height:1; margin-bottom:2mm; }
+  .why .card p { font-size:9.8pt; margin:0; }
+  .bars { border:1px solid var(--line); border-radius:10px; padding:3mm 5mm; margin-bottom:4mm; }
+  .bar-row { display:grid; grid-template-columns:44mm 1fr 34mm; align-items:center; gap:4mm; margin:2mm 0; font-size:10pt; }
+  .bar { height:8mm; border-radius:4px; }
+  .bar.rem { background:var(--acc); width:9%; }
+  .bar.naive { background:#9ca3af; width:100%; }
+  .bar-wrap { background:var(--soft); border-radius:4px; }
+  .num { font-weight:800; text-align:right; }
+  .small { font-size:9pt; color:var(--mute); }
+  table.cmp { width:100%; border-collapse:collapse; font-size:9.8pt; }
+  table.cmp th, table.cmp td { text-align:left; padding:1.8mm 3mm; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.cmp th { font-size:9pt; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); }
+  table.cmp td.y { color:var(--acc-ink); font-weight:700; }
+
+  /* page 4 */
+  table.sp { width:100%; border-collapse:separate; border-spacing:0; font-size:10.5pt; margin-bottom:7mm; }
+  table.sp th { text-align:left; font-size:9pt; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); padding:0 4mm 2mm; border-bottom:2px solid var(--ink); }
+  table.sp td { padding:4mm; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.sp td.name { width:40mm; font-weight:800; font-size:12pt; }
+  table.sp td.name span { display:block; font-weight:500; font-size:9pt; color:var(--mute); margin-top:1mm; }
+  table.sp td.job b { color:var(--acc-ink); }
+  table.sp td.brk { width:44mm; font-size:9.5pt; color:var(--mute); }
+  .demo { background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:5mm 6mm; }
+  .demo ol { margin:2mm 0 0 5mm; padding:0; font-size:10.5pt; }
+  .demo li { margin-bottom:1.5mm; }
+  .quote { font-style:italic; }
+  .closing { margin-top:7mm; font-size:15pt; font-weight:800; }
+</style>
+</head>
+<body>
+
+<!-- ============ PAGE 1: PROBLEM ============ -->
+<section class="page">
+  <p class="kicker"><b>REMaster</b> Long Horizon Agents Hackathon · SF · Sep 25 2026</p>
+  <h1>The AI company manager<br>that <span class="acc">sleeps on it.</span></h1>
+  <p class="lead">REMaster runs a 10-person company (engineering, design, growth, marketing, sales, customer success, QA) for a whole quarter. It remembers the small things for months and checks its own forgetting.</p>
+  <div class="rule"></div>
+
+  <p class="kicker">1 · The problem</p>
+  <h2>Long-horizon agents forget the wrong things</h2>
+  <p>An agent that works for weeks piles up history. Today there are only two options, and both fail:</p>
+
+  <div class="deaths">
+    <div class="card soft">
+      <h3>Keep everything <span class="tag">context rot</span></h3>
+      <p style="margin:0">The context grows every day. Cost and latency climb, and the model drowns in its own history until it stops making sense.</p>
+    </div>
+    <div class="card soft">
+      <h3>Summarize <span class="tag">silent loss</span></h3>
+      <p style="margin:0">A generic model guesses <b>today</b> what will matter <b>later</b>. It doesn't know the plan, so it deletes the wrong details, <b>permanently</b>. Nobody checks.</p>
+    </div>
+  </div>
+
+  <p>For a manager, the facts that matter most are <b>tiny and old</b>, and those are exactly what a summary drops:</p>
+  <div class="facts">
+    <div class="fact">"Sarah is off in week 9 (wedding)"</div>
+    <div class="fact">"Tom underestimates by ~40%"</div>
+    <div class="fact">"Lina is 2× faster on backend"</div>
+    <div class="fact">"Client moved the beta to week 10"</div>
+  </div>
+
+  <div class="timeline">
+    <div class="tl"><div class="wk">WEEK 2</div>Sarah mentions her wedding at standup.</div>
+    <div class="tl"><div class="wk">WEEK 3</div>"Summarize week-2 standups" → the line is gone.</div>
+    <div class="tl bad"><div class="wk">WEEK 9</div>Launch work assigned to Sarah. She's away. The plan breaks.</div>
+  </div>
+
+  <div class="callout">Our claim: <b>REMaster tests its own forgetting, and when a lost fact would change a decision, it restores the exact fact.</b></div>
+
+  <div class="foot"><span>REMaster · explainer for judges &amp; teammates</span><span>1 / 4</span></div>
+</section>
+
+<!-- ============ PAGE 2: ARCHITECTURE ============ -->
+<section class="page">
+  <p class="kicker">2 · The architecture</p>
+  <h2>A nightly memory loop: work, sleep, check, recover</h2>
+  <p style="margin-bottom:5mm">Two roles: a long-horizon <b>Strategist</b> owns the quarter plan in an explicit, editable State Doc. A <b>Doer</b> runs each day. Every night the Doer's memory goes through this loop:</p>
+
+  <div class="loop">
+    <div class="step">
+      <h3><span class="n">1</span>☀️ Work</h3>
+      <div class="who">Doer · daytime</div>
+      <p>Runs standups, assigns work, unblocks people.</p>
+      <p>Works from a <b>small working memory</b>, plus <code>memory_sql</code>: SQL over its <b>entire past</b>.</p>
+    </div>
+    <div class="arr">→</div>
+    <div class="step">
+      <h3><span class="n">2</span>🌙 Sleep</h3>
+      <div class="who">Disposable fork of the Strategist · night</div>
+      <p>A copy of the Strategist, which knows the quarter plan, reviews the day and curates the Doer's memory <b>by intent</b>:</p>
+      <div class="ops"><span class="op">keep</span><span class="op">fold</span><span class="op">promote</span><span class="op">archive</span></div>
+      <p style="margin-top:1.5mm">Then the fork is <b>thrown away</b>, so the Strategist is never polluted by cleanup work.</p>
+    </div>
+
+    <div class="arr">↑</div>
+    <div></div>
+    <div class="arr">↓</div>
+
+    <div class="step">
+      <h3><span class="n">4</span>♻️ Recover</h3>
+      <div class="who">Judge · on divergence</div>
+      <p>A judge separates <b>noise</b> from <b>decision-changing loss</b>, and bisects which archived fact mattered.</p>
+      <p>The <b>exact fact</b> is restored from the append-only log. No re-summarizing.</p>
+    </div>
+    <div class="arr">←</div>
+    <div class="step">
+      <h3><span class="n">3</span>👥 Check</h3>
+      <div class="who">Shadow Doers · read-only</div>
+      <p>Shadows with <b>lagged memory</b> (1 day, 1 week, never cleaned) replay key decisions.</p>
+      <p>If the real Doer and a shadow decide differently, the cleanup lost something useful: <b>divergence = harmful forgetting</b>.</p>
+    </div>
+
+    <div class="log">
+      <div class="big">🗄️</div>
+      <div>
+        <b>Nothing is ever deleted.</b>
+        <p>Every event from every agent goes to an append-only log (Tinybird Rawtree). Every "forget" is only a pointer, e.g. <code>[archived #E1190: Sarah availability, wk 2 → memory_sql]</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:2mm">Same-day policies (during the day, not overnight)</h3>
+  <div class="policies">
+    <div class="card"><h3>Nobody idles</h3><p>When a ticket gets blocked ("our provider got delayed, we'll only have it tomorrow"), the manager blocks the right ticket and immediately moves the person onto other work that fits their skills.</p></div>
+    <div class="card"><h3>Staffing policy</h3><p>Work is assigned by skill, availability and learned pace (e.g. Tom's estimates are padded by 40%). Nobody gets launch work during a known absence.</p></div>
+  </div>
+
+  <div class="foot"><span>REMaster · the memory loop</span><span>2 / 4</span></div>
+</section>
+
+<!-- ============ PAGE 3: WHY IT WORKS ============ -->
+<section class="page">
+  <p class="kicker">3 · Why this solves long-term memory</p>
+  <h2>Forgetting that is intentional, tested and reversible</h2>
+
+  <div class="why">
+    <div class="card">
+      <div class="big">Intentional</div>
+      <p>The curator is a fork of the Strategist, so it <b>knows the quarter plan</b>. It archives "wedding in week 9" during week 3 because it isn't relevant yet, not because it looks unimportant.</p>
+    </div>
+    <div class="card">
+      <div class="big">Tested</div>
+      <p>Every forgetting decision is checked against <b>future behavior</b>. Lagged shadows show whether the cleaned memory would still make the same call.</p>
+    </div>
+    <div class="card">
+      <div class="big">Reversible</div>
+      <p>The archive is append-only and queryable with SQL. A wrong "forget" is undone by restoring the <b>exact original fact</b>.</p>
+    </div>
+  </div>
+
+  <h3>Working context: curated vs uncurated (real runs, same 2.6B brain)</h3>
+  <div class="bars">
+    <div class="bar-row"><div><b>REMaster</b><br><span class="small">curated, flat</span></div>
+      <div class="bar-wrap"><div class="bar rem"></div></div><div class="num acc">~300–460 tokens</div></div>
+    <div class="bar-row"><div><b>Naive summarization</b><br><span class="small">same world, same brain, 60 days</span></div>
+      <div class="bar-wrap"><div class="bar naive"></div></div><div class="num">~5,300 tokens</div></div>
+    <p class="small" style="margin:2mm 0 0">REMaster's nightly curation keeps working context flat while archiving 80+ items behind pointers (validation runs). The naive blob grew to 350+ uncurated items over a real 60-day run — more than 10× larger, and still growing.</p>
+  </div>
+
+  <h3>Naive summarization vs REMaster</h3>
+  <table class="cmp">
+    <tr><th></th><th>Naive summarization</th><th>REMaster</th></tr>
+    <tr><td>Working memory</td><td>Grows every day, never curated</td><td class="y">Flat: nightly keep / fold / promote / archive</td></tr>
+    <tr><td>Old small facts</td><td>Buried or summarized away</td><td class="y">Promoted to the team model or archived with a pointer</td></tr>
+    <tr><td>Recall</td><td>Whatever survived the summary</td><td class="y"><code>memory_sql</code> over the full log, used routinely</td></tr>
+    <tr><td>Checking</td><td>None</td><td class="y">Lagged shadows + judge + exact restore</td></tr>
+    <tr><td>Outcome</td><td><b>The 2.6B model drowns</b> — decision quality collapses as the blob grows</td><td class="y">Keeps making decisions; planted long-tail facts survive to the day they're needed</td></tr>
+  </table>
+
+  <p style="margin-top:4mm" class="callout"><b>The point:</b> a small model with good memory architecture beats the same model drowning in its own history. The architecture does the work, not model size.</p>
+
+  <div class="foot"><span>REMaster · why it works</span><span>3 / 4</span></div>
+</section>
+
+<!-- ============ PAGE 4: SPONSORS + DEMO ============ -->
+<section class="page">
+  <p class="kicker">4 · Sponsors</p>
+  <h2>Every sponsor has a load-bearing job</h2>
+
+  <table class="sp">
+    <tr><th>Sponsor</th><th>Job in REMaster</th><th>Remove it and…</th></tr>
+    <tr>
+      <td class="name">Liquid AI<span>LFM-2.5-2.6B via OpenRouter</span></td>
+      <td class="job"><b>Every brain</b>: manager, strategist, night cleaner, shadows, judge and message intake all run on one 2.6B model, at <b>$0</b>. The architecture does the work, not model size.</td>
+      <td class="brk">No agents at all.</td>
+    </tr>
+    <tr>
+      <td class="name">Tinybird Rawtree<span>append-only event log</span></td>
+      <td class="job">The <b>permanent memory</b>. Every event from every agent lands here. The agent literally runs SQL over its own past (<code>memory_sql</code>). The log also feeds the live dashboard and feed.</td>
+      <td class="brk">Forgetting becomes permanent. No recall, no restore.</td>
+    </tr>
+    <tr>
+      <td class="name">Nimble<span>live web research</span></td>
+      <td class="job"><b>Eyes on the outside world</b>: researches external events (vendor delays, market news, alternatives) and feeds the findings into replanning.</td>
+      <td class="brk">The plan can't react to the real world.</td>
+    </tr>
+    <tr>
+      <td class="name">Black Forest Labs<span>FLUX 3 text-to-video</span></td>
+      <td class="job"><b>Monday team-briefing video</b> with voice, generated from the Strategist's actual weekly plan ("This week: payments ship, Tom pairs with Lina").</td>
+      <td class="brk">The team doesn't get the weekly plan.</td>
+    </tr>
+  </table>
+
+  <div class="demo">
+    <h3>Try it: the live week board</h3>
+    <ol>
+      <li><b>Pick a teammate</b> from the 10-person company and see their week.</li>
+      <li><b>Tell the manager what happened</b>, in free text: <span class="quote">"our provider got delayed, we'll only have it tomorrow."</span></li>
+      <li>The manager <b>works out which ticket that blocks</b>, blocks it, <b>researches the live web</b> (Nimble), and answers you.</li>
+      <li>It <b>reshuffles the week so nobody idles</b>. Press <b>▶ Next day</b> to watch it run standups, recall its past with SQL, and assign work.</li>
+    </ol>
+  </div>
+
+  <p class="closing">It doesn't summarize. It <span class="acc">sleeps on it</span>, checks itself, and can always remember.</p>
+
+  <div class="foot"><span>REMaster · sponsors &amp; demo</span><span>4 / 4</span></div>
+</section>
+
+</body>
+</html>

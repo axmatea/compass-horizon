@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vince Voice Bridge — Higgs Realtime × Claude</title>
+<style>
+  body { font-family: -apple-system, sans-serif; margin: 0; background: #101418; color: #e6edf3; }
+  header { padding: 14px 20px; background: #161b22; display: flex; align-items: center; gap: 14px; }
+  h1 { font-size: 16px; margin: 0; }
+  #status { padding: 4px 10px; border-radius: 12px; font-size: 13px; background: #30363d; }
+  #status.connected { background: #1a7f37; }
+  #status.error { background: #b62324; }
+  main { display: grid; grid-template-columns: 1fr 380px; gap: 16px; padding: 16px 20px; }
+  section { background: #161b22; border-radius: 8px; padding: 12px 16px; min-height: 300px; }
+  h2 { font-size: 13px; text-transform: uppercase; color: #8b949e; margin: 0 0 10px; }
+  .line { margin: 8px 0; line-height: 1.4; }
+  .line .who { font-weight: 600; margin-right: 6px; }
+  .user .who { color: #58a6ff; }
+  .assistant .who { color: #3fb950; }
+  .tool { border-left: 3px solid #d29922; padding: 6px 10px; margin: 8px 0; background: #1c2128; border-radius: 4px; font-size: 13px; }
+  .tool .tname { color: #d29922; font-weight: 600; }
+  .tool .tstatus { color: #8b949e; margin-left: 6px; }
+  .tool.done .tstatus { color: #3fb950; }
+  .tool .tresult { margin-top: 4px; color: #c9d1d9; white-space: pre-wrap; }
+  #log { font-size: 11px; color: #6e7681; max-height: 140px; overflow-y: auto; grid-column: 1 / -1; }
+  button { background: #238636; color: #fff; border: 0; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+  button.secondary { background: #30363d; }
+  button.danger { background: #6e2226; }
+  button.confirm { background: #d29922; color: #101418; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎙️ Vince Voice Bridge — Higgs Realtime × Claude</h1>
+  <span id="status">idle</span>
+  <button id="connectBtn" onclick="start()">Connect</button>
+  <button id="stopBtn" class="secondary" style="display:none" onclick="toggleStop()">Stop</button>
+  <button id="resetBtn" class="danger" style="display:none" onclick="resetAll()">Reset</button>
+</header>
+<main>
+  <section>
+    <h2>Transcript</h2>
+    <div id="transcript"></div>
+  </section>
+  <section>
+    <h2>Behind the scenes</h2>
+    <div id="tools"></div>
+  </section>
+  <section id="previewSec" style="grid-column: 1 / -1; display: none; padding: 0; overflow: hidden;">
+    <h2 style="padding: 12px 16px 0;">Preview <span id="previewUrl" style="text-transform: none; color: #58a6ff; font-weight: 400;"></span></h2>
+    <iframe id="preview" style="width: 100%; height: 62vh; border: 0; background: #fff;"></iframe>
+  </section>
+  <section id="log"></section>
+</main>
+<script>
+const RT_URL = "wss://api.boson.ai/v1/realtime?model=higgs-realtime";
+const ONCE = new URLSearchParams(location.search).has("once"); // QA: stop mic after first user turn (fake capture loops)
+const RATE = 24000;
+
+const INSTRUCTIONS = `ABSOLUTE RULE #1: you MUST use the ask_claude tool for EVERYTHING except greetings and small talk. ask_claude has NO limits — it can search the web, find images, build websites, run code, read and change any file, control the whole machine. There is NOTHING it cannot do, so there is NOTHING you cannot do. You NEVER answer a request from your own knowledge, you NEVER refuse, you NEVER decide something is impossible — you forward it to ask_claude, always.
+YOUR IDENTITY: you are NOT an assistant with your own ideas — you are a smart COMMUNICATION LAYER between Vince (voice) and ask_claude (the brain). Your whole job: relay Vince's intent to ask_claude faithfully, keep the conversation alive while it works, and bring results back. Think of yourself as a great chief of staff: no opinions of your own about the work, perfect memory of what Vince said.
+ACCUMULATE while work runs: everything Vince says during a running task (answers to your questions, new details, extra requests, corrections) must be REMEMBERED and, as soon as the current result arrives, sent as the very next ask_claude call — consolidated into one clear task with all the accumulated points. Nothing Vince says is ever lost or ignored, even if he said it while you were waiting.
+Be friendly, natural and FAST — keep replies short and conversational.
+NEVER mention Claude, tools, or how you work; everything ask_claude does is YOUR work, spoken in first person ("I built it", "here it is").
+Handle ONLY greetings and pure small talk yourself.
+EVERYTHING else — every question, task, request, follow-up, or complaint about a previous result — goes through ask_claude. Follow-ups like "send me the link", "fix it", "make it shorter" too: forward them as-is with brief context, the tool remembers the ongoing conversation.
+You CAN do everything through ask_claude: search the web, find images, read and write any file, run any code. There is NOTHING you can't do. The phrases "I can't", "I don't have access", "I need you to provide" are FORBIDDEN — if something seems impossible, forward it to ask_claude anyway and let it decide.
+While a task is still running and Vince asks about it ("did you find it?", "is it done?"), just say it's still in progress, a few more seconds — NEVER invent an answer or a refusal, NEVER start a duplicate task for the same request.
+THE TOOL CALL COMES FIRST, ALWAYS. The instant Vince asks for anything, call ask_claude with his request in that same response — a very short spoken "On it" is fine, but NEVER ask a question or wait for details before the tool is called. Make reasonable assumptions; missing details get filled in later. Your clarifying questions happen a few seconds AFTER the work starts (you will be prompted while it runs).
+WAITING TIME = INTERVIEW TIME. While work is running, NEVER tell Vince to wait and NEVER just say "still working" — instead ALWAYS ask the next useful question about what exactly he wants: target audience, tone, colors, content details, what happens after signup, what else the page needs. One question at a time, conversational. Every answer is gold — it accumulates into the next ask_claude call and makes the result better. A pure progress note is allowed ONLY if he just answered and there is truly nothing left to ask.
+When the result lands mid-conversation, finish your sentence, then deliver it naturally — and immediately send the accumulated answers as the next ask_claude call if there are any.
+Showing things on screen: use the show_screen tool with a URL or /files/ path to display a page in the on-screen preview. When Vince asks to SEE something ("show me", "open it", "let me see"), call show_screen — and when you just built something visual like a website, show it right away without being asked. Only ever pass show_screen a URL or /files/ path you actually received from an ask_claude result in THIS conversation — NEVER guess or invent a path. Building or fetching anything new ALWAYS goes through ask_claude first.
+When a result arrives, speak it back plainly and concisely, as your own work.
+CONSISTENCY — NO AMNESIA: bridge notes give you the task ledger (everything sent to the engine, running or done) and the list of questions you already asked. NEVER ask a question twice, NEVER re-ask something Vince already answered, NEVER start a duplicate of a running task. When Vince asks what you did, sent, or built, recount it precisely from the ledger.
+CRITICAL — when a tool result is a QUESTION or asks for details (like "what's the event name and date?"), that question is addressed to VINCE: ask it to him out loud immediately, word for word as your own question, wait for his answer, then forward his answer with ask_claude so the work continues. Never swallow a question, never answer it yourself, never pretend work is ongoing when the tool is actually waiting for an answer.`;
+
+const TOOLS = [{
+  type: "function",
+  name: "ask_claude",
+  description: "Forward a request to Claude (a powerful agent AI with full machine access AND web access — it can search the web, fetch pages, find images, run code, anything). Use for EVERYTHING except pure small talk — questions, tasks, follow-ups, links, files. Claude keeps memory of this conversation, so follow-ups can be short. Takes 10-60 seconds.",
+  parameters: {
+    type: "object",
+    properties: { task: { type: "string", description: "The user's request for Claude, with brief context if it's a follow-up." } },
+    required: ["task"]
+  }
+}, {
+  type: "function",
+  name: "show_screen",
+  description: "Display a web page in the on-screen preview panel Vince is looking at. Use when Vince asks to see something, or right after building a page. Instant, no waiting.",
+  parameters: {
+    type: "object",
+    properties: { url: { type: "string", description: "Full https URL or a /files/<name> path of a file in the working directory." } },
+    required: ["url"]
+  }
+}];
+
+let ws, audioCtx, micNode, micStream, micMuted = false;
+let playCursor = 0, playingSources = [];
+let manualClose = false, paused = false;
+const LOAD_ID = Math.random().toString(36).slice(2); // scopes dedupe to THIS page load
+window.wsGen = 0; // bumped per (re)connect; stale task completions stay silent
+function wsSend(obj) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); } catch (e) {} }
+const asstLines = {}; // item_id -> element
+const userLines = {}; // item_id -> element (dupfix 2026-09-18: STT re-emits completed events)
+let lastUserEl = null, lastUserT = 0;   // fuzzy re-emit guard across item_ids
+let backstopTimer = null, turnPending = false; // dupfix: timer-based backstop, one-shot per turn
+let lastRespActivityT = 0;              // last response.created / output delta
+window.__activeResp = 0;                // response.created minus response.done
+window.userTurns = 0;                   // speech_stopped count — "new facts" tracking
+function responseActive() {
+  // a response is in flight (created but not done, with a stale guard for
+  // lost done events), deltas arrived <2s ago, or audio is still playing out
+  return (window.__activeResp > 0 && Date.now() - lastRespActivityT < 30000)
+      || Date.now() - lastRespActivityT < 2000
+      || !!(audioCtx && playCursor > audioCtx.currentTime + 0.1);
+}
+window.__stats = { micFrames: 0, lastRms: 0, events: {} }; // QA instrumentation
+window.__audioOut = []; // QA: base64 PCM deltas of the assistant's spoken reply
+
+// Task ledger — mechanical memory so Higgs can't get amnesia about what it
+// sent to Claude. Persisted across page reloads; injected into bridge notes.
+window.taskLedger = (() => { try { return JSON.parse(localStorage.getItem("taskLedger") || "[]"); } catch (e) { return []; } })();
+// tasks left "running" by a closed page never finished — mark them so
+window.taskLedger.forEach(e => { if (e.status === "running") e.status = "interrupted"; });
+function ledgerSave() { try { localStorage.setItem("taskLedger", JSON.stringify(window.taskLedger.slice(-30))); } catch (e) {} }
+function ledgerSummary(n, withResults) {
+  if (withResults === undefined) withResults = true;
+  return window.taskLedger.slice(-n).map(e =>
+    "- [" + e.status + "] " + e.task.slice(0, 140) + (withResults && e.result ? " => " + String(e.result).slice(0, 100) : "")
+  ).join("\n") || "(none yet)";
+}
+function recentLines(sel, n) {
+  return Array.from(document.querySelectorAll(sel)).slice(-n).map(d => d.textContent.trim()).filter(Boolean);
+}
+const normTask = s => String(s).toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+const taskSim = (a, b) => { // word-set Jaccard on normalized tasks
+  const A = new Set(a.split(" ")), B = new Set(b.split(" "));
+  let n = 0; A.forEach(w => { if (B.has(w)) n++; });
+  return n / Math.max(A.size, B.size, 1);
+};
+// sentences of `text` that are NOT already in the base task (normalized) —
+// extracts just the new detail from Higgs's "old task + one answer" habit
+function taskDelta(baseNorm, text) {
+  return String(text || "").split(/(?<=[.!?])\s+/)
+    .filter(s => { const n = normTask(s); return n && baseNorm.indexOf(n) === -1; })
+    .join(" ");
+}
+// pure small talk never arms the backstop (a greeting already gets Boson's
+// automatic reply; re-prompting it doubled the greeting on 2026-09-18)
+const SMALLTALK_WORDS = new Set(("hey hi hello yo sup good morning afternoon evening night how are you doing whats up " +
+  "not much nothing thanks thank ok okay cool nice great awesome bye goodbye see later there man dude buddy im fine going it hows").split(" "));
+function isSmallTalk(t) {
+  const w = normTask(t).split(" ");
+  return w.length <= 7 && w.every(x => SMALLTALK_WORDS.has(x));
+}
+
+const $ = id => document.getElementById(id);
+function setStatus(t, cls) { const s = $("status"); s.textContent = t; s.className = cls || ""; }
+function logLine(t) { const d = document.createElement("div"); d.textContent = new Date().toISOString().slice(11,19) + " " + t; $("log").appendChild(d); $("log").scrollTop = 1e9; }
+function addLine(who, text, cls) {
+  const d = document.createElement("div"); d.className = "line " + cls;
+  d.innerHTML = '<span class="who"></span><span class="txt"></span>';
+  d.querySelector(".who").textContent = who + ":";
+  d.querySelector(".txt").textContent = text;
+  $("transcript").appendChild(d);
+  return d;
+}
+
+function b64FromInt16(int16) {
+  const bytes = new Uint8Array(int16.buffer, int16.byteOffset, int16.byteLength);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  return btoa(bin);
+}
+function int16FromB64(b64) {
+  const bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Int16Array(bytes.buffer);
+}
+
+function stopPlayback() {
+  playingSources.forEach(s => { try { s.stop(); } catch (e) {} });
+  playingSources = [];
+  playCursor = audioCtx ? audioCtx.currentTime : 0;
+}
+
+function playDelta(b64) {
+  const pcm = int16FromB64(b64);
+  if (!pcm.length) return;
+  const f32 = new Float32Array(pcm.length);
+  for (let i = 0; i < pcm.length; i++) f32[i] = pcm[i] / 32768;
+  const buf = audioCtx.createBuffer(1, f32.length, RATE);
+  buf.copyToChannel(f32, 0);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf; src.connect(audioCtx.destination);
+  const t = Math.max(audioCtx.currentTime + 0.05, playCursor);
+  src.start(t); playCursor = t + buf.duration;
+  playingSources.push(src);
+  src.onended = () => { playingSources = playingSources.filter(s => s !== src); };
+}
+
+function stopMicHard() {
+  try { if (micNode) micNode.disconnect(); } catch (e) {}
+  micNode = null;
+  try { if (micStream) micStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  micStream = null;
+}
+
+async function startMic() {
+  stopMicHard(); // never stack two script processors (doubled audio frames)
+  micMuted = false;
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const srcNode = audioCtx.createMediaStreamSource(micStream);
+  micNode = audioCtx.createScriptProcessor(4096, 1, 1);
+  srcNode.connect(micNode);
+  micNode.connect(audioCtx.destination); // required for ScriptProcessor to fire; outputs silence
+  micNode.onaudioprocess = e => {
+    if (!ws || ws.readyState !== 1 || micMuted) return;
+    const f32 = e.inputBuffer.getChannelData(0);
+    window.__stats.micFrames++;
+    let sum = 0; for (let i = 0; i < f32.length; i += 16) sum += f32[i] * f32[i];
+    window.__stats.lastRms = Math.sqrt(sum / (f32.length / 16));
+    const i16 = new Int16Array(f32.length);
+    for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
+    ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: b64FromInt16(i16) }));
+  };
+}
+
+function showPreview(url) {
+  $("previewSec").style.display = "";
+  $("previewUrl").textContent = url;
+  $("preview").src = url;
+  logLine("preview: " + url);
+}
+
+async function handleFunctionCall(call) {
+  const args = JSON.parse(call.arguments || "{}");
+  // stale guard: after Reset/Stop the socket is a NEW session — results of
+  // tasks begun under the old one must not leak into it
+  const myGen = window.wsGen;
+  const send = obj => { if (window.wsGen === myGen) wsSend(obj); };
+  if (call.name === "show_screen") {
+    showPreview(args.url || "");
+    send({ type: "conversation.item.create", item: { type: "function_call_output", call_id: call.call_id, output: JSON.stringify({ result: "now showing on screen" }) } });
+    send({ type: "response.create" });
+    return;
+  }
+  const el = document.createElement("div");
+  el.className = "tool";
+  el.innerHTML = '<span class="tname"></span><span class="tstatus">running…</span><div class="tresult"></div>';
+  el.querySelector(".tname").textContent = "ask_claude(" + (args.task || "") + ")";
+  $("tools").appendChild(el);
+  logLine("tool call: ask_claude");
+  const nt = normTask(args.task);
+  const synthetic = !call.call_id; // client-fired consolidated follow-up
+  // accumulate-don't-spam (2026-09-18, live session 16:02): while a
+  // same-topic task runs, Higgs fires a NEW full build for EVERY interview
+  // answer (6 parallel near-identical builds). Doctrine: launch ONCE, absorb
+  // answers into an enrichment buffer, fire ONE consolidated follow-up on
+  // completion. Absorb any same-topic call while a task is running.
+  if (!synthetic) {
+    const running = window.taskLedger.find(e => e.load === LOAD_ID && e.status === "running");
+    if (running) {
+      const rt = normTask(running.task);
+      const updateish = /\b(update|add|include|change|make|put|use|set|fold|refine|adjust|tweak)\b/i.test(args.task || "") &&
+                        /\b(page|site|website|form|gallery|section|headline|design|colors?|style|it)\b/i.test(args.task || "");
+      if (nt && rt && (nt === rt || rt.startsWith(nt) || nt.startsWith(rt) || taskSim(nt, rt) >= 0.5 || updateish)) {
+        running.enrich = running.enrich || [];
+        running.enrich.push(taskDelta(rt, args.task) || args.task || "");
+        ledgerSave();
+        logLine("accumulate: absorbed into the build in progress (" + running.enrich.length + " buffered)");
+        el.classList.add("done");
+        el.querySelector(".tstatus").textContent = "absorbed — will be folded into the build in progress";
+        send({ type: "conversation.item.create", item: { type: "function_call_output", call_id: call.call_id, output: JSON.stringify({ result: "Noted — the build is still in progress and this detail WILL be folded in automatically when it finishes. Do not launch anything else and do not repeat the detail back; briefly acknowledge and keep interviewing Vince for the NEXT useful detail." }) } });
+        send({ type: "response.create" });
+        return;
+      }
+    }
+  }
+  // dupfix v2 2026-09-18: ONLY skip a launch whose text is near-identical to
+  // a task completed in the last 2 min of THIS page load. (v1 also skipped on
+  // "no new user facts" — after a refresh the reloaded ledger's stale counters
+  // blocked every genuinely new request and its cached result got replayed
+  // verbatim as if fresh. Never again: prior-session entries never block, and
+  // a skip never re-injects the old result or forces a spoken response.)
+  const vinceWords = new Set(normTask(recentLines("#transcript .user .txt", 10).join(" ")).split(" "));
+  const nearDup = synthetic ? null : window.taskLedger.find(e => {
+    if (e.load !== LOAD_ID || e.status !== "done" || !e.tDone) return false;
+    if (Date.now() - e.tDone > 120000 || /^Sorry/.test(e.result || "")) return false;
+    const a = normTask(e.task);
+    if (!a || !nt) return false;
+    if (a === nt) return true; // exact duplicate: always skip
+    if (!(a.startsWith(nt) || nt.startsWith(a) || taskSim(a, nt) >= 0.82)) return false;
+    // similar — but an enrichment carrying REAL new facts from Vince's own
+    // words must still launch (that's the accumulate-and-refine loop)
+    const aw = new Set(a.split(" "));
+    const fresh = nt.split(" ").filter(w => w && !aw.has(w) &&
+      vinceWords.has(w) && (w.length >= 3 || /^\d+$/.test(w))).length;
+    return fresh < 2;
+  });
+  if (nearDup) {
+    logLine("dedupe: skipped near-duplicate of a task completed moments ago");
+    el.classList.add("done");
+    el.querySelector(".tstatus").textContent = "skipped — duplicate of a just-completed task";
+    // answer the call_id but do NOT re-inject the old result and do NOT force
+    // a response — silence beats replaying a stale answer
+    send({ type: "conversation.item.create", item: { type: "function_call_output", call_id: call.call_id, output: JSON.stringify({ result: "Duplicate of a task that already completed moments ago — its answer was already delivered above. Do not repeat it and do not relaunch." }) } });
+    return;
+  }
+  const entry = { task: args.task || "", status: "running", result: "", t: Date.now(), load: LOAD_ID, usersAtLaunch: window.userTurns };
+  window.taskLedger.push(entry);
+  ledgerSave();
+  let result;
+  const t0 = performance.now();
+  // serialize: overlapping calls would race --continue's conversation state
+  const run = async () => {
+    const r = await fetch("/ask_claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task: args.task || "" }) });
+    return (await r.json()).result || "Claude returned nothing.";
+  };
+  // while the task runs, nudge Higgs to interview Vince — first at 5s
+  // (before short tasks finish), then every 30s. Realtime models only
+  // speak on response.create; they can't self-wake.
+  // QA 2026-09-18: response.create{instructions} produced context-free
+  // replies ("Hey there!") on Boson, and role:"system" items are rejected
+  // (400 Invalid role) — inject a bridge-note as a role:"user" item + bare
+  // response.create, so session instructions + conversation apply. These
+  // items never show in the transcript panel (it only renders STT events).
+  let nudgeRetryT = null;
+  const asstAtLaunch = document.querySelectorAll("#transcript .assistant").length;
+  const askNow = () => {
+    try {
+      if (entry.status === "done") return;
+      // dupfix 2026-09-18: never fire response.create over an in-flight reply
+      // (that doubled questions verbatim) — retry shortly instead; and never
+      // re-prompt while a question to Vince is still awaiting his answer.
+      if (responseActive()) { clearTimeout(nudgeRetryT); nudgeRetryT = setTimeout(askNow, 3000); return; }
+      const all = document.querySelectorAll("#transcript .line");
+      const lastLine = all[all.length - 1];
+      if (lastLine && lastLine.classList.contains("assistant") && lastLine.textContent.includes("?")) {
+        logLine("nudge suppressed: question already pending");
+        return;
+      }
+      const asked = recentLines("#transcript .assistant .txt", 30).filter(t => t.includes("?")).slice(-6);
+      const answers = recentLines("#transcript .user .txt", 8);
+      // question-flap fix 2026-09-18: on the first nudge of a task Higgs
+      // sometimes took the "progress note" escape hatch and never interviewed
+      // Vince at all — until it has asked a question for THIS task, a
+      // question is mandatory.
+      const qSinceLaunch = Array.from(document.querySelectorAll("#transcript .assistant .txt"))
+        .slice(asstAtLaunch).filter(d => d.textContent.includes("?")).length;
+      const demand = qSinceLaunch === 0
+        ? "\nThe background task is still running and you have NOT yet asked Vince any interview question for it. You MUST now ask ONE genuinely NEW question about a useful detail not covered above (audience, tone, colors, content, what happens after signup, what else the page needs...). A progress note is FORBIDDEN in this reply."
+        : "\nThe background task is still running. Ask ONE genuinely NEW question about a detail not covered above. If everything useful is already answered, give one short varied progress note instead.";
+      const note = "[bridge note — this is NOT Vince speaking] Task ledger:\n" + ledgerSummary(5) +
+        "\nQuestions you ALREADY asked (repeating any of these is forbidden):\n" + (asked.map(q => "- " + q).join("\n") || "(none)") +
+        "\nVince's recent statements (already-known facts — do not re-ask them):\n" + (answers.map(a => "- " + a).join("\n") || "(none)") +
+        demand;
+      send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: note }] } });
+      send({ type: "response.create" });
+    } catch (e) {}
+  };
+  window.claudeBusy = (window.claudeBusy || 0) + 1;
+  const firstNudge = setTimeout(askNow, 5000);
+  const nudge = setInterval(askNow, 30000);
+  try {
+    const p = window.claudeChain = (window.claudeChain || Promise.resolve()).catch(() => {}).then(run);
+    entry.promise = p;
+    result = await p;
+  } catch (e) { result = "Sorry, the local Claude bridge failed: " + e.message; }
+  clearTimeout(firstNudge);
+  clearInterval(nudge);
+  clearTimeout(nudgeRetryT);
+  window.claudeBusy--;
+  entry.status = "done";
+  entry.result = String(result).slice(0, 300);
+  entry.tDone = Date.now();
+  ledgerSave();
+  const secs = ((performance.now() - t0) / 1000).toFixed(1);
+  el.classList.add("done");
+  el.querySelector(".tstatus").textContent = "done in " + secs + "s";
+  // linkify /files/... paths and http(s) URLs so Vince can click them
+  const box = el.querySelector(".tresult");
+  box.textContent = "";
+  String(result).split(/(https?:\/\/\S+|\/files\/\S+)/g).forEach(part => {
+    if (/^(https?:\/\/|\/files\/)/.test(part)) {
+      const a = document.createElement("a");
+      a.href = part.replace(/[).,]+$/, "");
+      a.target = "_blank";
+      a.style.color = "#7fb3ff";
+      a.textContent = part;
+      box.appendChild(a);
+    } else {
+      box.appendChild(document.createTextNode(part));
+    }
+  });
+  // auto-render: if the result points at a built page, show it immediately
+  const m = String(result).match(/\/files\/\S+\.html?\b|\/files\/\S+/);
+  if (m) showPreview(m[0].replace(/[).,]+$/, ""));
+  const enrich = (entry.enrich || []).filter(Boolean);
+  if (call.call_id) {
+    send({ type: "conversation.item.create", item: { type: "function_call_output", call_id: call.call_id, output: JSON.stringify({ result: String(result) + (enrich.length ? " || Note: the details Vince gave meanwhile are being folded in automatically right now in ONE consolidated update — tell him the first version is ready and his refinements are on the way. Do NOT call ask_claude for them." : "") }) } });
+    send({ type: "response.create" });
+  } else {
+    // synthetic consolidated follow-up: no call_id — deliver via bridge note
+    send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: "[bridge note — this is NOT Vince speaking] The consolidated update with Vince's accumulated details just finished. Result: " + String(result).slice(0, 300) + " — Tell Vince in one short sentence that his details are now in. Do not relaunch anything." }] } });
+    send({ type: "response.create" });
+  }
+  if (enrich.length) {
+    entry.enrich = [];
+    ledgerSave();
+    const followTask = "Update the page you just built (edit the existing file IN PLACE, do not rebuild or create a new file) folding in ALL of these details Vince gave while you worked: " +
+      enrich.map((d, i) => "(" + (i + 1) + ") " + d).join(" ") + " One consolidated pass, then reply with the same /files/ path.";
+    logLine("consolidated follow-up: ONE task carrying " + enrich.length + " buffered detail(s)");
+    handleFunctionCall({ name: "ask_claude", call_id: null, arguments: JSON.stringify({ task: followTask }) });
+  }
+}
+
+function sessionUpdate() {
+  wsSend({
+    type: "session.update",
+    session: {
+      model: "higgs-realtime",
+      instructions: INSTRUCTIONS,
+      tools: TOOLS,
+      tool_choice: "auto",
+      audio: {
+        input: {
+          format: { type: "audio/pcm", rate: RATE },
+          // explicit VAD: Boson's default silence window (~400ms) split
+          // natural mid-sentence pauses into separate turns (QA 2026-09-18:
+          // "use image 2" arrived as three fragments)
+          turn_detection: { type: "server_vad", threshold: 0.5,
+                            prefix_padding_ms: 300, silence_duration_ms: 700 },
+          transcription: { model: "higgs-stt-3.1", language: "en" },
+          noise_reduction: { type: "near_field" }
+        },
+        output: { format: { type: "audio/pcm", rate: RATE }, voice: "default" }
+      }
+    }
+  });
+}
+
+// Cross-session / resume context: INFORM the model (what was worked on,
+// questions already asked), but NEVER hand it old task results — a reloaded
+// ledger's cached reply got replayed verbatim as a fresh answer (2026-09-18).
+function injectContext() {
+  const tasks = ledgerSummary(8, false); // titles + status only, NO results
+  const conv = recentLines("#transcript .line", 8);
+  if (tasks === "(none yet)" && !conv.length) return;
+  wsSend({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: "[bridge note — this is NOT Vince speaking] Background context only. Earlier tasks (FINISHED and their outcomes ALREADY DELIVERED to Vince — never repeat or paraphrase their results as a new answer; use this list only to avoid launching duplicates):\n" + tasks + (conv.length ? "\nRecent conversation (already happened, do not re-answer it):\n" + conv.map(l => "- " + l).join("\n") : "") + "\nDo not respond to this note." }] } });
+  logLine("injected context (" + window.taskLedger.length + " tasks, " + conv.length + " transcript lines)");
+}
+
+// dupfix 2026-09-18: the old backstop fired on the first tool-less
+// response.done after a user transcription — ~1s after speech_stopped, often
+// while the model's own answer was still in flight or already delivered,
+// producing a second spoken answer (greeting doubled, questions doubled).
+// Now: an 8s timer armed per real (non-small-talk) user turn; it fires only
+// if no tool call happened for that turn, no response is in flight, no audio
+// is still playing, and no task is running. One-shot per turn.
+function backstopCheck() {
+  if (!turnPending || paused) return;
+  if (window.claudeBusy) { turnPending = false; return; } // a task is running — turn was handled
+  if (responseActive()) { backstopTimer = setTimeout(backstopCheck, 3000); return; }
+  turnPending = false;
+  logLine("backstop: user turn produced no tool call — forcing check");
+  wsSend({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: "[bridge note — this is NOT Vince speaking] Task ledger:\n" + ledgerSummary(5) + "\nCheck Vince's last real message. If it is already covered by a [running] task above, briefly say it's in progress — do NOT start a duplicate. Otherwise, if it contained ANY request, task, or question beyond pure greeting/small talk, call ask_claude with it RIGHT NOW — even if you already gave a spoken reply, the tool call is still required; do NOT repeat or rephrase anything you already said. Only if it was pure small talk that you have NOT yet replied to, give one brief spoken reply; if you already replied to it, say nothing new." }] } });
+  wsSend({ type: "response.create" });
+}
+
+function handleEvent(ev) {
+  window.__stats.events[ev.type] = (window.__stats.events[ev.type] || 0) + 1;
+  switch (ev.type) {
+    case "session.created":
+      setStatus("connected — session " + (ev.session && ev.session.id || ""), "connected");
+      logLine("session.created");
+      sessionUpdate(); // configure only after the session exists
+      injectContext();
+      startMic().then(() => logLine("mic streaming")).catch(e => { setStatus("mic error: " + e.message, "error"); });
+      break;
+    case "session.updated":
+      logLine("session.updated (tools + VAD active)");
+      break;
+    case "input_audio_buffer.speech_started":
+      stopPlayback(); // barge-in
+      logLine("speech_started");
+      break;
+    case "input_audio_buffer.speech_stopped":
+      logLine("speech_stopped");
+      window.userTurns++;
+      if (ONCE) { micMuted = true; logLine("mic muted (once mode)"); }
+      break;
+    case "conversation.item.input_audio_transcription.completed": {
+      const t = (ev.transcript || "").trim();
+      if (!t) break;
+      // dupfix 2026-09-18: STT can emit completed twice for one utterance
+      // (same item_id, or a re-emit with different truncation) — key lines by
+      // item_id, merge fuzzy re-emits, never append a second line per item.
+      let el = ev.item_id ? userLines[ev.item_id] : null;
+      if (!el && lastUserEl && Date.now() - lastUserT < 12000) {
+        const a = normTask(lastUserEl.querySelector(".txt").textContent), b = normTask(t);
+        if (a && b && (a === b || a.startsWith(b) || b.startsWith(a))) el = lastUserEl;
+      }
+      if (!el) el = addLine("Vince", "", "user");
+      if (ev.item_id) userLines[ev.item_id] = el;
+      if (t.length >= el.querySelector(".txt").textContent.length)
+        el.querySelector(".txt").textContent = t; // keep the longest version
+      lastUserEl = el; lastUserT = Date.now();
+      clearTimeout(backstopTimer);
+      turnPending = !isSmallTalk(t); // expect a tool call for real requests
+      if (turnPending) backstopTimer = setTimeout(backstopCheck, 8000);
+      break;
+    }
+    case "response.created":
+      window.__activeResp++;
+      lastRespActivityT = Date.now();
+      break;
+    case "response.output_audio_transcript.delta": {
+      lastRespActivityT = Date.now();
+      let el = asstLines[ev.item_id];
+      if (!el) el = asstLines[ev.item_id] = addLine("Assistant", "", "assistant");
+      el.querySelector(".txt").textContent += ev.delta || "";
+      break;
+    }
+    case "response.output_audio.delta":
+      lastRespActivityT = Date.now();
+      window.__audioOut.push(ev.delta);
+      playDelta(ev.delta);
+      break;
+    case "response.done": {
+      window.__activeResp = Math.max(0, window.__activeResp - 1);
+      const out = (ev.response && ev.response.output) || [];
+      const calls = out.filter(i => i.type === "function_call");
+      calls.forEach(handleFunctionCall);
+      if (calls.length) { turnPending = false; clearTimeout(backstopTimer); }
+      break;
+    }
+    case "error":
+      setStatus("error: " + (ev.error && ev.error.message || "?"), "error");
+      logLine("ERROR " + JSON.stringify(ev.error));
+      break;
+  }
+}
+
+async function connectWS() {
+  setStatus("connecting…");
+  if (!audioCtx) audioCtx = new AudioContext({ sampleRate: RATE });
+  await audioCtx.resume();
+  // pass the key explicitly too, in case the cookie was blocked
+  const key = new URLSearchParams(location.search).get("key") || "";
+  const r = await fetch("/session?key=" + encodeURIComponent(key),
+                        { method: "POST", signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error("session mint failed (" + r.status + ")");
+  const { value: eph } = await r.json();
+  window.wsGen++; // invalidate in-flight sends from any previous socket
+  manualClose = false;
+  ws = new WebSocket(RT_URL, ["realtime", "bai-client-secret." + eph]);
+  // Boson backend quirk (observed 2026-09-18): session.created is only emitted
+  // after a first client event, which itself gets swallowed. Send session.update
+  // on open as a kickstart, then re-send it for real once session.created arrives.
+  ws.onopen = () => { sessionUpdate(); logLine("ws open — sent kickstart session.update"); };
+  ws.onmessage = m => { try { handleEvent(JSON.parse(m.data)); } catch (e) { logLine("bad event: " + e.message); } };
+  ws.onclose = e => {
+    if (manualClose) { logLine("ws closed (intentional)"); return; }
+    setStatus("disconnected (" + e.code + ")", "error");
+    logLine("ws closed " + e.code + " " + (e.reason || ""));
+  };
+  ws.onerror = () => logLine("ws error");
+}
+
+async function start() {
+  $("connectBtn").style.display = "none";
+  try {
+    await connectWS();
+  } catch (e) {
+    setStatus("error: " + e.message, "error");
+    $("connectBtn").style.display = "";
+    return;
+  }
+  $("stopBtn").style.display = "";
+  $("resetBtn").style.display = "";
+}
+
+// Stop = pause the agent: mic off, socket closed — no listening, no new
+// responses (a running claude task may finish; its result waits in the tool
+// panel). Continue = fresh socket, mic back on, context re-injected.
+async function toggleStop() {
+  const b = $("stopBtn");
+  if (!paused) {
+    paused = true;
+    manualClose = true;
+    stopMicHard();
+    stopPlayback();
+    turnPending = false; clearTimeout(backstopTimer);
+    try { if (ws) ws.close(); } catch (e) {}
+    b.textContent = "Continue";
+    setStatus("paused — click Continue");
+    logLine("paused: mic off, session closed");
+  } else {
+    paused = false;
+    b.textContent = "Stop";
+    try { await connectWS(); } catch (e) {
+      paused = true; b.textContent = "Continue";
+      setStatus("error: " + e.message, "error");
+    }
+  }
+}
+
+// Reset = true blank slate: ledger + transcript + tools + log wiped, fresh
+// Boson session. Two-click confirm (button arms for 4s).
+let resetArmedT = 0;
+async function resetAll() {
+  const b = $("resetBtn");
+  if (Date.now() - resetArmedT > 4000) {
+    resetArmedT = Date.now();
+    b.textContent = "Confirm reset?";
+    b.classList.add("confirm");
+    setTimeout(() => { if (Date.now() - resetArmedT >= 3900) { b.textContent = "Reset"; b.classList.remove("confirm"); } }, 4100);
+    return;
+  }
+  resetArmedT = 0;
+  b.textContent = "Reset";
+  b.classList.remove("confirm");
+  window.taskLedger = [];
+  try { localStorage.removeItem("taskLedger"); } catch (e) {}
+  ["transcript", "tools", "log"].forEach(id => { $(id).innerHTML = ""; });
+  $("previewSec").style.display = "none";
+  $("preview").src = "about:blank";
+  Object.keys(asstLines).forEach(k => delete asstLines[k]);
+  Object.keys(userLines).forEach(k => delete userLines[k]);
+  lastUserEl = null; lastUserT = 0;
+  turnPending = false; clearTimeout(backstopTimer);
+  window.userTurns = 0; window.__activeResp = 0; lastRespActivityT = 0;
+  paused = false; $("stopBtn").textContent = "Stop";
+  manualClose = true;
+  try { if (ws) ws.close(); } catch (e) {}
+  stopMicHard();
+  stopPlayback();
+  logLine("reset: ledger + transcript wiped, starting fresh session");
+  try { await connectWS(); } catch (e) { setStatus("error: " + e.message, "error"); }
+}
+
+// Chrome suspends AudioContext without a user gesture (autoplay policy), so
+// auto-connecting on load hangs at resume(). Require one click instead.
+window.addEventListener("load", () => {
+  setStatus("ready — click Connect and allow the mic");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+/* Website polish layer (owner: FRONTEND). Loads after src/cinematic/styles.css (VIDEO-owned, not edited).
+   Refines hierarchy and removes chrome; no new visual language. */
+
+/* One idea per scene: secondary labels become assistive-only */
+#correction-note{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.scroll-hint{opacity:.6}
+
+/* Acting: a single calm line */
+.context-composition.acting-only{grid-template-columns:1fr;max-width:420px}
+.context-composition.acting-only strong{font-size:clamp(22px,2vw,28px)}
+
+/* The added constraint is a change: it earns the gold */
+.time-plus{color:#dcbf7c;font-size:clamp(18px,1.6vw,22px);letter-spacing:-.01em}
+
+/* Primary CTA: the one thing to do, clearer than every other control */
+.primary[data-to-demo]{border-color:#d9e8f48f;background:#e7eff612;color:#f4f9fc;transition:background .25s,border-color .25s,box-shadow .35s,transform .25s}
+.primary[data-to-demo]:hover{background:#d2eaff22;border-color:#e6f3fbd0;box-shadow:0 0 0 1px #d9e8f41f,0 0 40px #8bc8ee2e;transform:translateY(-1px)}
+.primary[data-to-demo]:focus-visible{outline:2px solid #bedced;outline-offset:4px}
+
+/* Chrome recedes until wanted */
+.story-controls{opacity:.62;transition:opacity .3s}
+.story-controls:hover,.story-controls:focus-within{opacity:1}
+.concept{opacity:.8}
+
+/* Film slot: a quiet vertical frame beside the invitation. Hidden unless an approved film exists. */
+.film-slot[hidden]{display:none}
+.film-slot{position:absolute;z-index:2;right:max(6vw,calc((100vw - 1400px)/2));top:50%;transform:translateY(-50%);height:min(74vh,760px);aspect-ratio:var(--film-ratio,9/16);margin:0;border-radius:22px;overflow:hidden;background:#070d12;border:1px solid #d7f2ff26;box-shadow:0 40px 120px -40px #000,0 0 60px #8bc8ee14;opacity:0;transition:opacity .8s ease}
+.film-slot.is-ready,.film-slot:has(video[poster]){opacity:1}
+.film-slot video{width:100%;height:100%;object-fit:cover;display:block;background:#070d12}
+.scene-product.has-film .scene-copy{max-width:min(46vw,620px)}
+
+@media(max-width:700px){
+  .film-slot{position:relative;right:auto;top:auto;transform:none;height:auto;width:min(64vw,300px);margin:92px auto 0;border-radius:18px}
+  .scene-product.has-film{flex-direction:column;justify-content:flex-start}
+  .scene-product.has-film .scene-copy{max-width:none;margin-top:26px}
+}
+@media(prefers-reduced-motion:reduce){.film-slot{transition:none}}
+
+/* Presentation, scene 10: the generated page. */
+.scene-result .browser{margin-top:34px;max-width:900px;box-shadow:0 60px 140px -50px #000,0 0 80px rgba(220,191,124,.1)}
+.scene-result .page{aspect-ratio:16/8.4}
+.scene-result .page-hero h3{font-weight:300;letter-spacing:-.02em;margin:0}
+.scene-result .page-hero p{margin:10px 0 18px}
+.masthead .header-actions a:first-child{opacity:.7}
+@media(max-width:700px){.scene-result .browser{margin-top:22px}.scene-result .page{aspect-ratio:16/11}}
+
+/* Presentation, scene 0: the film, shown first, at full quality. */
+.scene-film{padding-top:96px;padding-bottom:80px;justify-content:center}
+.scene-film .scene-copy{max-width:min(1400px,calc((100vh - 200px) * 16 / 9));margin:0 auto}
+.film-frame{margin:0}
+.film-frame video{display:block;width:100%;aspect-ratio:16/9;background:#000;border-radius:18px;border:1px solid #d7f2ff26;box-shadow:0 50px 140px -50px #000,0 0 80px #8bc8ee14;outline:0}
+.film-frame figcaption{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:10px;letter-spacing:.2em;color:#8ca1ae}
+.film-frame figcaption a{color:#c4ced5}
+.film-hint{position:static}
+@media(max-width:700px){.scene-film{padding:92px 5vw 80px}.film-frame video{border-radius:12px}.film-frame figcaption{font-size:8px}}
+
+.film-box{position:relative}
+.film-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:14px;padding:16px 30px 16px 22px;border-radius:999px;border:1px solid #f2dfae99;background:#05080bcc;color:#f4f9fc;font:inherit;font-size:15px;letter-spacing:.06em;cursor:pointer;backdrop-filter:blur(10px);box-shadow:0 0 0 1px #f2dfae22,0 30px 80px -20px #000,0 0 60px #dcbf7c33;transition:opacity .4s ease,transform .3s ease,box-shadow .3s ease}
+.film-play i{font-style:normal;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#dcbf7c;color:#0b0a06;font-size:14px}
+.film-play:hover{transform:translate(-50%,-50%) scale(1.03);box-shadow:0 0 0 1px #f2dfae44,0 30px 80px -20px #000,0 0 80px #dcbf7c55}
+.film-play:focus-visible{outline:2px solid #f2dfae;outline-offset:4px}
+.film-box.is-playing .film-play{opacity:0;pointer-events:none;transform:translate(-50%,-50%) scale(.96)}
+
+/* Presentation, stage script scenes. */
+.scene-context .product-actions{margin-top:30px}
+.scene-stack{color:#e4eef4}
+.scene-stack .support{max-width:640px}
+.stack-note{margin-top:34px;color:#8ca1ae;letter-spacing:.22em;font-size:10px}
+.stack-3 span{color:#dcbf7c}
+.stack-3{grid-template-columns:repeat(3,1fr);max-width:1000px;gap:38px}
+.stack-3 strong{display:block;font-size:22px;margin-bottom:12px}
+.stack-3 small{display:block;font-size:13px;line-height:1.6;color:#a9bcc8}
+.scene-beyond .intent-row{margin-bottom:6px}
+.scene-beyond .support{margin-top:26px}
+@media(max-width:700px){.stack-3{grid-template-columns:1fr;gap:24px;max-width:none}.stack-3 strong{font-size:19px}}
+.scene-correction .correction-state{flex-wrap:wrap;row-gap:12px}
+.scene-diagram{padding-top:84px;padding-bottom:72px}
+.scene-diagram .eyebrow{margin-bottom:14px}
+
+/* Presentation: film embed and the architecture diagram, both fitted to the viewport. */
+.yt{position:relative;aspect-ratio:16/9;background:#000;border-radius:18px;border:1px solid #d7f2ff26;box-shadow:0 50px 140px -50px #000,0 0 80px #8bc8ee14;overflow:hidden}
+.yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.scene-diagram{justify-content:center;padding-top:84px;padding-bottom:72px}
+.scene-diagram .scene-copy{max-width:min(1400px,calc((100vh - 240px) * 2560 / 1600));margin:0 auto}
+.scene-diagram .eyebrow{margin-bottom:14px}
+.diagram{margin:0;border-radius:16px;overflow:hidden;border:1px solid #d7f2ff1f;box-shadow:0 50px 140px -50px #000;background:#0b1522}
+.diagram img{display:block;width:100%;height:auto}
+@media(max-width:700px){.yt{border-radius:12px}.scene-diagram{padding:92px 4vw 100px}.diagram{border-radius:10px}}
