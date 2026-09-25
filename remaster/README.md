@@ -1,4 +1,4 @@
-# REMaster — the AI scrum master that sleeps on it
+# REMaster — the AI company manager that sleeps on it
 
 > Every AI agent today gets amnesia after a few hours. REMaster ran a startup
 > for a full quarter and never forgot who was getting married.
@@ -20,7 +20,7 @@ five weeks later the plan breaks.
 
 ## The memory loop
 
-REMaster is an autonomous scrum master running a simulated 6-person startup
+REMaster is an autonomous company manager running a simulated 10-person startup
 for a 60-day quarter. Its innovation is a nightly memory loop:
 
 1. **☀️ Work** — the **Doer** runs daily ops (standups, assignments,
@@ -60,7 +60,23 @@ _See `runs/` for raw logs and per-run `result.json`._
   items; the 2.6B model drowns — it made **one** valid staffing decision in
   60 days, finished 3 tickets, and missed Demo Day.
 
-## Run it
+## The interactive demo (LIVE board)
+
+```bash
+python3.12 live.py    # http://localhost:8770
+```
+
+A week calendar of a 10-person company — engineering, design, sales, marketing,
+customer success, QA. You can:
+- **▶ Next day** — the AI manager runs standups, recalls its past with SQL,
+  assigns work (60–90s of visible thinking per day).
+- **Filter as any teammate** and see just their week.
+- **Talk to the manager as that teammate** — "our provider got delayed, we'll
+  only have the thing tomorrow" → it interprets which ticket that blocks,
+  blocks it, researches alternatives on the live web (Nimble), answers you,
+  and reshuffles the week so nobody idles.
+
+## Batch experiments
 
 ```bash
 python3.12 run.py --days 60 --mode remaster   # full quarter

@@ -15,16 +15,16 @@ def sim_ts(day):
 
 
 PEOPLE = {
-    "lina":  {"role": "backend engineer",  "skills": {"backend": 1.0, "frontend": 0.5, "design": 0.1, "mobile": 0.0, "growth": 0.2, "qa": 0.8}, "overrun": 1.0},
-    "tom":   {"role": "frontend engineer", "skills": {"backend": 0.4, "frontend": 1.0, "design": 0.3, "mobile": 0.3, "growth": 0.2, "qa": 0.7}, "overrun": 1.4},
-    "sarah": {"role": "product designer",  "skills": {"backend": 0.0, "frontend": 0.5, "design": 1.0, "mobile": 0.2, "growth": 0.4, "qa": 0.4}, "overrun": 1.0},
-    "max":   {"role": "full-stack engineer", "skills": {"backend": 0.7, "frontend": 0.7, "design": 0.8, "mobile": 0.4, "growth": 0.3, "qa": 0.9}, "overrun": 1.0},
-    "priya": {"role": "mobile engineer",   "skills": {"backend": 0.3, "frontend": 0.6, "design": 0.2, "mobile": 1.0, "growth": 0.1, "qa": 0.7}, "overrun": 1.0},
-    "omar":  {"role": "growth lead",       "skills": {"backend": 0.0, "frontend": 0.2, "design": 0.3, "mobile": 0.0, "growth": 1.0, "qa": 0.3}, "overrun": 1.0},
-    "jules": {"role": "sales lead",        "skills": {"sales": 1.0, "growth": 0.5, "cs": 0.4, "marketing": 0.3}, "overrun": 1.0},
-    "mia":   {"role": "customer success",  "skills": {"cs": 1.0, "sales": 0.4, "qa": 0.5, "marketing": 0.2}, "overrun": 1.0},
-    "dan":   {"role": "content marketer",  "skills": {"marketing": 1.0, "growth": 0.7, "design": 0.3, "sales": 0.2}, "overrun": 1.2},
-    "eva":   {"role": "QA engineer",       "skills": {"qa": 1.0, "backend": 0.3, "frontend": 0.3, "cs": 0.3}, "overrun": 0.9},
+    "lina":  {"role": "Backend Engineer",  "skills": {"backend": 1.0, "frontend": 0.5, "design": 0.1, "mobile": 0.0, "growth": 0.2, "qa": 0.8}, "overrun": 1.0},
+    "tom":   {"role": "Frontend Engineer", "skills": {"backend": 0.4, "frontend": 1.0, "design": 0.3, "mobile": 0.3, "growth": 0.2, "qa": 0.7}, "overrun": 1.4},
+    "sarah": {"role": "Product Designer",  "skills": {"backend": 0.0, "frontend": 0.5, "design": 1.0, "mobile": 0.2, "growth": 0.4, "qa": 0.4}, "overrun": 1.0},
+    "max":   {"role": "Full-Stack Engineer", "skills": {"backend": 0.7, "frontend": 0.7, "design": 0.8, "mobile": 0.4, "growth": 0.3, "qa": 0.9}, "overrun": 1.0},
+    "priya": {"role": "Mobile Engineer",   "skills": {"backend": 0.3, "frontend": 0.6, "design": 0.2, "mobile": 1.0, "growth": 0.1, "qa": 0.7}, "overrun": 1.0},
+    "omar":  {"role": "Growth Lead",       "skills": {"backend": 0.0, "frontend": 0.2, "design": 0.3, "mobile": 0.0, "growth": 1.0, "qa": 0.3}, "overrun": 1.0},
+    "jules": {"role": "Sales Lead",        "skills": {"sales": 1.0, "growth": 0.5, "cs": 0.4, "marketing": 0.3}, "overrun": 1.0},
+    "mia":   {"role": "Customer Success Manager",  "skills": {"cs": 1.0, "sales": 0.4, "qa": 0.5, "marketing": 0.2}, "overrun": 1.0},
+    "dan":   {"role": "Content Marketer",  "skills": {"marketing": 1.0, "growth": 0.7, "design": 0.3, "sales": 0.2}, "overrun": 1.2},
+    "eva":   {"role": "QA Engineer",       "skills": {"qa": 1.0, "backend": 0.3, "frontend": 0.3, "cs": 0.3}, "overrun": 0.9},
 }
 
 # Absences (ground truth). Sarah's is the planted "wedding" fact.

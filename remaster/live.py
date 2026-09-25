@@ -13,6 +13,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 from remaster import world as W
+from remaster.ops import idle_fallback, staff_free
 from remaster.sim import Run
 
 LOCK = threading.Lock()
@@ -31,16 +32,21 @@ def do_step():
         RUN.step(day)
     except Exception as e:  # keep the demo alive no matter what
         print(f"step {day} error: {e}", flush=True)
+    fb = staff_free(RUN.world, day) + idle_fallback(RUN.world, day)
+    if fb:
+        RUN.world.apply_assignments(fb)
+        txt = "; ".join(f"{a['ticket']}->{a['person']}" for a in fb)
+        eid = RUN.log("doer1", "doer_decision", day, f"Staffing policy: {txt}", assignments=fb)
+        RUN.add_block(eid, day, "doer_decision", f"Staffing policy: {txt}")
     after = snapshot_assignees()
     changes = [{"ticket": t, "from": before[t], "to": after[t]}
                for t in before if before[t] != after[t]]
     reasons = {}
     try:
         db = sqlite3.connect(RUN.dir / "events.db")
-        row = db.execute("select data from events where kind='doer_decision' and day=? "
-                         "order by seq desc limit 1", (day,)).fetchone()
-        if row and row[0]:
-            for a in (json.loads(row[0]).get("assignments") or []):
+        for (data,) in db.execute("select data from events where kind='doer_decision' "
+                                  "and day=? order by seq", (day,)):
+            for a in (json.loads(data or "{}").get("assignments") or []):
                 if a.get("ticket") and a.get("reason"):
                     reasons[a["ticket"]] = a["reason"]
         db.close()
@@ -73,9 +79,18 @@ def replan(day, trigger):
     except Exception as e:
         print(f"replan error: {e}", flush=True)
         dec = {}
+    # Nobody-idles policy: if the model left someone parked on a blocked ticket,
+    # move them mechanically to their best ready ticket.
+    fb = idle_fallback(RUN.world, day)
+    if fb:
+        RUN.world.apply_assignments(fb)
+        txt = "; ".join(f"{a['ticket']}->{a['person']}" for a in fb)
+        eid = RUN.log("doer1", "doer_decision", day,
+                      f"Nobody-idles policy: {txt}", assignments=fb)
+        RUN.add_block(eid, day, "doer_decision", f"Nobody-idles policy: {txt}")
     after = snapshot_assignees()
     reasons = {(a.get("ticket") or ""): a.get("reason") or ""
-               for a in (dec.get("assignments") or [])}
+               for a in list(dec.get("assignments") or []) + fb}
     changes = [{"ticket": t, "from": before[t], "to": after[t], "reason": reasons.get(t, "")}
                for t in before if before[t] != after[t]]
     STATE["last_diff"] = {"day": day, "changes": changes}
@@ -83,7 +98,7 @@ def replan(day, trigger):
 
 
 def do_say(person, text):
-    """A team member talks to the scrum master; it interprets, adjusts, replans."""
+    """A team member talks to the company manager; it interprets, adjusts, replans."""
     day = max(STATE["day"], 1)
     eid = RUN.log("team", "message", day, f"{person} says: {text}", person=person)
     RUN.add_block(eid, day, "message", f"{person} says: {text}", person)
@@ -91,7 +106,7 @@ def do_say(person, text):
     try:
         out = RUN.doer_llm.json([
             {"role": "system", "content":
-             "You are the scrum master's intake. A team member sent a message. Decide if any "
+             "You are the company manager's intake. A team member sent a message. Decide if any "
              "board ticket must be DELAYED because of it.\nBoard:\n" + RUN.world.board(day)},
             {"role": "user", "content":
              f'{person} says: "{text}"\nReturn JSON only: '
