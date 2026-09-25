@@ -110,7 +110,12 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
   const wall = ctx.wallClock ?? (() => new Date().toISOString());
   const local: LedgerEvent[] = await store.list(wsId);
 
-  const append = async (evts: LedgerEvent[]): Promise<{ inserted: Set<string>; duplicates: Set<string> }> => {
+  // A step checkpoint is written in the same statement as the next write (atomic), which cuts round trips
+  // without weakening crash safety: a later step's effects never become durable before the earlier checkpoint.
+  let pending: LedgerEvent[] = [];
+  const append = async (input: LedgerEvent[]): Promise<{ inserted: Set<string>; duplicates: Set<string> }> => {
+    const evts = pending.length ? [...pending, ...input] : input;
+    pending = [];
     if (!evts.length) return { inserted: new Set(), duplicates: new Set() };
     const uniq: LedgerEvent[] = [];
     const seen = new Set<string>();
@@ -144,7 +149,7 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
     runDay = ctx.day;
     const n = local.filter((e) => e.type === 'run.started').length + 1;
     runId = `run-${String(n).padStart(3, '0')}-d${runDay}`;
-    await append([mk(`${runId}:started`, 'run.started', { runId, day: runDay, trigger: ctx.trigger, ...(ctx.beat !== undefined ? { beat: ctx.beat } : {}) })]);
+    pending.push(mk(`${runId}:started`, 'run.started', { runId, day: runDay, trigger: ctx.trigger, ...(ctx.beat !== undefined ? { beat: ctx.beat } : {}) }));
   }
 
   function mk(id: string, type: LedgerEvent['type'], payload: Record<string, unknown>, opts: Partial<Pick<LedgerEvent, 'occurredAt' | 'learnedAt' | 'source'>> = {}): LedgerEvent {
@@ -214,8 +219,7 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
         batch.set(d.event.id, d.deliveryId);
         toInsert.push({ ...d.event, workspaceId: wsId, mode: workspace.mode });
       }
-      const res = await append(toInsert);
-      await append(dups);
+      const res = await append([...toInsert, ...dups]);
       const ins = toInsert.filter((e) => res.inserted.has(e.id));
       const count = (t: string) => ins.filter((e) => e.type === t).length;
       const late = ins.filter((e) => isoToDay(e.learnedAt) > isoToDay(e.occurredAt)).length;
@@ -396,8 +400,7 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
           }
         }
       }
-      const res = await append(effectEvents);
-      await append([...bookkeeping, ...fresh]);
+      const res = await append([...effectEvents, ...bookkeeping, ...fresh]);
       const effects: StepEffect[] = effectEvents.map((e) => ({
         key: e.id,
         kind: effectKinds.get(e.id) ?? 'EFFECT',
@@ -469,7 +472,11 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
             reversedBeliefVersion: num(prevDirectional.payload.version),
             evidence: [
               { eventId: prevDirectional.id, day: d, label: `Belief v${num(prevDirectional.payload.version)}: ${str(prevDirectional.payload.status)} ${str(prevDirectional.payload.favors)} on ${thin} resolved` },
-              ...ev.arms.map((a) => ({ eventId: `curve:${a.campaignId}:${runDay}`, day: runDay, label: `${a.key}: ${a.qualified} of ${a.resolved} resolved qualified, median reply ${days(a.medianReplyDays)}` })),
+              ...ev.arms.map((a) => ({
+                eventId: ev.campaigns.find((c) => c.id === a.campaignId)?.launchedEventId ?? a.campaignId,
+                day: runDay,
+                label: `${a.key}: ${a.qualified} of ${a.resolved} resolved leads qualified, median first reply ${days(a.medianReplyDays)}`,
+              })),
             ],
             runId,
             step: 6,
@@ -560,12 +567,13 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
   for (let n = fromStep; n <= STEP_NAMES.length; n++) {
     const out = await steps[n]();
     if (chaos && chaos.afterStep === n - 1) {
+      if (pending.length) await append([]);
       const fired = mk(`chaos:fired:${chaos.armedId}`, 'chaos.fired', { runId, afterStep: chaos.afterStep, armedId: chaos.armedId, killedDuringStep: n });
       await ctx.crash(fired);
     }
-    await append([mk(`${runId}:step:${n}`, 'run.step', { runId, n, name: STEP_NAMES[n - 1], summary: out.summary, effects: out.effects })]);
+    pending.push(mk(`${runId}:step:${n}`, 'run.step', { runId, n, name: STEP_NAMES[n - 1], summary: out.summary, effects: out.effects }));
   }
-  const cost = local.filter((e) => e.type === 'receipt' && str(e.payload.runId) === runId).reduce((a, e) => a + (num(e.payload.costUsd) ?? 0), 0);
+  const cost = [...local, ...pending].filter((e) => e.type === 'receipt' && str(e.payload.runId) === runId).reduce((a, e) => a + (num(e.payload.costUsd) ?? 0), 0);
   await append([mk(`${runId}:completed`, 'run.completed', { runId, costUsd: cost })]);
   const run = buildRun(local, runId) as RunView;
   return { run, events: local };

@@ -1,0 +1,60 @@
+DESCRIPTION >
+    Experiment metrics exactly as known on a day: dedupe by id, keep rows with learned_at <= as_of.
+    Params: workspace_id, as_of ('YYYY-MM-DD hh:mm:ss').
+
+NODE deduped
+SQL >
+    %
+    SELECT *
+    FROM longview_events
+    WHERE workspace_id = {{ String(workspace_id, 'stage', required=True) }}
+      AND learned_at <= parseDateTime64BestEffort({{ String(as_of, '2026-09-22 11:00:00', required=True) }}, 3)
+    ORDER BY id
+    LIMIT 1 BY id
+
+NODE lead_campaign
+SQL >
+    SELECT lead_id, any(campaign_id) AS campaign_id
+    FROM deduped
+    WHERE type = 'lead.captured' AND campaign_id != ''
+    GROUP BY lead_id
+
+NODE lead_status
+SQL >
+    SELECT lead_id, argMax(status, learned_at) AS status
+    FROM deduped
+    WHERE type = 'lead.qualified'
+    GROUP BY lead_id
+
+NODE metrics
+SQL >
+    SELECT
+        s.campaign_id AS campaign_id,
+        s.spend_usd AS spend_usd,
+        l.leads AS leads,
+        if(l.leads > 0, s.spend_usd / l.leads, NULL) AS cpl_usd,
+        q.qualified AS qualified,
+        if(q.qualified > 0, s.spend_usd / q.qualified, NULL) AS cost_per_qualified_usd
+    FROM
+    (
+        SELECT campaign_id, sum(amount_usd) AS spend_usd
+        FROM deduped
+        WHERE type = 'spend.recorded'
+        GROUP BY campaign_id
+    ) AS s
+    LEFT JOIN
+    (
+        SELECT campaign_id, count() AS leads
+        FROM lead_campaign
+        GROUP BY campaign_id
+    ) AS l USING campaign_id
+    LEFT JOIN
+    (
+        SELECT lc.campaign_id AS campaign_id, countIf(ls.status = 'QUALIFIED') AS qualified
+        FROM lead_status AS ls
+        INNER JOIN lead_campaign AS lc USING lead_id
+        GROUP BY campaign_id
+    ) AS q USING campaign_id
+    ORDER BY campaign_id
+
+TYPE endpoint

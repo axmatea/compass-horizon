@@ -140,8 +140,19 @@ export async function seedDemo(ws: WorkspaceMeta): Promise<LedgerEvent[]> {
   return res.events;
 }
 
-export async function getState(ws: WorkspaceMeta, asOf: number | null): Promise<WorldView> {
-  let events = await store().list(ws.id);
+/** GET /api/state fast path: when the cookie names a workspace, read its row and its ledger in parallel. */
+export async function getStateFor(req: NextRequest, asOf: number | null): Promise<WorldView> {
+  if (!dbConfigured()) throw new DbBlockedError();
+  const raw = (await cookies()).get(COOKIE)?.value;
+  if (raw && UUID_RE.test(raw) && !req.nextUrl.searchParams.get('stage')) {
+    const [row, events] = await Promise.all([getWorkspaceRow(raw), store().list(raw)]);
+    if (row) return getState(row, asOf, events);
+  }
+  return getState(await requireWorkspace(req), asOf);
+}
+
+export async function getState(ws: WorkspaceMeta, asOf: number | null, prefetched?: LedgerEvent[]): Promise<WorldView> {
+  let events = prefetched ?? (await store().list(ws.id));
   if (!events.length && ws.mode === 'DEMO') events = await seedDemo(ws);
   return worldOf(ws, events, asOf);
 }

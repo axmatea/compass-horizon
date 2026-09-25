@@ -14,7 +14,7 @@ export function providerConfig(ws: Pick<WorkspaceMeta, 'liveProviders'> | null, 
       : { status: 'BLOCKED', detail: 'NIMBLE_API_KEY not set: market scans record BLOCKED with no sources' },
     liquid: ep
       ? { status: 'READY', detail: live ? `Key present: replies are extracted by ${ep.model}${ep.via === 'openrouter' ? ' via OpenRouter' : ''}` : 'Key present, but the public demo uses the rules fallback' }
-      : { status: 'BLOCKED', detail: 'LIQUID_API_KEY not set: public demo uses the rules fallback' },
+      : { status: 'BLOCKED', detail: live ? 'LIQUID_API_KEY not set: the rules fallback extracts fields, no model calls' : 'LIQUID_API_KEY not set: public demo uses the rules fallback' },
     tinybird: tinybirdConfigured(env)
       ? { status: 'READY', detail: live ? 'Token present: ledger mirrored to longview_events, as-of metrics queried' : 'Token present, but the public demo computes metrics locally (LOCAL)' }
       : { status: 'BLOCKED', detail: 'TINYBIRD_TOKEN not set: metrics computed from Postgres (LOCAL)' },
