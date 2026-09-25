@@ -13,7 +13,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 from remaster import world as W
-from remaster.ops import idle_fallback
+from remaster.ops import idle_fallback, staff_free
 from remaster.sim import Run
 
 LOCK = threading.Lock()
