@@ -135,7 +135,7 @@ function renderGrid() {
 function card(t, op) {
   if (!t) return '';
   const ch = (S.last_diff?.changes || []).some(c => c.ticket === t.id) && S.last_diff.day === S.day;
-  const bl = t.status.startsWith('blocked');
+  const bl = (S.injected || []).some(i => i.ticket === t.id) && t.status.startsWith('blocked');
   return `<div class="card sk-${t.skill} ${ch?'flash':''} ${bl?'blocked':''}" style="opacity:${op||1}"
     onclick="openModal('${t.id}')"><b>${t.id}</b> ${t.title}<div class="t">${t.pct}% · ${t.status}</div></div>`;
 }
@@ -154,7 +154,7 @@ function renderFeed() {
 function renderDiff() {
   const d = S.last_diff;
   if (!d || !d.changes.length) { $('diff').style.display='none'; return; }
-  $('diff').style.display = '';
+  $('diff').style.display = 'block';
   $('diff').innerHTML = `<b>🧑‍💼 Agent replanned on day ${d.day}:</b> ` + d.changes.map(c =>
     `${c.ticket}: ${c.from||'–'} → <b style="color:var(--ok)">${c.to||'unassigned'}</b>${c.reason?' <span style="color:var(--dim)">('+c.reason+')</span>':''}`).join(' · ');
 }
