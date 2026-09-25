@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>REMaster — Architecture</title>
+<style>
+  :root {
+    --bg:#0b0e14; --panel:#151a28; --panel2:#10141f; --line:#2a3247; --text:#eef1f7; --muted:#96a1b9;
+    --liquid:#8b7bf7; --nimble:#f5c518; --rawtree:#34d399; --bfl:#f97316; --day:#5b9dff; --night:#c084fc;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { width:1600px; height:920px; color:var(--text); overflow:hidden;
+         font:15px/1.42 "Helvetica Neue", Inter, -apple-system, sans-serif;
+         background: radial-gradient(1100px 500px at 70% -8%, #182献140 0%, var(--bg) 55%); }
+  body { background: radial-gradient(1100px 500px at 70% -8%, #172038 0%, var(--bg) 55%); }
+  .wrap { padding:30px 44px 24px; height:100%; display:flex; flex-direction:column; gap:16px; justify-content:space-between; }
+
+  header h1 { font-size:31px; } header .rem { color:var(--night); }
+  header .sub { color:var(--muted); font-size:16.5px; margin-top:5px; }
+  header .sub b { color:var(--text); }
+
+  .cast { display:grid; grid-template-columns:1.2fr 1fr 1fr; gap:14px; }
+  .cast .c { background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:9px 13px;
+             font-size:13px; color:var(--muted); display:flex; align-items:center; gap:10px; }
+  .cast .c b { color:var(--text); font-size:13.5px; }
+  .chip { font-size:10.5px; font-weight:800; letter-spacing:.4px; padding:2px 8px; border-radius:20px; color:#0b0e14; flex:none; }
+  .c-liquid { background:var(--liquid); } .c-nimble { background:var(--nimble); }
+  .c-rawtree { background:var(--rawtree); } .c-bfl { background:var(--bfl); }
+
+  /* THE LOOP */
+  .loopwrap { position:relative; }
+  .looptitle { position:absolute; top:-11px; left:26px; z-index:2; background:var(--bg); padding:0 12px;
+               color:var(--night); font-weight:800; font-size:14px; letter-spacing:1.5px; }
+  .loop { border:2px solid #3d3357; border-radius:18px; padding:26px 22px 58px;
+          background:linear-gradient(180deg, rgba(139,123,247,.05), rgba(139,123,247,.01));
+          display:grid; grid-template-columns:1fr 62px 1fr 62px 1fr 62px 1fr; gap:0; align-items:stretch; }
+  .step { background:var(--panel); border:1.5px solid var(--line); border-radius:14px; padding:16px 18px; position:relative; }
+  .step .n { position:absolute; top:-14px; left:16px; width:28px; height:28px; border-radius:50%;
+             display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; color:#0b0e14; }
+  .step h3 { font-size:18px; margin:4px 0 7px; }
+  .step p { font-size:13.5px; color:var(--muted); }
+  .step p b { color:var(--text); }
+  .step .ops { margin-top:8px; font:12px ui-monospace, monospace; color:var(--night); }
+  .s1 { border-color:var(--day); }   .s1 .n { background:var(--day); }
+  .s2 { border-color:var(--night); } .s2 .n { background:var(--night); }
+  .s3 { border-color:var(--night); } .s3 .n { background:var(--night); }
+  .s4 { border-color:var(--rawtree); } .s4 .n { background:var(--rawtree); }
+  .arr { display:flex; align-items:center; justify-content:center; position:relative; z-index:5; color:#8fa0c0; font-size:15px; flex-direction:column; gap:2px; }
+  .arr .a { font-size:24px; line-height:1; color:#aab7d4; }
+  .arr .l { font-size:10.5px; color:var(--muted); letter-spacing:.3px; white-space:nowrap; }
+  .returnbar { position:absolute; left:60px; right:60px; bottom:20px; height:26px; }
+  .returnbar svg { width:100%; height:100%; }
+  .returnbar text { fill:var(--rawtree); font-size:12.5px; font-weight:600; }
+  .badge-row { margin-top:9px; }
+
+  /* worked example */
+  .example { border:1.5px solid var(--line); border-radius:14px; background:var(--panel2); padding:12px 18px 14px; }
+  .example h4 { font-size:13px; letter-spacing:1.2px; color:var(--nimble); margin-bottom:10px; }
+  .example h4 span { color:var(--muted); font-weight:400; letter-spacing:0; text-transform:none; }
+  .tl { display:grid; grid-template-columns:1fr 30px 1fr 30px 1fr 30px 1.15fr; align-items:center; }
+  .ev { font-size:13px; }
+  .ev .w { font:11.5px ui-monospace, monospace; color:var(--muted); }
+  .ev .t { margin-top:2px; }
+  .ev .t b { color:var(--text); }
+  .tl .arr2 { text-align:center; color:#71809e; font-size:18px; }
+  .ok { color:var(--rawtree); font-weight:700; }
+  .bad { color:#f87171; font-weight:700; }
+
+  /* foundation */
+  .found { border:1.5px solid var(--rawtree); border-radius:14px; padding:13px 18px;
+           background:linear-gradient(180deg, rgba(52,211,153,.06), rgba(52,211,153,.015));
+           display:grid; grid-template-columns:auto 1fr auto; gap:22px; align-items:center; }
+  .found h3 { font-size:16px; white-space:nowrap; display:flex; gap:9px; align-items:center; }
+  .found p { color:var(--muted); font-size:13.5px; }
+  .found p b { color:var(--rawtree); }
+  .found .sql { font:12px/1.5 ui-monospace, monospace; background:#0d1a15; border:1px solid #1d3a2e;
+                border-radius:8px; padding:7px 11px; color:#d1fae5; white-space:nowrap; }
+  .found .sql .c { color:#5eead4; }
+
+  footer { display:flex; justify-content:space-between; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🌙 <span class="rem">REMaster</span> — the AI scrum master that sleeps on it</h1>
+    <div class="sub">A long-horizon agent that runs a team for a full quarter. <b>It tests its own forgetting — and recovers the exact fact when a decision would change.</b></div>
+  </header>
+
+  <div class="cast">
+    <div class="c">🧭 <span><b>Strategist</b> — owns the quarter as an explicit, editable state doc (goal · sprint plan · team model). Never drowns in history.</span> <span class="chip c-liquid">LIQUID</span></div>
+    <div class="c">🌐 <span><b>Nimble</b> feeds live market digests → the plan replans. Raw pages never enter memory.</span> <span class="chip c-nimble">NIMBLE</span></div>
+    <div class="c">🎬 <span><b>FLUX 3 t2v</b> renders the Monday video brief sent to the team.</span> <span class="chip c-bfl">BFL</span></div>
+  </div>
+
+  <div class="loopwrap">
+    <span class="looptitle">THE MEMORY LOOP — EVERY SIMULATED DAY</span>
+    <div class="loop">
+      <div class="step s1"><span class="n">1</span>
+        <h3>☀️ Work</h3>
+        <p>The <b>Doer</b> runs the day: standups, skill-matched assignments, unblocking — on a <b>small working memory</b> + SQL access to its whole past.</p>
+        <div class="badge-row"><span class="chip c-liquid">LIQUID LFM-2.5</span></div>
+      </div>
+      <div class="arr"><span class="a">→</span><span class="l">at night</span></div>
+      <div class="step s2"><span class="n">2</span>
+        <h3>🌙 Sleep</h3>
+        <p>A <b>disposable fork of the Strategist</b> — it knows where the quarter is going — curates the Doer's memory <b>by intent</b>, then vanishes.</p>
+        <div class="ops">keep · fold · promote · archive</div>
+        <div class="badge-row"><span class="chip c-liquid">LIQUID LFM-2.5</span></div>
+      </div>
+      <div class="arr"><span class="a">→</span><span class="l">next day</span></div>
+      <div class="step s3"><span class="n">3</span>
+        <h3>👥 Check</h3>
+        <p><b>Shadow Doers</b> with 1-day / 1-week / no-cleanup memory <b>replay today's decisions</b>, read-only. A different call = the cleanup lost something that matters.</p>
+        <div class="badge-row"><span class="chip c-liquid">LIQUID LFM-2.5</span></div>
+      </div>
+      <div class="arr"><span class="a">→</span><span class="l">if it differs</span></div>
+      <div class="step s4"><span class="n">4</span>
+        <h3>♻️ Recover</h3>
+        <p>A judge filters noise from <b>decision-changing memory loss</b> → the exact missing fact is pulled from the archive and <b>restored</b>. Forgetting is reversible.</p>
+        <div class="badge-row"><span class="chip c-liquid">LIQUID</span> <span class="chip c-rawtree">RAWTREE</span></div>
+      </div>
+    </div>
+    <div class="returnbar">
+      <svg viewBox="0 0 1440 26" preserveAspectRatio="none">
+        <defs><marker id="g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#34d399"/></marker></defs>
+        <path d="M1380,2 L1380,14 L60,14 L60,4" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#g)"/>
+        <text x="600" y="11">restored into the Doer's working memory</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="example">
+    <h4>SEEN IN A REAL RUN — “THE WEDDING SAVE” <span>· one fact, planted week 2, saves the launch in week 7</span></h4>
+    <div class="tl">
+      <div class="ev"><div class="w">W2D3 · standup</div><div class="t">Sarah: “I'm off all of <b>week 9</b> — getting married!”</div></div>
+      <div class="arr2">→</div>
+      <div class="ev"><div class="w">W6D5 · night cleanup</div><div class="t">Cleaner archives it: <i>“not relevant this sprint”</i></div></div>
+      <div class="arr2">→</div>
+      <div class="ev"><div class="w">W7D4 · decision</div><div class="t">Doer books Sarah for W9 launch visuals — shadow picks Max. <span class="bad">DIVERGENCE</span></div></div>
+      <div class="arr2">→</div>
+      <div class="ev"><div class="w">W7D4 · +1 step</div><div class="t"><span class="ok">Fact restored 26 days after archiving</span> → visuals move to Max. Demo Day holds.</div></div>
+    </div>
+  </div>
+
+  <div class="found">
+    <h3>🌳 Total recall <span class="chip c-rawtree">TINYBIRD RAWTREE</span></h3>
+    <p><b>Nothing is ever deleted.</b> Every standup, decision, cleanup op and verdict from every agent lands in one append-only, schemaless event log — “forgetting” only changes what the Doer <i>sees</i>. The Doer queries its own past like a database, and the live Memory X-ray dashboard runs on the same events.</p>
+    <div class="sql"><span class="c">SELECT</span> text <span class="c">FROM</span> events<br><span class="c">WHERE</span> person='sarah' <span class="c">AND</span> text ILIKE '%off%week%'</div>
+  </div>
+
+  <footer>
+    <span>Long Horizon Agents Hackathon · San Francisco · Sept 25, 2026</span>
+    <span>It doesn't summarize. It sleeps on it, checks itself, and can always remember.</span>
+  </footer>
+</div>
+</body>
+</html>
