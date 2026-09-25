@@ -97,8 +97,8 @@ def state():
                 "'memory_sql','strategist_plan') order by seq desc limit 25"):
             feed.append({"kind": k, "day": d, "ts": ts, "text": txt})
         db.close()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"feed error: {e!r}", flush=True)
     return {"run_id": RUN.run_id, "day": day, "ts": W.sim_ts(max(day, 1)) if day else "-",
             "week": (max(day, 1) - 1) // 5 + 1, "demo_day": W.DEMO_DAY,
             "busy": STATE["busy"], "last_diff": STATE["last_diff"], "injected": STATE["injected"],
@@ -106,7 +106,7 @@ def state():
             "work_log": [[d, p, t] for d, p, t, _ in RUN.world.log][-400:],
             "memory": {"ctx_tokens": mem["tokens"], "visible": mem["visible"],
                        "archived": mem["archived"], "pinned": mem["pinned"]},
-            "metrics": RUN.metrics}
+            "metrics": RUN.metrics, "feed": feed}
 
 
 class H(BaseHTTPRequestHandler):

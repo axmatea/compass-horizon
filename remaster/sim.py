@@ -19,6 +19,18 @@ FULL = 10 ** 6
 SHADOW_TIERS = [("shadow_1d", 1), ("shadow_1w", 5), ("oracle", FULL)]
 
 
+def launch_protected():
+    """Launch-required tickets plus every transitive dependency: not cuttable."""
+    prot, todo = set(), list(W.LAUNCH_REQUIRED)
+    while todo:
+        tid = todo.pop()
+        if tid in prot:
+            continue
+        prot.add(tid)
+        todo.extend(W.BACKLOG[tid][3])
+    return prot
+
+
 class Run:
     def __init__(self, mode="remaster", days=W.DAYS, run_id=None, out_dir="runs", flux_weeks=(),
                  verbose=True):
@@ -89,7 +101,7 @@ class Run:
                 plan, market = {}, None
             for op in plan.get("board_ops") or []:
                 t = self.world.tickets.get(op.get("ticket"))
-                if op.get("op") == "cut" and t and t["id"] not in W.LAUNCH_REQUIRED:
+                if op.get("op") == "cut" and t and t["id"] not in launch_protected():
                     t["cut"] = True
             self.log("strategist", "strategist_plan", day, self.strategist.week_focus,
                      state_doc=self.strategist.state_doc, board_ops=plan.get("board_ops"))
