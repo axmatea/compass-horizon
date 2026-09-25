@@ -32,16 +32,21 @@ def do_step():
         RUN.step(day)
     except Exception as e:  # keep the demo alive no matter what
         print(f"step {day} error: {e}", flush=True)
+    fb = staff_free(RUN.world, day) + idle_fallback(RUN.world, day)
+    if fb:
+        RUN.world.apply_assignments(fb)
+        txt = "; ".join(f"{a['ticket']}->{a['person']}" for a in fb)
+        eid = RUN.log("doer1", "doer_decision", day, f"Staffing policy: {txt}", assignments=fb)
+        RUN.add_block(eid, day, "doer_decision", f"Staffing policy: {txt}")
     after = snapshot_assignees()
     changes = [{"ticket": t, "from": before[t], "to": after[t]}
                for t in before if before[t] != after[t]]
     reasons = {}
     try:
         db = sqlite3.connect(RUN.dir / "events.db")
-        row = db.execute("select data from events where kind='doer_decision' and day=? "
-                         "order by seq desc limit 1", (day,)).fetchone()
-        if row and row[0]:
-            for a in (json.loads(row[0]).get("assignments") or []):
+        for (data,) in db.execute("select data from events where kind='doer_decision' "
+                                  "and day=? order by seq", (day,)):
+            for a in (json.loads(data or "{}").get("assignments") or []):
                 if a.get("ticket") and a.get("reason"):
                     reasons[a["ticket"]] = a["reason"]
         db.close()
