@@ -44,7 +44,7 @@ BACKLOG = {
     "F2": ("Onboarding flow (web)", "frontend", 6, ["F1", "D1"], 1),
     "F3": ("Dashboard", "frontend", 8, ["F1", "B2"], 1),
     "F4": ("Checkout UI", "frontend", 6, ["B3", "D2"], 1),
-    "F5": ("Settings page", "frontend", 4, ["F1"], 1),
+    "F5": ("Settings page", "frontend", 4, [], 1),
     "F6": ("Landing page build", "frontend", 4, ["D4"], 1),
     "D1": ("Onboarding designs", "design", 4, [], 1),
     "D2": ("Checkout designs", "design", 4, ["D1"], 1),
