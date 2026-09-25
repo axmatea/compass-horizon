@@ -81,8 +81,10 @@
   .card.done { background:#12291f; border-color:#166534; }
   .card.done .t { color:var(--ok); }
   .card .ck { color:var(--ok); font-weight:800; }
-  .flash { animation: fl 1.6s ease-in-out 3; }
-  @keyframes fl { 50% { background:#7c2d12; border-color:var(--accent);} }
+  .changed { border-color:var(--accent); }               /* steady ring: "this moved in the last replan" */
+  .changed.pulse { animation: fl .8s ease-out 2; }        /* brief pulse only when the change first lands */
+  @keyframes fl { 40% { background:#7c2d12; } }
+  @media (prefers-reduced-motion: reduce) { .changed.pulse { animation:none; } }
   .blocked { border-color:var(--bad)!important; color:var(--bad); }
   .off { color:var(--dim); font-size:11px; font-style:italic; }
   #backlog { margin-top:12px; }
@@ -184,6 +186,7 @@ const DEPTS = [['ENGINEERING',['lina','tom','max','priya']], ['DESIGN',['sarah']
 const SKILLS = {backend:'#60a5fa', frontend:'#22d3ee', design:'#f472b6', mobile:'#34d399', growth:'#fb923c',
                 qa:'#a78bfa', sales:'#fde047', cs:'#2dd4bf', marketing:'#f87171'};
 let S = null, sel = null, lastDiffDay = 0, me = '', busySince = 0, localBusy = false;
+let lastFp = null, pulsedKey = null, freshDiff = false;   // render-skip + one-shot pulse state
 const $ = id => document.getElementById(id);
 const modal = $('modal');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -202,7 +205,17 @@ async function refresh() {
     $('ack').style.display = 'block';
     $('ack').innerHTML = `🧑‍💼 <b>company manager → ${esc(S.ack.person)}:</b> ${esc(S.ack.text)}`;
   }
+  // Re-render the board only when something actually changed — otherwise the
+  // 1.5s poll restarts CSS animations and churns the DOM.
+  const diffKey = S.last_diff ? S.last_diff.day + ':' + S.last_diff.changes.map(c => c.ticket).join(',') : '';
+  const fp = JSON.stringify([S.day, diffKey, me,
+    Object.values(S.tickets).map(t => [t.assignee, t.status, t.pct]),
+    (S.feed[0] || {}).text, S.feed.length]);
+  if (fp === lastFp) return;
+  freshDiff = diffKey !== pulsedKey;
+  lastFp = fp;
   renderGrid(); renderLegend(); renderBacklog(); renderFeed(); renderDiff();
+  pulsedKey = diffKey;
 }
 
 function setBusy(b) {
@@ -272,7 +285,7 @@ function renderGrid() {
         else if (d === S.day || (d > S.day && !off)) {
           let c = '';
           for (const t of Object.values(S.tickets))
-            if (t.assignee === p.name && !t.status.startsWith('done') && t.status !== 'cut') c += card(t);
+            if (t.assignee === p.name && !t.status.startsWith('done') && t.status !== 'cut') c += card(t, d);
           if (c && d > S.day) c = '<div class="plan">planned</div>' + c;
           cell += c;
         }
@@ -286,12 +299,13 @@ function renderGrid() {
 
 function card(t, day) {
   if (!t) return '';
-  const ch = (S.last_diff?.changes || []).some(c => c.ticket === t.id) && S.last_diff.day === S.day;
+  const ch = (S.last_diff?.changes || []).some(c => c.ticket === t.id) && S.last_diff.day === S.day
+             && (!day || day === S.day);   // ring only today's column, not planned projections
   const bl = (S.injected || []).some(i => i.ticket === t.id) && t.status.startsWith('blocked');
   const done = t.status.startsWith('done');
   const doneHere = done && day && t.status === `done(${dayTs(day)})`;
   const cls = doneHere || (done && !day) ? 'done' : '';
-  return `<div class="card sk-${t.skill} ${cls} ${ch?'flash':''} ${bl?'blocked':''}"
+  return `<div class="card sk-${t.skill} ${cls} ${ch ? 'changed' + (freshDiff ? ' pulse' : '') : ''} ${bl?'blocked':''}"
     onclick="openModal('${t.id}')" title="${esc(t.id+' '+t.title+' · '+t.status)}">${cls?'<span class="ck">✓</span> ':''}<b>${t.id}</b> ${esc(t.title)}<div class="t">${doneHere?'finished ✓':t.pct+'% · '+esc(t.status)}</div></div>`;
 }
 
