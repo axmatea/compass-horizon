@@ -51,7 +51,7 @@ Generated from `src/app/deck/content.ts`, the same data behind the `/deck` speak
 | 0:38 | NAYL | [Click] |
 | 0:39 | NAYL | Four primitives make that work: a bitemporal ledger, commitments across time, versioned beliefs, and crash-safe runs. Plus a time machine. Vincent. |
 
-### Slide 6: Live demo (then the live demo)
+### Slide 6: Live demo (Vincent drives the /demo tab)
 
 | Time | Who | Line |
 | --- | --- | --- |
@@ -159,7 +159,7 @@ Early access is 299 dollars a month per business, ad spend separate. No automati
 - Slide 2 (Judged on day one): CPL is what an ad dashboard shows. Cost per qualified lead and revenue arrive weeks later.
 - Slide 3 (Busy buyers answer late): The curves are an illustration of the demo scenario, not customer data.
 - Slide 5 (Four primitives): Ledger: every event has occurredAt and learnedAt. Idempotent by event id. Commitments are cancelled when the answer arrives first. Beliefs only change version when status or favored arm changes.
-- Slide 6 (Live demo): If the network fails, use the 20 second fallback on /script while this slide stays up. If Liquid shows BLOCKED or rules fallback on stage, say: 'The extractor pulls each field with its quote.' If a beat is slow, keep talking about what the agent is doing; the run finishes in the background.
+- Slide 6 (Live demo): If the network fails, use the 20 second fallback on /script while this slide stays up. If Liquid shows BLOCKED or rules fallback on stage, say: 'The extractor pulls each field with its quote.' If a beat is slow, narrate what the agent is doing until the screen updates.
 - Slide 7 (How it runs): Idempotency is the primary key: insert on conflict do nothing. Each step appends run.step with a deterministic id, so a resumed run skips finished steps. Without keys each sponsor shows BLOCKED and a labeled fallback runs instead.
-- Slide 8 (What we proved): The engine is pure and deterministic, so the same tests run in the server and the browser.
+- Slide 8 (What we proved): The engine is pure and deterministic: the same code runs in the tests, on the server and in the browser.
 - Slide 9 (Business): First customers: AI implementation firms, agencies, B2B services. No automatic billing yet.

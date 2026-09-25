@@ -40,7 +40,7 @@ export default function ScriptPage() {
               <p className={s.slideHead}>
                 <b>Slide {slide.n}</b>
                 <span>{slide.title}</span>
-                {slide.key === 'demo' && <span>then the live demo</span>}
+                {slide.key === 'demo' && <span>Vincent drives the /demo tab</span>}
               </p>
               {lines
                 .filter((l) => l.slide === slide.n)

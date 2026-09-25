@@ -182,7 +182,7 @@ export const SLIDES: SlideDef[] = [
     more: [
       'If the network fails, use the 20 second fallback on /script while this slide stays up.',
       "If Liquid shows BLOCKED or rules fallback on stage, say: 'The extractor pulls each field with its quote.'",
-      'If a beat is slow, keep talking about what the agent is doing; the run finishes in the background.',
+      'If a beat is slow, narrate what the agent is doing until the screen updates.',
     ],
   },
   {
@@ -215,7 +215,7 @@ export const SLIDES: SlideDef[] = [
         say: 'Every property you just saw is covered by a test.',
       },
     ],
-    more: ['The engine is pure and deterministic, so the same tests run in the server and the browser.'],
+    more: ['The engine is pure and deterministic: the same code runs in the tests, on the server and in the browser.'],
   },
   {
     n: 9,
