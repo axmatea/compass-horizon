@@ -2,47 +2,108 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>REMaster LIVE — week board</title>
+<title>REMaster LIVE — the AI company manager</title>
 <style>
-  :root { --bg:#0b0e14; --panel:#121826; --line:#1f2937; --txt:#e5e7eb; --dim:#8b95a7;
+  :root { --bg:#0b0e14; --panel:#121826; --panel2:#0e1420; --line:#1f2937; --txt:#e5e7eb; --dim:#8b95a7;
           --accent:#f59e0b; --ok:#34d399; --bad:#f87171; }
   * { box-sizing:border-box; margin:0; }
   body { background:var(--bg); color:var(--txt); font:14px/1.45 -apple-system,'Segoe UI',sans-serif; padding:14px 18px; }
-  h1 { font-size:19px; letter-spacing:.3px; }
+  h1 { font-size:20px; letter-spacing:.2px; }
   .sub { color:var(--dim); font-size:12px; margin-top:2px; }
-  header { display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin-bottom:12px; }
-  .chip { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:5px 11px; font-size:12px; }
+  header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+  header .title { flex:1 1 520px; }
+  .chip { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:5px 11px; font-size:12px; color:var(--dim); white-space:nowrap; }
   .chip b { color:var(--accent); font-size:15px; }
-  .badge { font-size:10.5px; color:var(--dim); border:1px solid var(--line); border-radius:99px; padding:2px 9px; }
   button { background:var(--accent); color:#111; border:0; border-radius:8px; padding:9px 18px;
-           font-weight:700; font-size:14px; cursor:pointer; }
+           font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; }
   button:disabled { opacity:.45; cursor:wait; }
-  select { background:var(--panel); color:var(--txt); border:1px solid var(--line);
+  select { background:var(--panel); color:var(--txt); border:1px solid var(--accent);
            border-radius:8px; padding:8px 10px; font-size:13px; }
-  .wrap { display:grid; grid-template-columns: 1fr 330px; gap:14px; }
-  table { border-collapse:collapse; width:100%; background:var(--panel); border-radius:10px; overflow:hidden; }
-  th,td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; min-width:118px; }
-  th { background:#0e1420; font-size:11.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; }
-  td.person { min-width:150px; }
+
+  /* how-it-works strip */
+  .how { display:flex; gap:10px; align-items:center; background:linear-gradient(90deg,#1a1508,#121826 70%);
+         border:1px solid #3b2f12; border-radius:10px; padding:8px 14px; margin-bottom:10px; font-size:13px; flex-wrap:wrap; }
+  .how .step { display:flex; align-items:center; gap:7px; }
+  .how .n { background:var(--accent); color:#111; font-weight:800; border-radius:99px; width:20px; height:20px;
+            display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+  .how .arrow { color:var(--dim); }
+  .how .alt { margin-left:auto; color:var(--dim); font-size:12px; }
+
+  /* busy banner */
+  #busy { position:fixed; top:0; left:0; right:0; z-index:50; display:none; text-align:center; padding:9px 12px;
+          font-weight:700; font-size:14px; color:#111; letter-spacing:.3px;
+          background:linear-gradient(90deg,#f59e0b,#fcd34d,#f59e0b); background-size:200% 100%;
+          animation: slide 2s linear infinite, pulse 1.6s ease-in-out infinite; box-shadow:0 4px 24px #f59e0b55; }
+  #busy .sm { font-weight:500; opacity:.8; margin-left:8px; }
+  @keyframes slide { to { background-position:-200% 0; } }
+  @keyframes pulse { 50% { opacity:.78; } }
+  body.isbusy { padding-top:50px; }
+  body.isbusy #grid { opacity:.8; }
+
+  /* chat */
+  #chat { margin:0 0 10px; gap:12px; align-items:center; background:#1a1508; border:2px solid var(--accent);
+          border-radius:12px; padding:10px 12px; box-shadow:0 0 0 4px #f59e0b1f; }
+  .avatar { width:40px; height:40px; border-radius:99px; background:var(--accent); color:#111; font-weight:800;
+            font-size:18px; display:flex; align-items:center; justify-content:center; flex:none; text-transform:uppercase; }
+  #chat .who { flex:none; line-height:1.2; min-width:150px; }
+  #chat .who b { font-size:15px; text-transform:capitalize; }
+  #chat .who div { color:var(--dim); font-size:11.5px; }
+  #chatmsg { flex:1; background:var(--bg); border:1px solid #4b3b12; border-radius:8px; padding:11px 12px;
+             color:var(--txt); font-size:14px; outline:none; }
+  #chatmsg:focus { border-color:var(--accent); }
+  #ack { display:none; background:#1e293b; border:1px solid #334155; border-left:4px solid var(--accent);
+         border-radius:10px; padding:9px 12px; margin:0 0 10px; font-size:13px; }
+
+  .wrap { display:grid; grid-template-columns: 1fr 340px; gap:14px; }
+  table { border-collapse:separate; border-spacing:0; width:100%; background:var(--panel); border-radius:10px;
+          overflow:hidden; border:1px solid var(--line); table-layout:fixed; }
+  th,td { border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:6px 7px;
+          text-align:left; vertical-align:top; }
+  th:last-child, td:last-child { border-right:0; }
+  col.pcol { width:160px; }
+  th { background:var(--panel2); font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; }
+  th .dd { display:block; font-size:10px; text-transform:none; letter-spacing:0; font-weight:400; }
   td.person .r { color:var(--dim); font-size:11px; }
-  td.today { background:#141c2e; }
+  td.person b { text-transform:capitalize; }
+  th.today { background:#2a1f08; color:var(--accent); border-top:3px solid var(--accent); font-size:12px; }
+  td.today { background:#1d2740; box-shadow: inset 2px 0 0 #f59e0b66, inset -2px 0 0 #f59e0b66; }
+  td.future { background:#0d121c; }
+  td.future .card { opacity:.38; filter:saturate(.4); border-style:dashed; border-color:#334155; border-left-style:solid; }
+  td.past { background:#10151f; }
+  th.future { opacity:.7; }
+  .plan { font-size:9.5px; text-transform:uppercase; letter-spacing:.8px; color:#64748b; margin-bottom:2px; }
+  tr.dept td { background:var(--panel2); color:var(--accent); font-size:10.5px; font-weight:700; letter-spacing:1.4px;
+               padding:3px 8px; border-right:0; }
   .card { border-radius:6px; padding:4px 7px; font-size:11.5px; margin:2px 0; cursor:pointer;
-          border:1px solid transparent; background:#1c2434; }
+          border:1px solid transparent; background:#1c2434; overflow:hidden; }
   .card:hover { border-color:var(--accent); }
   .card .t { color:var(--dim); font-size:10.5px; }
+  .card.done { background:#12291f; border-color:#166534; }
+  .card.done .t { color:var(--ok); }
+  .card .ck { color:var(--ok); font-weight:800; }
   .flash { animation: fl 1.6s ease-in-out 3; }
   @keyframes fl { 50% { background:#7c2d12; border-color:var(--accent);} }
   .blocked { border-color:var(--bad)!important; color:var(--bad); }
   .off { color:var(--dim); font-size:11px; font-style:italic; }
   #backlog { margin-top:12px; }
-  #backlog .card { display:inline-block; margin:3px 4px 0 0; }
+  #backlog .card { display:inline-block; margin:3px 4px 0 0; max-width:260px; vertical-align:top; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px; font-size:11px; color:var(--dim); }
+  .legend .lc { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:2px 8px; color:var(--txt); }
+  .legend .lc.done { background:#12291f; border-color:#166534; color:var(--ok); }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
-           max-height:78vh; overflow-y:auto; }
+           max-height:80vh; overflow-y:auto; }
   .panel h3 { font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
-  .ev { font-size:11.5px; border-bottom:1px solid var(--line); padding:5px 0; color:#c7cede; }
-  .ev .k { color:var(--accent); font-weight:600; }
-  #diff { background:#132015; border:1px solid #14532d; border-radius:10px; padding:9px 12px; margin:10px 0; font-size:12.5px; display:none; }
-  #modal { position:fixed; inset:0; background:#000a; display:none; align-items:center; justify-content:center; }
+  .ev { font-size:12px; border-bottom:1px solid var(--line); padding:6px 0; color:#c7cede; }
+  .ev .k { display:flex; gap:6px; align-items:center; color:var(--accent); font-weight:600; font-size:11px; }
+  .ev .k .kind { color:var(--dim); font-weight:400; }
+  .ev .x { margin-top:2px; }
+  .ev .sql { font-family:ui-monospace,Menlo,monospace; font-size:10.5px; color:#93c5fd; white-space:nowrap;
+             overflow:hidden; text-overflow:ellipsis; background:var(--panel2); padding:2px 5px; border-radius:4px; }
+  #diff { background:#132015; border:1px solid #14532d; border-radius:10px; padding:9px 12px; margin:0 0 10px; font-size:13px; display:none; }
+  #diff .mv { margin-top:4px; }
+  .pc { display:inline-block; border-radius:99px; padding:0 8px; font-size:12px; background:#1f2937; text-transform:capitalize; }
+  .pc.to { background:#14532d; color:var(--ok); font-weight:700; }
+  #modal { position:fixed; inset:0; background:#000a; display:none; align-items:center; justify-content:center; z-index:60; }
   #modal .box { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px; width:430px; }
   #modal h2 { font-size:16px; margin-bottom:6px; }
   #modal .meta { color:var(--dim); font-size:12px; margin-bottom:14px; }
@@ -56,9 +117,10 @@
 </style>
 </head>
 <body>
+<div id="busy">🧠 agent thinking… <span class="sm">the company manager is replanning the week — takes ~60–90s <span id="busyt"></span></span></div>
 <header>
-  <div>
-    <h1>REMaster <span style="color:var(--accent)">LIVE</span> — the AI scrum master that sleeps on it</h1>
+  <div class="title">
+    <h1>REMaster <span style="color:var(--accent)">LIVE</span> — the AI company manager that sleeps on it</h1>
     <div class="sub">10-person startup · quarter goal: launch by Demo Day (W12D2) · brains: Liquid LFM-2.5 · log: Tinybird Rawtree · web: Nimble</div>
   </div>
   <div class="chip">Day <b id="day">–</b> <span id="ts"></span></div>
@@ -68,26 +130,32 @@
   <div class="chip">restores <b id="rest">–</b></div>
   <select id="viewas" onchange="viewChanged()"><option value="">👥 whole team</option></select>
   <button id="step" onclick="step()">▶ Next day</button>
-  <span class="badge" id="busy" style="display:none">🧠 agent thinking…</span>
 </header>
 
-<div id="chat" style="display:none; margin:0 0 10px; gap:8px; align-items:center;">
-  <input id="chatmsg" placeholder="" style="flex:1; background:var(--panel); border:1px solid var(--line);
-    border-radius:8px; padding:10px 12px; color:var(--txt); font-size:14px;"
-    onkeydown="if(event.key==='Enter')say()">
+<div class="how">
+  <span class="step"><span class="n">1</span> Pick a teammate <span style="color:var(--dim)">(top-right menu)</span></span><span class="arrow">→</span>
+  <span class="step"><span class="n">2</span> Tell the manager what happened</span><span class="arrow">→</span>
+  <span class="step"><span class="n">3</span> Watch it replan the week</span>
+  <span class="alt">or click any ticket to inject a provider delay · ▶ Next day to advance time</span>
+</div>
+
+<div id="chat" style="display:none">
+  <div class="avatar" id="av">?</div>
+  <div class="who"><b id="whoname"></b><div id="whorole"></div></div>
+  <input id="chatmsg" placeholder="" onkeydown="if(event.key==='Enter')say()">
   <button onclick="say()">💬 Send</button>
 </div>
-<div id="ack" style="display:none; background:#1e293b; border:1px solid #334155; border-radius:10px;
-  padding:9px 12px; margin:0 0 10px; font-size:12.5px;"></div>
+<div id="ack"></div>
 
 <div id="diff"></div>
 
 <div class="wrap">
   <div>
     <table id="grid"></table>
+    <div class="legend" id="legend"></div>
     <div id="backlog"></div>
   </div>
-  <div class="panel"><h3>Agent feed (live from Rawtree)</h3><div id="feed"></div></div>
+  <div class="panel"><h3>Agent feed (live from Rawtree) · newest first</h3><div id="feed"></div></div>
 </div>
 
 <div id="modal" onclick="if(event.target===this)this.style.display='none'">
@@ -103,31 +171,55 @@
 <script>
 const KIND_ICON = {doer_decision:'🧑‍💼', world_event:'🚨', web_result:'🌐', cleaner_op:'🌙',
                    restore:'♻️', divergence:'👥', memory_sql:'🔎', strategist_plan:'🧭', message:'💬'};
-let S = null, sel = null, lastDiffDay = 0, me = '';
+const KIND_LABEL = {doer_decision:'decision', world_event:'event', web_result:'web', cleaner_op:'night cleanup',
+                   restore:'restore', divergence:'divergence', memory_sql:'memory SQL', strategist_plan:'strategy', message:'message'};
+const DEPTS = [['ENGINEERING',['lina','tom','max','priya']], ['DESIGN',['sarah']], ['GROWTH & MARKETING',['omar','dan']],
+               ['SALES',['jules']], ['CUSTOMER SUCCESS',['mia']], ['QUALITY',['eva']]];
+const SKILLS = {backend:'#60a5fa', frontend:'#22d3ee', design:'#f472b6', mobile:'#34d399', growth:'#fb923c',
+                qa:'#a78bfa', sales:'#fde047', cs:'#2dd4bf', marketing:'#f87171'};
+let S = null, sel = null, lastDiffDay = 0, me = '', busySince = 0, localBusy = false;
 const $ = id => document.getElementById(id);
 const modal = $('modal');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayTs = d => `W${Math.ceil(d/5)}D${(d-1)%5+1}`;
 
 async function refresh() {
   try { S = await (await fetch('/api/state')).json(); } catch (e) { return; }
   $('day').textContent = S.day; $('ts').textContent = S.ts + ' · W' + S.week;
   $('ctx').textContent = S.memory.ctx_tokens; $('arch').textContent = S.memory.archived;
   $('sql').textContent = S.metrics.memory_sql_calls; $('rest').textContent = S.metrics.restores;
-  $('step').disabled = S.busy; $('busy').style.display = S.busy ? '' : 'none';
+  if (!S.busy && localBusy && Date.now() - busySince > 4000) localBusy = false;
+  setBusy(S.busy || localBusy);
   if ($('viewas').options.length === 1)
     for (const p of S.people) $('viewas').add(new Option(`🙋 ${p.name} — ${p.role}`, p.name));
-  if (S.ack && me && S.ack.person === me) {
+  if (S.ack && me && S.ack.person === me && !localBusy) {
     $('ack').style.display = 'block';
-    $('ack').innerHTML = `🧑‍💼 <b>scrum master → ${S.ack.person}:</b> ${S.ack.text}`;
+    $('ack').innerHTML = `🧑‍💼 <b>company manager → ${esc(S.ack.person)}:</b> ${esc(S.ack.text)}`;
   }
-  renderGrid(); renderBacklog(); renderFeed(); renderDiff();
+  renderGrid(); renderLegend(); renderBacklog(); renderFeed(); renderDiff();
+}
+
+function setBusy(b) {
+  if (b && !busySince) busySince = Date.now();
+  if (!b) busySince = 0;
+  $('busy').style.display = b ? 'block' : 'none';
+  document.body.classList.toggle('isbusy', !!b);
+  $('step').disabled = !!b;
+  $('busyt').textContent = b ? `· ${Math.round((Date.now() - busySince) / 1000)}s` : '';
 }
 
 function viewChanged() {
   me = $('viewas').value;
   $('chat').style.display = me ? 'flex' : 'none';
   $('ack').style.display = 'none';
-  if (me) $('chatmsg').placeholder =
-    `Talk to the scrum master as ${me}… e.g. "our provider got delayed, we'll only have it tomorrow"`;
+  if (me) {
+    const p = (S?.people || []).find(x => x.name === me);
+    $('av').textContent = me[0]; $('whoname').textContent = me;
+    $('whorole').textContent = (p ? p.role + ' · ' : '') + 'talking to the manager';
+    $('chatmsg').placeholder =
+      `Talk to the company manager as ${me}… e.g. "our provider got delayed, we'll only have it tomorrow"`;
+    $('chatmsg').focus();
+  }
   if (S) { renderGrid(); renderBacklog(); }
 }
 
@@ -136,9 +228,10 @@ async function say() {
   if (!text || !me) return;
   $('chatmsg').value = '';
   $('ack').style.display = 'block';
-  $('ack').innerHTML = `💬 <b>${me}:</b> ${text} <span style="color:var(--dim)">— scrum master is thinking…</span>`;
+  $('ack').innerHTML = `💬 <b>${esc(me)}:</b> ${esc(text)} <span style="color:var(--dim)">— company manager is thinking…</span>`;
+  localBusy = true; busySince = Date.now(); setBusy(true);
   await fetch('/api/say', {method:'POST', body: JSON.stringify({person: me, text})});
-  refresh();
+  localBusy = false; refresh();
 }
 
 function week() { const w = Math.max(1, Math.ceil(Math.max(S.day,1) / 5)); return {w, d0: (w-1)*5 + 1}; }
@@ -147,35 +240,59 @@ function renderGrid() {
   const {w, d0} = week();
   const byDay = {};                        // person -> day -> Set(tickets worked)
   for (const [d, p, t] of S.work_log) ((byDay[p] ??= {})[d] ??= new Set()).add(t);
-  let h = '<tr><th>Week ' + w + '</th>' + [1,2,3,4,5].map(i =>
-    `<th ${d0+i-1===S.day?'class="today"':''}>D${i} · day ${d0+i-1}${d0+i-1===S.day?' (today)':''}</th>`).join('') + '</tr>';
-  for (const p of S.people) {
-    if (me && p.name !== me) continue;
-    h += `<tr><td class="person"><b>${p.name}</b><div class="r">${p.role}</div></td>`;
-    for (let i = 0; i < 5; i++) {
-      const d = d0 + i;
-      let cell = '', off = p.absent.includes(d);
-      if (off) cell = '<div class="off">off 🏖</div>';
-      const worked = byDay[p.name]?.[d];
-      if (worked) for (const t of worked) cell += card(S.tickets[t]);
-      else if (d === S.day || (d > S.day && !off)) {
-        for (const t of Object.values(S.tickets))
-          if (t.assignee === p.name && !t.status.startsWith('done') && t.status !== 'cut')
-            cell += card(t, d > S.day ? .45 : 1);
+  const people = Object.fromEntries(S.people.map(p => [p.name, p]));
+  const cls = d => d === S.day ? 'today' : d > S.day ? 'future' : 'past';
+  let h = '<colgroup><col class="pcol">' + '<col>'.repeat(5) + '</colgroup>';
+  h += '<tr><th>Week ' + w + '</th>' + [1,2,3,4,5].map(i => { const d = d0+i-1;
+    const tag = d === S.day ? '● TODAY' : d > S.day ? 'planned' : 'past';
+    return `<th class="${cls(d)}">D${i} · ${tag}<span class="dd">day ${d}</span></th>`; }).join('') + '</tr>';
+  const seen = new Set();
+  const groups = DEPTS.map(([n, ms]) => [n, ms.filter(m => people[m])]);
+  const rest = S.people.map(p => p.name).filter(n => !DEPTS.some(([, ms]) => ms.includes(n)));
+  if (rest.length) groups.push(['OTHER', rest]);
+  for (const [dept, members] of groups) {
+    const shown = members.filter(n => !me || n === me);
+    if (!shown.length) continue;
+    h += `<tr class="dept"><td colspan="6">${dept}</td></tr>`;
+    for (const name of shown) {
+      const p = people[name];
+      h += `<tr><td class="person"><b>${esc(p.name)}</b><div class="r">${esc(p.role)}</div></td>`;
+      for (let i = 0; i < 5; i++) {
+        const d = d0 + i;
+        let cell = '', off = p.absent.includes(d);
+        if (off) cell = '<div class="off">off 🏖</div>';
+        const worked = byDay[p.name]?.[d];
+        if (worked) for (const t of worked) cell += card(S.tickets[t], d);
+        else if (d === S.day || (d > S.day && !off)) {
+          let c = '';
+          for (const t of Object.values(S.tickets))
+            if (t.assignee === p.name && !t.status.startsWith('done') && t.status !== 'cut') c += card(t);
+          if (c && d > S.day) c = '<div class="plan">planned</div>' + c;
+          cell += c;
+        }
+        h += `<td class="${cls(d)}">${cell}</td>`;
       }
-      h += `<td ${d===S.day?'class="today"':''}>${cell}</td>`;
+      h += '</tr>';
     }
-    h += '</tr>';
   }
   $('grid').innerHTML = h;
 }
 
-function card(t, op) {
+function card(t, day) {
   if (!t) return '';
   const ch = (S.last_diff?.changes || []).some(c => c.ticket === t.id) && S.last_diff.day === S.day;
   const bl = (S.injected || []).some(i => i.ticket === t.id) && t.status.startsWith('blocked');
-  return `<div class="card sk-${t.skill} ${ch?'flash':''} ${bl?'blocked':''}" style="opacity:${op||1}"
-    onclick="openModal('${t.id}')"><b>${t.id}</b> ${t.title}<div class="t">${t.pct}% · ${t.status}</div></div>`;
+  const done = t.status.startsWith('done');
+  const doneHere = done && day && t.status === `done(${dayTs(day)})`;
+  const cls = doneHere || (done && !day) ? 'done' : '';
+  return `<div class="card sk-${t.skill} ${cls} ${ch?'flash':''} ${bl?'blocked':''}"
+    onclick="openModal('${t.id}')" title="${esc(t.id+' '+t.title+' · '+t.status)}">${cls?'<span class="ck">✓</span> ':''}<b>${t.id}</b> ${esc(t.title)}<div class="t">${doneHere?'finished ✓':t.pct+'% · '+esc(t.status)}</div></div>`;
+}
+
+function renderLegend() {
+  $('legend').innerHTML = 'Skill colors: ' + Object.entries(SKILLS).map(([k, c]) =>
+    `<span class="lc" style="border-left:3px solid ${c}">${k === 'cs' ? 'customer success' : k === 'qa' ? 'QA' : k}</span>`).join('')
+    + '<span class="lc done">✓ done</span><span class="lc" style="border-color:var(--bad);color:var(--bad)">blocked</span>';
 }
 
 function renderBacklog() {
@@ -187,21 +304,27 @@ function renderBacklog() {
     rest = Object.values(S.tickets).filter(t => !t.assignee && !t.status.startsWith('done') && t.status!=='cut');
     label = 'UNASSIGNED BACKLOG (click any card to inject a provider delay)';
   }
-  $('backlog').innerHTML = `<h3 style="font-size:12px;color:var(--dim);margin:8px 0 2px">${label}</h3>`
+  $('backlog').innerHTML = `<h3 style="font-size:12px;color:var(--dim);margin:10px 0 2px">${label}</h3>`
     + rest.map(t => card(t)).join('');
 }
 
 function renderFeed() {
-  $('feed').innerHTML = (S.feed || []).map(e =>
-    `<div class="ev"><span class="k">${KIND_ICON[e.kind]||''} ${e.ts}</span> ${e.text}</div>`).join('');
+  $('feed').innerHTML = (S.feed || []).slice().reverse().map(e => {
+    const body = e.kind === 'memory_sql'
+      ? `<div class="x sql" title="${esc(e.text)}">${esc(e.text)}</div>` : `<div class="x">${esc(e.text)}</div>`;
+    return `<div class="ev"><div class="k">${KIND_ICON[e.kind]||'•'} ${esc(e.ts)} <span class="kind">${KIND_LABEL[e.kind]||esc(e.kind)}</span></div>${body}</div>`;
+  }).join('');
 }
 
 function renderDiff() {
   const d = S.last_diff;
   if (!d || !d.changes.length) { $('diff').style.display='none'; return; }
   $('diff').style.display = 'block';
-  $('diff').innerHTML = `<b>🧑‍💼 Agent replanned on day ${d.day}:</b> ` + d.changes.map(c =>
-    `${c.ticket}: ${c.from||'–'} → <b style="color:var(--ok)">${c.to||'unassigned'}</b>${c.reason?' <span style="color:var(--dim)">('+c.reason+')</span>':''}`).join(' · ');
+  $('diff').innerHTML = `<b>🧑‍💼 Agent replanned on day ${d.day}:</b>` + d.changes.map(c => {
+    const t = S.tickets[c.ticket];
+    return `<div class="mv">→ <b>${esc(c.ticket)}</b>${t?' “'+esc(t.title)+'”':''} moves from
+      <span class="pc">${esc(c.from||'unassigned')}</span> → <span class="pc to">${esc(c.to||'unassigned')}</span>${c.reason?' <span style="color:var(--dim)">because '+esc(c.reason)+'</span>':''}</div>`;
+  }).join('');
 }
 
 function openModal(tid) {
@@ -213,11 +336,15 @@ function openModal(tid) {
 
 async function inject(days) {
   modal.style.display = 'none';
+  localBusy = true; busySince = Date.now(); setBusy(true);
   await fetch('/api/inject', {method:'POST', body: JSON.stringify({ticket: sel, days})});
-  refresh();
+  localBusy = false; refresh();
 }
 
-async function step() { $('step').disabled = true; await fetch('/api/step', {method:'POST'}); refresh(); }
+async function step() {
+  localBusy = true; busySince = Date.now(); setBusy(true);
+  await fetch('/api/step', {method:'POST'}); localBusy = false; refresh();
+}
 
 refresh(); setInterval(refresh, 1500);
 </script>
