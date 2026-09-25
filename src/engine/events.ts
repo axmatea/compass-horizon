@@ -82,16 +82,10 @@ export function num(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 }
 
-/** Stable sort by learnedAt then store sequence (or array order). */
+/** Stable sort by learnedAt; ties keep append order (stores list in sequence order). */
 export function byLearned(events: LedgerEvent[]): LedgerEvent[] {
   return events
-    .map((e, i) => ({ e, i }))
-    .sort((a, b) => {
-      const d = Date.parse(a.e.learnedAt) - Date.parse(b.e.learnedAt);
-      if (d !== 0) return d;
-      const sa = a.e.seq ?? a.i;
-      const sb = b.e.seq ?? b.i;
-      return sa - sb;
-    })
+    .map((e, i) => ({ e, i, t: Date.parse(e.learnedAt) }))
+    .sort((a, b) => a.t - b.t || a.i - b.i)
     .map((x) => x.e);
 }
