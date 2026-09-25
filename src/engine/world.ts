@@ -189,6 +189,7 @@ export function deriveLeads(events: LedgerEvent[], rules: QualificationRules): D
       if (!b) continue;
       (lead.fields as Record<FieldKey, FieldValue<unknown>>)[k] = b.v;
       (lead.known as unknown as Record<FieldKey, unknown>)[k] = b.v.value;
+      if (k === 'problem') continue;
       const ld = isoToDay(new Date(b.learned).toISOString());
       latestLearned = latestLearned === null ? ld : Math.max(latestLearned, ld);
     }

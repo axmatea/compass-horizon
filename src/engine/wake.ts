@@ -256,6 +256,8 @@ export async function wake(ctx: WakeContext): Promise<WakeResult> {
         }
         return { src, extraction: extractRules(text), provider: 'rules' as const };
       });
+      // CRM notes describe the deal, not the lead's problem: only qualification fields are taken from them.
+      for (const r of results) if (r.src.type === 'outcome.recorded') r.extraction = { ...r.extraction, problem: null };
       if (!useLiquid) {
         receipts.push({ provider: 'liquid', operation: 'extract', status: ctx.providers.config.liquid.status, note: `${sources.length} texts read by the rules fallback, no model call. ${ctx.providers.config.liquid.detail}` });
       }
@@ -616,7 +618,7 @@ function composeBelief(
   } else {
     const p = ev.probability!.toFixed(2);
     if (ev.status === 'LEANING') {
-      statement = `Leaning ${fav!.key} (${fav!.name}): P = ${p} that it yields more qualified leads per dollar, on ${fav!.resolved} vs ${other!.resolved} resolved leads.`;
+      statement = `Leaning ${fav!.key} (${fav!.name}): P = ${p} that it yields more qualified leads per dollar, with ${A.resolved} resolved on A and ${B.resolved} on B.`;
       recommendation = `Keep both running. Do not scale ${fav!.key} until the support gate is met (${policy.minResolvedPerArmToSupport} resolved per arm and P of at least ${policy.supportAt}).`;
       nextTest = 'Resolve the open leads on both arms before moving budget.';
     } else {
@@ -632,7 +634,7 @@ function composeBelief(
         : `Next test: a second creative for ${fav!.name}.`;
       if (outcomesLanded) {
         statement += ` Won so far: ${usd(fav!.wonUsd)} from ${fav!.key}, ${usd(other!.wonUsd)} from ${other!.key}.`;
-        recommendation += ' ' + counterfactual(view, ev, fav!, other!, runDay);
+        recommendation += ' ' + counterfactual(view, fav!, other!);
       }
     }
   }
@@ -656,11 +658,19 @@ function composeBelief(
     if (str(lp.status) !== ev.status) changes.push(`Status: ${str(lp.status)} -> ${ev.status}`);
     if ((str(lp.favors) ?? null) !== ev.favors) changes.push(`Favors: ${str(lp.favors) ?? 'none'} -> ${ev.favors ?? 'none'}`);
     const lpA = num(lp.pA);
-    if (lpA !== undefined && ev.pA !== null) changes.push(`P(B better per dollar): ${(1 - lpA).toFixed(2)} -> ${(1 - ev.pA).toFixed(2)}`);
+    if (lpA !== undefined && ev.pA !== null && (1 - lpA).toFixed(2) !== (1 - ev.pA).toFixed(2)) changes.push(`P(B better per dollar): ${(1 - lpA).toFixed(2)} -> ${(1 - ev.pA).toFixed(2)}`);
     const la = (lp.arms as Record<string, { resolved: number; qualified: number }> | undefined) ?? {};
     if (A && B) changes.push(`Resolved leads: A ${la.A?.resolved ?? 0} -> ${A.resolved}, B ${la.B?.resolved ?? 0} -> ${B.resolved}`);
     if ((num(lp.policyVersion) ?? 1) !== policy.version) changes.push(`Decision policy v${num(lp.policyVersion) ?? 1} -> v${policy.version}`);
     if (revisedSrc && revisedSrc !== last) changes.push(`Revises belief v${num(revisedSrc.payload.version)} (${str(revisedSrc.payload.status)} ${str(revisedSrc.payload.favors)}) from day ${learnedDay(revisedSrc)}`);
+    const lastDay = learnedDay(last);
+    const names = new Map(ev.leads.map((l) => [l.id, l.name]));
+    for (const e of view) {
+      if (e.type !== 'outcome.recorded' && e.type !== 'lead.replied') continue;
+      const od = isoToDay(e.occurredAt);
+      const ld = learnedDay(e);
+      if (ld > lastDay && ld > od) changes.push(`Late evidence: ${e.type === 'outcome.recorded' ? str(e.payload.stage) : 'reply'} for ${names.get(str(e.payload.leadId) ?? '') ?? str(e.payload.leadId)} occurred day ${od}, learned day ${ld}`);
+    }
     for (const o of newFinal) changes.push(`Outcome: ${str(o.payload.stage)} ${usd(num(o.payload.valueUsd) ?? null)} (lead ${str(o.payload.leadId)}, day ${learnedDay(o)})`);
   }
 
@@ -708,7 +718,7 @@ function beliefEvidence(ev: Evaluation, newFinal: LedgerEvent[]): { eventId: str
   return out.slice(0, 10);
 }
 
-function counterfactual(view: LedgerEvent[], ev: Evaluation, fav: ArmSnapshot, other: ArmSnapshot, runDay: number): string {
+function counterfactual(view: LedgerEvent[], fav: ArmSnapshot, other: ArmSnapshot): string {
   // What scaling the day 3 dashboard pick would have bought: move the favored arm's post-day-3 budget to the other arm at its observed rates.
   const early = visibleAt(view, 3);
   let favSpendByDay3 = 0;
@@ -717,6 +727,5 @@ function counterfactual(view: LedgerEvent[], ev: Evaluation, fav: ArmSnapshot, o
   const extraLeads = other.cplUsd ? Math.round(moved / other.cplUsd) : 0;
   const rate = other.leads ? other.qualified / other.leads : 0;
   const extraQ = Math.round(extraLeads * rate * 10) / 10;
-  void runDay;
   return `Counterfactual: scaling ${other.key} on day 3 would have moved ${usd(moved)} of ${fav.key}'s budget into ${other.key}, buying about ${extraLeads} more leads at ${usd(other.cplUsd)} CPL and about ${extraQ} qualified at ${other.key}'s ${Math.round(rate * 100)}% rate, with ${usd(other.wonUsd)} won from ${other.key} so far. ${fav.key} turned ${usd(fav.spendUsd)} into ${usd(fav.wonUsd)} won plus ${usd(fav.pipelineUsd)} open pipeline.`;
 }
