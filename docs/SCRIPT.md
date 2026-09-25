@@ -143,7 +143,7 @@ Decisions need metrics as of a given day, with duplicates removed, while events 
 
 **6. What changes with real ad data?**
 
-Only the ingest step. Spend, leads and replies arrive from the ad platform and CRM webhooks instead of the scenario, and the clock becomes the real clock. The ledger, beliefs, commitments and runs stay the same. We start on our own pipeline, read-only on the ad account.
+Only the ingest step. Spend, leads and replies arrive through the same events endpoint, from ad reporting and CRM webhooks, instead of the scenario, and the clock becomes the real clock. The ledger, beliefs, commitments and runs stay the same, and it still never changes a campaign. We start on our own pipeline.
 
 **7. What about privacy?**
 
@@ -159,7 +159,7 @@ Early access is 299 dollars a month per business, ad spend separate. No automati
 - Slide 2 (Judged on day one): CPL is what an ad dashboard shows. Cost per qualified lead and revenue arrive weeks later.
 - Slide 3 (Busy buyers answer late): The curves are an illustration of the demo scenario, not customer data.
 - Slide 5 (Four primitives): Ledger: every event has occurredAt and learnedAt. Idempotent by event id. Commitments are cancelled when the answer arrives first. Beliefs only change version when status or favored arm changes.
-- Slide 6 (Live demo): If the network fails, use the 20 second fallback on /script while this slide stays up. Leave the demo on screen until NAYL takes the clicker.
+- Slide 6 (Live demo): If the network fails, use the 20 second fallback on /script while this slide stays up. If Liquid shows BLOCKED or rules fallback on stage, say: 'The extractor pulls each field with its quote.' If a beat is slow, keep talking about what the agent is doing; the run finishes in the background.
 - Slide 7 (How it runs): Idempotency is the primary key: insert on conflict do nothing. Each step appends run.step with a deterministic id, so a resumed run skips finished steps. Without keys each sponsor shows BLOCKED and a labeled fallback runs instead.
 - Slide 8 (What we proved): The engine is pure and deterministic, so the same tests run in the server and the browser.
 - Slide 9 (Business): First customers: AI implementation firms, agencies, B2B services. No automatic billing yet.

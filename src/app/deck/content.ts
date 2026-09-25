@@ -181,7 +181,8 @@ export const SLIDES: SlideDef[] = [
     ],
     more: [
       'If the network fails, use the 20 second fallback on /script while this slide stays up.',
-      'Leave the demo on screen until NAYL takes the clicker.',
+      "If Liquid shows BLOCKED or rules fallback on stage, say: 'The extractor pulls each field with its quote.'",
+      'If a beat is slow, keep talking about what the agent is doing; the run finishes in the background.',
     ],
   },
   {
@@ -282,7 +283,7 @@ export const QA: { q: string; a: string }[] = [
   },
   {
     q: 'What changes with real ad data?',
-    a: 'Only the ingest step. Spend, leads and replies arrive from the ad platform and CRM webhooks instead of the scenario, and the clock becomes the real clock. The ledger, beliefs, commitments and runs stay the same. We start on our own pipeline, read-only on the ad account.',
+    a: 'Only the ingest step. Spend, leads and replies arrive through the same events endpoint, from ad reporting and CRM webhooks, instead of the scenario, and the clock becomes the real clock. The ledger, beliefs, commitments and runs stay the same, and it still never changes a campaign. We start on our own pipeline.',
   },
   {
     q: 'What about privacy?',

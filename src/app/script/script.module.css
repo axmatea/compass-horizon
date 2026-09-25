@@ -44,9 +44,9 @@
 }
 
 .horizon {
-  height: 2px;
-  background: var(--lv-gold);
-  margin: 36px 0 8px;
+  height: 0;
+  border-top: 2px solid var(--lv-gold);
+  margin: 36px 6px 8px;
   position: relative;
 }
 
@@ -54,22 +54,22 @@
 .horizon::after {
   content: '';
   position: absolute;
-  top: -5px;
+  top: -7px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
+  box-sizing: border-box;
 }
 
 .horizon::before {
   left: -6px;
-  background: var(--lv-gold);
+  border: 6px solid var(--lv-gold);
 }
 
 .horizon::after {
   right: -6px;
   background: var(--lv-bg);
   border: 2px solid var(--lv-gold);
-  box-sizing: border-box;
 }
 
 .section {
@@ -88,6 +88,7 @@
 .checklist {
   margin: 0;
   padding: 0 0 0 22px;
+  list-style: disc;
   font-size: 19px;
   line-height: 1.55;
   color: var(--lv-text);
@@ -276,15 +277,13 @@
   .qa li {
     border-color: #ccc;
   }
-  .horizon {
-    background: #b39a5e;
+  .horizon,
+  .horizon::before,
+  .horizon::after {
+    border-color: #b39a5e;
   }
   .horizon::after {
     background: #fff;
-    border-color: #b39a5e;
-  }
-  .horizon::before {
-    background: #b39a5e;
   }
   .say {
     font-size: 21px;

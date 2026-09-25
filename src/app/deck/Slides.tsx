@@ -96,7 +96,7 @@ function Title() {
 
 /* ---------------- 2. Problem ---------------- */
 const A_LEADS = Array.from({ length: 12 }, (_, i) => 0.22 + i * 0.36);
-const B_LEADS = [2.6, 5.2, 7.9, 10.4, 13.1];
+const B_LEADS = [0.55, 1.6, 2.7, 5.6, 8.3, 11.2];
 
 function Problem() {
   const a1 = dx(1);
@@ -135,7 +135,7 @@ function Problem() {
           <text className={s.tSmall} x={dx(5.4)} y={Y - 26}>
             A leads
           </text>
-          <text className={s.tSmall} x={dx(13.8)} y={Y - 52}>
+          <text className={s.tSmall} x={dx(12.1)} y={Y - 52}>
             B leads
           </text>
         </g>
