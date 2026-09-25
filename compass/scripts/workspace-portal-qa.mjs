@@ -1,0 +1,57 @@
+import { chromium, expect } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+const browser = await chromium.launch();
+const errors = [], api = [];
+await mkdir('delivery/workspace/portal', { recursive: true });
+try {
+ for (const width of [390, 768, 1440]) {
+  const page = await browser.newPage({ viewport: { width, height: 960 }, reducedMotion: 'reduce' });
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('request', r => { if (r.url().includes('/api/')) api.push(r.url()); });
+  await page.goto('http://localhost:8770/');
+  await expect(page.getByRole('button', { name: 'Enter demo workspace' })).toHaveCount(0);
+  const nav = page.getByRole('navigation', { name: 'Demo sections' });
+  await page.getByRole('button', { name: "Open Maya Chen's member details" }).click();
+  await expect(page.getByRole('status')).toContainText('fictional owner');
+  const folder = page.getByRole('button', { name: 'Open 2 shared materials' });
+  await folder.focus(); await page.keyboard.press('Enter');
+  await expect(page.locator('pre')).toBeVisible();
+  await nav.getByRole('button', { name: 'Workspace' }).click();
+  await page.locator('.ws-work-card').first().click();
+  await expect(page.locator('.cp-board')).toBeVisible();
+  await nav.getByRole('button', { name: 'Machines' }).click();
+  await page.getByRole('button', { name: 'Play scripted example' }).click();
+  await page.getByRole('button', { name: 'Reveal next step' }).click();
+  await page.getByRole('button', { name: 'Reveal next step' }).click();
+  await page.getByRole('button', { name: 'Read source:' }).click();
+  await expect(page.locator('pre')).toContainText('Do not confirm the booking');
+  await nav.getByRole('button', { name: 'Machines' }).click();
+  await page.getByRole('button', { name: 'Approve demo task' }).click();
+  await expect(page.getByRole('button', { name: 'Added to demo plan' })).toBeDisabled();
+  await nav.getByRole('button', { name: 'Pipeline' }).click();
+  const task = page.locator('.cp-task').filter({ hasText: 'Verify step-free access before booking' });
+  await expect(task).toHaveCount(1);
+  await task.getByRole('button', { name: 'Move to In motion' }).click();
+  await expect(task.getByRole('button', { name: 'Move to Complete' })).toBeVisible();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await page.screenshot({ path: `delivery/workspace/portal/${width}-pipeline.png`, fullPage: true });
+  await nav.getByRole('button', { name: 'Workspace' }).click();
+  await page.screenshot({ path: `delivery/workspace/portal/${width}-workspace.png`, fullPage: true });
+  await page.getByRole('button', { name: 'Reset demo' }).click();
+  await nav.getByRole('button', { name: 'Pipeline' }).click();
+  await expect(page.locator('.cp-task')).toHaveCount(4);
+  await page.reload();
+  await expect(nav).toBeVisible();
+  await page.goto('http://localhost:8770/demo/workspace');
+  await expect(nav).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enter demo workspace' })).toHaveCount(0);
+  await page.close();
+ }
+ assert.deepEqual(errors, []); assert.deepEqual(api, []);
+ const privatePage = await browser.newPage();
+ await privatePage.goto('http://localhost:8770/app');
+ await expect(privatePage.getByRole('link', { name: 'Sign in to COMPASS' })).toBeVisible();
+ await privatePage.close();
+ console.log('PASS: 390/768/1440, immediate demo at root and alias, reload, tabs, source, approval, move, reset, zero demo API calls/errors; private app still requires sign-in.');
+} finally { await browser.close(); }

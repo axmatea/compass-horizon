@@ -1,0 +1,17 @@
+.vercel/
+.env
+.env.*
+node_modules/
+.DS_Store
+.vercel
+
+.railway/
+
+dist/
+
+*.log
+!.env.example
+.cache/
+delivery/
+playwright-report/
+test-results/

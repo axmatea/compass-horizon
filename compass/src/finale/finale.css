@@ -1,0 +1,243 @@
+@font-face {
+  font-family: 'Finale Manrope';
+  src: url('/acquisition/fonts/manrope-variable.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+.finale {
+  --f-bg: #0d0d0c;
+  --f-cream: #efe7d6;
+  --f-gold: #d4b876;
+  --f-muted: #aaa498;
+  --f-line: #35332d;
+  --f-serif: Georgia, 'Times New Roman', serif;
+  --f-gutter: clamp(24px, 5.5vw, 88px);
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  isolation: isolate;
+  background: radial-gradient(ellipse at 85% 25%, #30291b35, transparent 55%), var(--f-bg);
+  color: var(--f-cream);
+  color-scheme: dark;
+  font: 400 15px/1.6 'Finale Manrope', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.finale *, .finale *::before, .finale *::after { box-sizing: border-box; }
+.finale :is(h1, h2, p) { margin: 0; }
+.finale :is(button, a) { -webkit-tap-highlight-color: transparent; }
+.finale button { font: inherit; cursor: pointer; color: inherit; }
+.finale a { color: inherit; text-decoration: none; }
+.finale a:hover { color: var(--f-gold); }
+.finale button:disabled { opacity: .35; cursor: default; }
+.finale :focus-visible { outline: 2px solid var(--f-gold); outline-offset: 5px; }
+.finale h1:focus { outline: none; }
+.finale ::selection { background: #d4b87644; }
+.finale em { color: var(--f-gold); font-weight: inherit; }
+.finale-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.finale-skip { position: absolute; top: 8px; left: 24px; transform: translateY(-200%); padding: 12px; background: var(--f-bg); z-index: 10; }
+.finale-skip:focus { transform: none; }
+.finale-header { display: flex; align-items: center; gap: 24px; padding: 26px var(--f-gutter) 22px; border-bottom: 1px solid #efe7d614; }
+.finale-wordmark { font: 19px var(--f-serif); letter-spacing: .24em; white-space: nowrap; }
+.finale-mark { color: var(--f-gold); margin-left: 12px; }
+.finale-header-note { font-size: 11px; letter-spacing: .06em; color: var(--f-muted); }
+.finale-founders { margin-left: auto; font-size: 11px; letter-spacing: .09em; white-space: nowrap; }
+.finale-main { overflow: auto; scrollbar-color: var(--f-line) var(--f-bg); min-height: 0; }
+.finale-scene { max-width: 1700px; min-height: 100%; margin: 0 auto; padding: clamp(24px, 4vh, 48px) var(--f-gutter); display: flex; flex-direction: column; justify-content: center; animation: finale-enter 500ms ease-out both; }
+.finale-eyebrow { display: flex; gap: 16px; align-items: center; margin-bottom: clamp(20px, 3.5vh, 40px); color: var(--f-muted); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
+.finale-eyebrow > span { color: var(--f-gold); }
+.finale h1 { font: 400 clamp(40px, 4.7vw, 75px)/1.05 var(--f-serif); letter-spacing: -.045em; text-wrap: balance; }
+.finale h2 { font: 400 clamp(25px, 2.5vw, 38px)/1.17 var(--f-serif); letter-spacing: -.025em; }
+.finale-lede { margin-top: 26px !important; color: var(--f-muted); font-size: clamp(14px, 1.2vw, 18px); line-height: 1.75; }
+.finale-signature { display: flex; align-items: center; gap: 16px; margin-top: clamp(28px, 6vh, 72px); font-size: 11px; letter-spacing: .1em; color: var(--f-muted); }
+.finale-fine-line { width: 44px; height: 1px; background: var(--f-gold); }
+.finale-hero-layout { display: grid; grid-template-columns: 1.15fr 1fr; align-items: center; }
+.finale-hero-copy { position: relative; z-index: 1; }
+.finale-scene-1 h1 { font-size: clamp(50px, 6.7vw, 104px); }
+.finale-compass { position: relative; color: var(--f-gold); width: 112%; margin-left: -6%; max-height: 62vh; aspect-ratio: 1; display: grid; place-items: center; }
+.finale-compass svg { width: 100%; height: 100%; max-height: inherit; }
+.finale-north, .finale-coordinate { position: absolute; text-transform: uppercase; letter-spacing: .2em; font-size: 9px; }
+.finale-north { top: 3%; }
+.finale-coordinate { bottom: 2%; color: var(--f-muted); }
+.finale-tag { color: var(--f-muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.finale-fragments { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; margin: 44px 0 30px; }
+.finale-fragments article { border-top: 1px solid var(--f-line); padding-top: 18px; }
+.finale-fragments article:nth-child(2) { padding-left: 24px; border-left: 1px solid var(--f-line); transform: translateY(18px); }
+.finale-fragments article:nth-child(3) { padding-left: 24px; border-left: 1px solid var(--f-line); }
+.finale-fragments p { font: 27px/1.35 var(--f-serif); margin: 24px 0 !important; }
+.finale-fragments small, .finale-muted { color: var(--f-muted); }
+.finale-bottom-thought { margin-top: 30px; padding-top: 24px; border-top: 1px solid var(--f-line); display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+.finale-bottom-thought > span { font-size: 10px; color: var(--f-muted); white-space: nowrap; }
+.finale-bottom-thought p { font: 26px/1.3 var(--f-serif); }
+.finale-workflow { display: grid; grid-template-columns: .8fr 1.5fr; gap: 48px; margin-top: 32px; }
+.finale-steps { display: flex; flex-direction: column; }
+.finale-steps button { min-height: 58px; display: flex; gap: 20px; align-items: center; text-align: left; border: 0; border-bottom: 1px solid var(--f-line); background: transparent; padding: 14px 12px; color: var(--f-muted); }
+.finale-steps button > span:first-child { font-size: 10px; }
+.finale-steps button > span:last-child { margin-left: auto; }
+.finale-steps button[aria-pressed='true'] { color: var(--f-gold); background: linear-gradient(90deg, #d4b87616, transparent); border-color: var(--f-gold); }
+.finale-source-card { padding: 28px 32px; border: 1px solid #d4b87645; background: linear-gradient(135deg, #d4b8760b, #ffffff03); }
+.finale-source-card h2 { margin-top: 16px; }
+.finale-source-card > p { margin-top: 20px; max-width: 50ch; color: var(--f-muted); }
+.finale-source-foot { margin-top: 28px; border-top: 1px solid var(--f-line); padding-top: 16px; color: var(--f-gold); font-size: 12px; }
+.finale-caption { font-size: 11px; line-height: 1.6; color: var(--f-muted); margin-top: 18px !important; }
+.finale-foundation { margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 100px); }
+.finale-records { border-top: 1px solid var(--f-line); }
+.finale-records > div { display: grid; gap: 4px; border-bottom: 1px solid var(--f-line); padding: 18px 0 18px 24px; border-left: 2px solid #d4b87670; }
+.finale-records strong { font: 25px/1.3 var(--f-serif); }
+.finale-records small { color: var(--f-muted); }
+.finale-status { display: inline-block; font-size: 9px; letter-spacing: .13em; padding: 5px 9px; color: var(--f-gold); background: #d4b87616; border: 1px solid #d4b87635; }
+.finale-evidence h2 { margin-top: 16px; }
+.finale-evidence > p { color: var(--f-muted); margin-top: 18px; font-size: 13px; max-width: 48ch; }
+.finale-boundary { margin-top: 24px; padding-top: 18px; border-top: 1px solid #d4b87670; font-size: 12px; }
+.finale-boundary p { color: var(--f-muted); margin-top: 6px; max-width: 50ch; }
+.finale-horizon-heading { display: flex; align-items: baseline; gap: 24px; justify-content: space-between; }
+.finale-horizon-heading h1 { font-size: clamp(38px, 4.3vw, 64px); }
+.finale-view-links { display: flex; gap: 12px; flex-shrink: 0; }
+.finale-view-links a { padding: 8px 4px; min-height: 44px; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--f-gold); }
+.finale-horizon-intro { margin-top: 12px !important; font-size: 14px; color: var(--f-muted); }
+.finale-disclosure { font-size: 12px; padding: 12px 16px; border-left: 2px solid var(--f-gold); background: #d4b8760c; margin: 18px 0 14px; color: var(--f-muted); }
+.finale-disclosure strong { color: var(--f-cream); }
+.finale-embed { border: 1px solid var(--f-line); background: var(--f-bg); height: clamp(300px, 43vh, 540px); flex-shrink: 0; }
+.finale-embed iframe { display: block; width: 100%; height: 100%; border: 0; }
+.finale-scene-5 { justify-content: flex-start; }
+.finale-scene-5 .finale-eyebrow { margin-bottom: 18px; }
+.finale-system-map { margin-top: 36px; display: grid; grid-template-columns: 1fr .45fr 1fr; align-items: center; }
+.finale-system-map article { border-top: 1px solid var(--f-line); padding-top: 18px; }
+.finale-system-map h2 { margin: 18px 0; font-size: clamp(32px, 3vw, 46px); }
+.finale-system-map p { font-size: 13px; color: var(--f-muted); margin-bottom: 20px; }
+.finale-unconnected { display: flex; align-items: center; padding: 20px; gap: 12px; }
+.finale-unconnected span { flex: 1; border-top: 1px dashed #d4b87666; }
+.finale-unconnected b { font-size: 8px; text-align: center; line-height: 1.7; font-weight: 400; letter-spacing: .12em; color: var(--f-gold); }
+.finale-status-outline { background: transparent; }
+.finale-separate { border-top: 1px solid var(--f-line); margin-top: 32px; padding-top: 18px; display: grid; grid-template-columns: 1fr 1.45fr; gap: 24px; }
+.finale-separate p { font-size: 11px; color: var(--f-muted); }
+.finale-separate strong { display: block; color: var(--f-cream); font-weight: 500; font-size: 13px; margin-bottom: 4px; }
+.finale-principles { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; }
+.finale-principles article { padding-top: 16px; border-top: 1px solid var(--f-line); }
+.finale-principles article > span { font-size: 10px; color: var(--f-gold); }
+.finale-principles h2 { margin: 20px 0 16px; }
+.finale-principles p { font-size: 13px; color: var(--f-muted); max-width: 31ch; }
+.finale-next-gate { margin-top: 36px; display: flex; align-items: baseline; gap: 28px; border-top: 1px solid var(--f-line); padding-top: 18px; }
+.finale-next-gate p { font-size: 12px; color: var(--f-gold); }
+.finale-close-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 64px; align-items: center; }
+.finale-demo-links { display: grid; }
+.finale-demo-links a { padding: 18px 0; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--f-line); }
+.finale-demo-links a:last-child { border-bottom: 1px solid var(--f-line); }
+.finale-demo-links strong { font: 24px/1.3 var(--f-serif); display: flex; justify-content: space-between; gap: 16px; }
+.finale-demo-links strong > span { color: var(--f-gold); font: 18px 'Finale Manrope', sans-serif; }
+.finale-demo-links small { font-size: 11px; color: var(--f-muted); }
+.finale-footer { position: relative; display: flex; align-items: center; gap: 24px; padding: 18px var(--f-gutter) max(18px, env(safe-area-inset-bottom)); background: var(--f-bg); }
+.finale-progress { position: absolute; inset: 0 0 auto; height: 2px; background: var(--f-line); }
+.finale-progress span { display: block; height: 100%; background: var(--f-gold); transition: width 300ms ease; }
+.finale-notes-toggle { background: transparent; border: 0; padding: 10px 0; min-height: 44px; font-size: 11px !important; color: var(--f-muted) !important; }
+.finale-notes-toggle[aria-expanded='true'] { color: var(--f-gold) !important; }
+.finale-page { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
+.finale-page span { color: var(--f-muted); }
+.finale-navigation { display: flex; gap: 12px; }
+.finale-navigation button { min-height: 44px; display: flex; gap: 18px; align-items: center; padding: 10px 16px; font-size: 12px; border: 1px solid var(--f-line); background: transparent; }
+.finale-navigation button:last-child { color: var(--f-bg); background: var(--f-gold); border-color: var(--f-gold); }
+.finale-navigation button:hover:not(:disabled) { border-color: var(--f-cream); }
+.finale-notes { position: absolute; bottom: 96px; right: var(--f-gutter); width: min(560px, calc(100% - 48px)); max-height: 60%; overflow: auto; padding: 24px; background: #1b1a16; border: 1px solid #d4b87666; box-shadow: 0 20px 80px #000b; z-index: 5; }
+.finale-notes > div { display: flex; align-items: center; gap: 16px; justify-content: space-between; }
+.finale-notes button { min-height: 44px; background: transparent; border: 1px solid var(--f-line); padding: 6px 12px; font-size: 12px; }
+.finale-notes p { font-size: 14px; margin: 14px 0; }
+.finale-notes small { font-size: 12px; color: var(--f-gold); }
+@keyframes finale-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+@media (min-width: 1600px) { .finale h1 { font-size: 78px; } .finale-scene-1 h1 { font-size: 112px; } }
+@media (max-width: 1000px) {
+  .finale-header-note { display: none; }
+  .finale-hero-layout { grid-template-columns: 1.2fr 1fr; }
+  .finale-fragments p { font-size: 23px; }
+  .finale-workflow { gap: 24px; grid-template-columns: 1fr 1.5fr; }
+  .finale-steps button { gap: 12px; font-size: 13px; }
+  .finale-source-card { padding: 24px; }
+  .finale-principles { gap: 24px; }
+  .finale-close-layout { gap: 32px; grid-template-columns: 1fr 1fr; }
+  .finale-close-layout h1 { font-size: 44px; }
+  .finale-system-map { grid-template-columns: 1fr .35fr 1fr; }
+  .finale-unconnected { padding: 12px; gap: 6px; }
+}
+
+@media (max-width: 600px) {
+  .finale { --f-gutter: 24px; }
+  .finale-header { padding-top: max(20px, env(safe-area-inset-top)); padding-bottom: 18px; gap: 10px; }
+  .finale-wordmark { font-size: 16px; }
+  .finale-mark { margin-left: 2px; }
+  .finale-founders { font-size: 9px; letter-spacing: .02em; }
+  .finale-scene { padding-top: 26px; padding-bottom: 30px; justify-content: flex-start; }
+  .finale-eyebrow { font-size: 9px; margin-bottom: 26px; gap: 12px; }
+  .finale h1 { font-size: clamp(36px, 10vw, 52px); }
+  .finale-scene-1 h1 { font-size: clamp(46px, 12vw, 64px); }
+  .finale-hero-layout { display: block; position: relative; flex: 1; }
+  .finale-compass { width: 200px; max-height: 200px; margin: 20px 0 0 auto; }
+  .finale-north, .finale-coordinate { font-size: 6px; }
+  .finale-signature { margin-top: 24px; font-size: 10px; }
+  .finale-lede { margin-top: 20px !important; font-size: 13px; }
+  .finale-fragments { display: flex; flex-direction: column; gap: 16px; margin: 28px 0 0; }
+  .finale-fragments article, .finale-fragments article:nth-child(2), .finale-fragments article:nth-child(3) { transform: none; padding: 14px 0 0; border-left: 0; }
+  .finale-fragments p { font-size: 22px; margin: 10px 0 !important; }
+  .finale-fragments small { font-size: 11px; }
+  .finale-bottom-thought { flex-direction: column; gap: 10px; margin-top: 24px; padding-top: 18px; }
+  .finale-bottom-thought p { font-size: 24px; }
+  .finale-workflow { display: flex; flex-direction: column; gap: 20px; margin-top: 24px; }
+  .finale-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+  .finale-steps button { padding: 10px 6px; min-height: 48px; font-size: 11px; gap: 8px; }
+  .finale-steps button > span:last-child { display: none; }
+  .finale-source-card { padding: 22px; min-height: 276px; }
+  .finale-source-card h2 { font-size: 27px; }
+  .finale-source-card > p { font-size: 13px; }
+  .finale-source-foot { font-size: 11px; margin-top: 20px; }
+  .finale-foundation { grid-template-columns: 1fr; gap: 28px; margin-top: 28px; }
+  .finale-records > div { padding: 12px 0 12px 18px; }
+  .finale-records strong { font-size: 23px; }
+  .finale-records small { font-size: 11px; }
+  .finale-evidence h2 { font-size: 30px; }
+  .finale-horizon-heading { display: block; }
+  .finale-view-links { margin-top: 10px; gap: 20px; }
+  .finale-horizon-intro { font-size: 13px; }
+  .finale-disclosure { font-size: 11px; margin-top: 14px; }
+  .finale-embed { height: 520px; }
+  .finale-system-map { grid-template-columns: 1fr; margin-top: 26px; }
+  .finale-system-map article { padding-top: 16px; }
+  .finale-system-map h2 { font-size: 30px; margin: 12px 0; }
+  .finale-system-map h2 br, .finale-system-map p br { display: none; }
+  .finale-system-map p { margin-bottom: 12px; }
+  .finale-unconnected { min-height: 62px; padding: 14px 0; gap: 18px; }
+  .finale-unconnected b br { display: none; }
+  .finale-separate { grid-template-columns: 1fr; gap: 14px; margin-top: 24px; }
+  .finale-principles { grid-template-columns: 1fr; gap: 24px; margin-top: 26px; }
+  .finale-principles article { display: grid; grid-template-columns: 32px 1fr; gap: 0 10px; }
+  .finale-principles article > span { margin-top: 6px; }
+  .finale-principles h2 { font-size: 28px; margin: 0 0 12px; }
+  .finale-principles h2 br { display: none; }
+  .finale-principles p { grid-column: 2; max-width: none; font-size: 12px; }
+  .finale-next-gate { display: block; margin-top: 28px; }
+  .finale-next-gate p { margin-top: 8px; }
+  .finale-close-layout { grid-template-columns: 1fr; gap: 32px; }
+  .finale-close-layout h1 { font-size: 42px; }
+  .finale-demo-links a { padding: 15px 0; }
+  .finale-demo-links strong { font-size: 24px; }
+  .finale-footer { padding: 12px 16px max(12px, env(safe-area-inset-bottom)); gap: 12px; flex-wrap: wrap; }
+  .finale-notes-toggle { font-size: 10px !important; }
+  .finale-page { font-size: 10px; }
+  .finale-navigation { gap: 6px; }
+  .finale-navigation button { padding: 9px 10px; gap: 8px; font-size: 11px; }
+  .finale-notes { right: 16px; bottom: 84px; width: calc(100% - 32px); padding: 18px; }
+}
+
+@media (max-height: 650px) and (min-width: 601px) {
+  .finale-scene { justify-content: flex-start; }
+  .finale-compass { max-height: 380px; }
+  .finale-header { padding-top: 16px; padding-bottom: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finale *, .finale *::before, .finale *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

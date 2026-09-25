@@ -1,0 +1,62 @@
+
+/* COMPASS base layer. Black, gold, cream. Georgia for the wordmark and numbers, Helvetica for everything else. */
+@font-face{font-family:Compass Manrope;src:url('/acquisition/fonts/manrope-variable.ttf') format('truetype');font-weight:200 800;font-display:swap}
+:root {
+  color-scheme: dark;
+  --c-bg: #0d0d0c;
+  --c-line: #2a2926;
+  --c-line-soft: #1f1e1c;
+  --c-gold: #d4b876;
+  --c-cream: #efe7d6;
+  --c-text: #e6dfcf;
+  --c-muted: #8f8a7e;
+  --c-faint: #4f4c45;
+  --c-a: #c9c2b3;
+  --c-b: #d4b876;
+  --c-unknown: #77726a;
+  --c-ok: #9fbf8f;
+  --c-serif: Georgia, "Times New Roman", serif;
+  --c-sans: "Compass Manrope", sans-serif;
+  --c-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --c-gutter: clamp(16px, 3.4vw, 64px);
+}
+
+html {
+  background: var(--c-bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--c-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: rgba(212, 184, 118, 0.3);
+  color: var(--c-cream);
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-gold);
+  outline-offset: 3px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html.is-embed, html.is-embed body { background: transparent; min-height: 0; }

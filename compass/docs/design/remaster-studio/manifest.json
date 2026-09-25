@@ -1,0 +1,54 @@
+{
+  "project": "COMPASS / REMaster",
+  "createdAt": "2026-09-25",
+  "branch": "codex/remaster-gpt-studio",
+  "request": "USE GPT IMAGE AND IMPLEMENT THOSE DESIGNS",
+  "generator": {
+    "tool": "image_gen.imagegen",
+    "path": "built-in GPT Image, not Higgsfield MCP",
+    "modelVersion": "Not separately returned by the tool",
+    "higgsfieldCreditsSpent": 0
+  },
+  "assets": [
+    {
+      "id": "studio-concept-v1",
+      "role": "Design reference only. Generated copy and numbers are not treated as product facts.",
+      "file": "docs/design/remaster-studio/gpt-image-concept.png",
+      "sha256": "1e103b3b1bbdfdd611e2f7e3a7e6bd13d1e78f780a5e0e1c3a980a0238046aef",
+      "source": "/Users/axmatea/.codex/generated_images/019d0330-98c9-72f3-9384-19b60cdd3a24/exec-387866b6-5e5a-4969-8c90-45be3ad2389f.png",
+      "prompt": "Use case: ui-mockup.\nCreate ONE high-fidelity wide desktop browser-game interface design for COMPASS / REMaster. This is a playable project-management memory game, not a productivity dashboard or landing page. The objective is to guide six teammates through six sprints over sixty working days to Demo Day; a simulated AI keeps, archives, and restores constraints. Match the sophistication of an award-winning editorial interactive experience, tactile architectural model meets premium software.\nCanvas 16:9 landscape, clear 1440px desktop screen mockup. Warm ivory paper #f5f2eb, dark olive-graphite #242a24, vivid cobalt #3154f4; restrained pale sage and terracotta accents. Manrope-like geometric type with beautiful large numerals. Thin precise hairlines, intentional whitespace. No neon, no purple, no black dashboard, no generic stock photography.\n\nLayout: small top bar with REMaster wordmark left and clearly visible 'SCRIPTED SIMULATION' tag right. Compact title 'Build a team that remembers.' with a quiet subtitle, then a slim six-stop sprint timeline. Hero is one large interactive cutaway isometric studio playfield occupying roughly the left two thirds: six inviting, distinctly colored clay/miniature human figures at six workstations around a collaborative central worktable, plants, desk lamps, tiny computers, warm natural shadows, believable spatial design and empty negative space between stations. Tiny precise white HTML-style name labels Priya, Sarah, Max, Leo, Maya, Noah floating next to each station, status dots and a subtle cobalt path from one active teammate to another. The scene should feel explorable and playful, not a flat grid of cards. A pale rectangular project-task card near the central table suggests the current task 'Service architecture'; other tiny task markers are sparse. The right third is a narrow contextual mission panel, beautifully typeset, with huge '08' and 'DAY / 60', then two actionable current task cards and one decision snippet 'Sarah is unavailable in week 9. Remembered.' with source chip. A horizontal bottom control dock features compact 'Memory X-ray', 'Introduce a change', and a strong cobalt primary button 'Pause'. A tiny footer states 'Synthetic team. Scripted results.' No XP, no fake confidence, no fake live integrations.\nUse varied scale and masterful visual hierarchy: the inviting tactile game-world is the unmistakable centerpiece. Avoid lots of text, repeated identical cards, conventional kanban columns, marketing hero/splash, pricing and navigation tabs. Everything is one immediately usable game screen. Produce a fresh, implementable art direction with refined polished details."
+    },
+    {
+      "id": "studio-clean-v1",
+      "role": "Static illustrated environment, generated from the concept with all text and UI removed.",
+      "file": "docs/design/remaster-studio/gpt-image-clean-studio.png",
+      "sha256": "568d719bdb3b93b114e1888b6c170a824fee85286195e20820a8442e9a3667c0",
+      "source": "/Users/axmatea/.codex/generated_images/019d0330-98c9-72f3-9384-19b60cdd3a24/exec-efb55f4b-7470-49ce-afb4-2c2b611e3c9f.png",
+      "reference": "studio-concept-v1",
+      "prompt": "Edit the reference image to extract and extend ONLY the beautifully rendered miniature studio room as a clean game environment asset. Remove ALL interface overlays, all names, all labels, all writing or typography anywhere (walls, rugs, posters, paper, screens), top bar, title, timeline, right sidebar, bottom controls, floating cards, blue dashed lines and blue dots. This output is NOT a screenshot of an app, it is the clean studio artwork underneath it. Preserve the same six clay/miniature adult human characters, their same wardrobe, exact desks, spatial placements, tactile materials and warm natural morning light of the reference LEFT ROOM. Preserve these positions relative to the room: Priya orange sweater woman at upper left, Sarah blue sweater glasses woman upper middle, Max green beanie man upper right, Leo yellow sweater headphones man lower left, Maya terracotta sweater curly hair woman foreground center-left, Noah light shirt dark cap man lower right. Retain central collaborative worktable, architecture model, many plants and bookshelves. Change all framed words to minimal abstract cream/ochre artwork. Remove the dog. Expand the studio to occupy the whole output, 3:2 landscape composition. It should feel like an elegant cutaway room photographed from a gently elevated angle, keep all six people completely visible and separated enough for clickable HTML hotspots to be laid over them. No UI, no text, no numbers, no logos, no watermarks. Beautiful light warm paper finish, photorealistic materials on stylized clay characters. This is a static illustrated set, not a claim of animated AI behavior."
+    },
+    {
+      "id": "studio-web-v1",
+      "role": "Production browser asset. Avatars are CSS views of the same room image.",
+      "file": "public/remaster/studio/room-v1.webp",
+      "sha256": "a75b1d10170b6de4cad18fe3a283bd7b66234a2a935ca0e5a91a5fbf56269769",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 281300,
+      "derivedFrom": "studio-clean-v1",
+      "command": "cwebp -q 88 docs/design/remaster-studio/gpt-image-clean-studio.png -o public/remaster/studio/room-v1.webp"
+    }
+  ],
+  "implementation": {
+    "UI": "React DOM text, buttons and SVG paths. No generated UI text is used.",
+    "state": "Existing FixtureTransport or validated LiveTransport snapshot.",
+    "motion": "Pulsing active status; transfer line only after a received owner change; checkpoint reveal from reported phase.",
+    "notClaimed": [
+      "Animated 3D characters",
+      "New live AI runtime",
+      "Sponsor API execution",
+      "Public production deployment"
+    ],
+    "publication": "Local preview only; no push or deploy authorized for this design turn."
+  }
+}

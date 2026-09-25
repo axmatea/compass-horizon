@@ -1,0 +1,48 @@
+import {chromium} from '@playwright/test';
+import {mkdir,writeFile,stat} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+const exec=promisify(execFile);
+const base=process.env.ACQUISITION_QA_URL||'http://localhost:8770';
+const out=resolve('delivery');await mkdir(resolve(out,'raw'),{recursive:true});
+const browser=await chromium.launch({headless:true});
+const context=await browser.newContext({viewport:{width:1920,height:1080},deviceScaleFactor:1,recordVideo:{dir:resolve(out,'raw'),size:{width:1920,height:1080}}});
+const page=await context.newPage();const video=page.video();
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const timecoded=[];
+const start=performance.now();
+const at=async(seconds,label,action)=>{
+ const remaining=seconds*1000-(performance.now()-start);if(remaining>0)await page.waitForTimeout(remaining);
+ await action();timecoded.push({seconds,label});
+};
+try{
+ await page.goto(`${base}/acquisition?tour=1`);await page.getByRole('region',{name:'Guided demo tour'}).waitFor();await page.evaluate(()=>document.fonts.ready);
+ const tour=page.getByRole('region',{name:'Guided demo tour'});
+ const next=label=>tour.getByRole('button',{name:label,exact:true}).click();
+ await at(8,'Mission and explicit fixture scope',()=>page.mouse.move(710,295,{steps:25}));
+ await at(25,'Two synthetic experiment hypotheses',()=>next('Explore experiments'));
+ await at(39,'Read an experiment brief',()=>page.getByRole('button',{name:'Read brief',exact:true}).first().click());
+ await at(49,'Close the brief',()=>page.getByRole('button',{name:'Close brief',exact:true}).click());
+ await at(55,'Incomplete lead and missing budget',()=>next('Meet the pipeline'));
+ await at(68,'Inspect source fields',()=>page.locator('.lead-fields').scrollIntoViewIfNeeded());
+ await at(85,'Receive synthetic delayed answer',()=>next('Jump 2 days: receive answer'));
+ await at(98,'Inspect changed qualification',()=>page.locator('.lead-detail').scrollIntoViewIfNeeded());
+ await at(110,'Replay exact event, no additional lead',()=>next('Replay the same event'));
+ await at(125,'Version qualification rules and keep evidence',()=>next('Change the business rules'));
+ await at(140,'Inspect decision/evidence trail',()=>page.locator('.timeline').scrollIntoViewIfNeeded());
+ await at(155,'Still insufficient evidence',()=>next('Check the evidence'));
+ await at(161,'Finish the same-product tour',()=>next('Finish & explore'));
+ await at(165,'Early access: no payment collection',()=>page.getByRole('button',{name:'Get early access',exact:true}).click());
+ await at(180,'End',async()=>{});
+}finally{await context.close();await browser.close();}
+if(errors.length)throw new Error(`Browser recording errors: ${errors.join('; ')}`);
+const raw=await video.path(),output=resolve(out,'COMPASS_Acquisition_Walkthrough_180s_1080p.mp4');
+await exec('ffmpeg',['-hide_banner','-loglevel','error','-y','-i',raw,'-an','-vf','fps=30,scale=1920:1080:flags=lanczos,setsar=1,tpad=stop_mode=clone:stop_duration=3','-t','180','-c:v','libx264','-preset','fast','-crf','20','-pix_fmt','yuv420p','-movflags','+faststart',output],{maxBuffer:4e6});
+const {stdout}=await exec('ffprobe',['-v','error','-show_entries','format=duration,size:stream=codec_name,codec_type,width,height,r_frame_rate','-of','json',output]);
+const probe=JSON.parse(stdout);const v=probe.streams.find(s=>s.codec_type==='video');
+if(v?.width!==1920||v?.height!==1080||Math.abs(Number(probe.format.duration)-180)>0.2)throw new Error('Unexpected render specification.');
+await exec('ffmpeg',['-v','error','-i',output,'-f','null','-'],{maxBuffer:4e6});
+const manifest={output,raw,base,createdAt:new Date().toISOString(),scope:'Recorded local synthetic guided tour. Not live sponsor proof.',audio:'Silent: use ACQUISITION_PITCH.md for live narration. No music or third-party audio.',paidGeneration:false,tools:['Playwright Chromium','FFmpeg'],mcpMediaServicesUsed:[],probe,timecoded,bytes:(await stat(output)).size};
+await writeFile(resolve(out,'video-manifest.json'),JSON.stringify(manifest,null,2));
+console.log(JSON.stringify(manifest,null,2));

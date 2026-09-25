@@ -1,0 +1,14 @@
+{
+  "scenes": {
+    "chaos": {
+      "poster": "/media/cinematic/01-chaos.jpg"
+    },
+    "speak": {
+      "poster": "/media/cinematic/02-speak.jpg"
+    },
+    "progress": {
+      "poster": "/media/cinematic/03-progress.jpg"
+    }
+  },
+  "status": "keyframes ready; video generation pending"
+}

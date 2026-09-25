@@ -1,0 +1,65 @@
+/* Horizon 3D: black + gold, no text walls. */
+.h3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  background: #0d0d0c;
+  overflow: hidden;
+}
+
+.h3d canvas {
+  display: block;
+  outline: none;
+}
+
+.h3d-html {
+  pointer-events: none;
+}
+
+.h3d-tag {
+  font: 11px/1.2 Helvetica, Arial, sans-serif;
+  color: #efe7d6;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  background: rgba(13, 13, 12, 0.72);
+  border: 1px solid rgba(212, 184, 118, 0.22);
+  border-radius: 2px;
+  opacity: 0.8;
+}
+
+.h3d-tag.is-current {
+  color: #d4b876;
+  border-color: rgba(212, 184, 118, 0.6);
+  opacity: 1;
+}
+
+.h3d-num {
+  color: #d4b876;
+  font-variant-numeric: tabular-nums;
+}
+
+.h3d-lane {
+  font: 11px/1 Helvetica, Arial, sans-serif;
+  color: #77726a;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.h3d-lane.is-a {
+  color: #c9c2b3;
+}
+
+.h3d-lane.is-b {
+  color: #d4b876;
+}
+
+.h3d-day {
+  font: 11px/1 var(--c-serif, Georgia, serif);
+  color: #d4b876;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

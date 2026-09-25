@@ -1,0 +1,550 @@
+/* COMPASS: one screen, the Horizon is the product. */
+.hz-return{display:flex;gap:18px;font-size:11px}.hz-return a{color:var(--c-muted);text-decoration:none;padding:5px 0}.hz-return a:hover{color:var(--c-gold)}
+
+.cp {
+  min-height: 100svh;
+  height: 100svh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.cp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: clamp(18px, 3.2vh, 36px) var(--c-gutter) 0;
+}
+
+.cp-mark {
+  font-family: var(--c-serif);
+  font-size: clamp(16px, 1.3vw, 21px);
+  letter-spacing: 0.38em;
+  color: var(--c-cream);
+  line-height: 1.2;
+}
+
+.cp-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+}
+
+.cp-day {
+  font-family: var(--c-serif);
+  font-size: clamp(18px, 1.5vw, 24px);
+  color: var(--c-cream);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-honest {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--c-muted);
+}
+
+.cp-stage {
+  position: relative;
+  min-height: 0;
+  padding: 0 var(--c-gutter);
+  display: flex;
+}
+
+.cp-wait {
+  flex: 1;
+}
+
+.cp-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+  padding: 0 var(--c-gutter) clamp(20px, 4vh, 48px);
+}
+
+.cp-readout {
+  font-family: var(--c-serif);
+  font-size: clamp(44px, 5vw, 80px);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cp-num {
+  margin-right: clamp(12px, 1.4vw, 22px);
+  font-family: var(--c-serif);
+  color: var(--c-gold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.cp-status {
+  font-family: var(--c-serif);
+  font-size: clamp(20px, 1.9vw, 32px);
+  color: var(--c-cream);
+}
+
+.cp-status.is-alone {
+  font-size: clamp(28px, 2.8vw, 46px);
+  color: var(--c-muted);
+}
+
+.cp-caption {
+  margin-top: 12px;
+  font-size: clamp(15px, 1.15vw, 19px);
+  color: var(--c-muted);
+  min-height: 1.5em;
+}
+
+.cp-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--c-text);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 160ms var(--c-ease), background 160ms var(--c-ease), opacity 160ms var(--c-ease);
+}
+
+.cp-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cp-btn:hover:not(:disabled) {
+  background: rgba(239, 231, 214, 0.06);
+  color: var(--c-cream);
+}
+
+.cp-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.cp-btn.is-play {
+  padding: 0 20px 0 16px;
+  color: var(--c-bg);
+  background: var(--c-gold);
+  font-weight: 500;
+}
+
+.cp-btn.is-play svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+.cp-btn.is-play:hover:not(:disabled) {
+  background: #e0c88e;
+  color: var(--c-bg);
+}
+
+.cp-btn.is-quiet {
+  margin-left: 10px;
+  color: var(--c-muted);
+  font-size: 13px;
+}
+
+/* ---------- The Horizon ---------- */
+
+.hz {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.hz-frame {
+  position: relative;
+  width: 100%;
+}
+
+.hz-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.hz-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.hz-canvas {
+  position: relative;
+}
+
+.hz-svg {
+  display: block;
+  overflow: visible;
+  font-family: var(--c-sans);
+}
+
+.hz-lane line {
+  stroke: var(--c-line);
+  stroke-width: 1;
+}
+
+.hz-lane line.is-future {
+  stroke: var(--c-line-soft);
+  stroke-dasharray: 2 5;
+}
+
+.hz-axis {
+  stroke: var(--c-line);
+}
+
+.hz-tick line {
+  stroke: var(--c-faint);
+}
+
+.hz-tick text {
+  font-size: 11px;
+  fill: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.hz-tick.is-future text,
+.hz-tick.is-future line {
+  opacity: 0.35;
+}
+
+.hz-tick.is-current text {
+  fill: var(--c-gold);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.hz-svg text {
+  paint-order: stroke;
+  stroke: var(--c-bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.hz-svg .hz-belief-label,
+.hz-svg .hz-lesson {
+  stroke-width: 9px;
+}
+
+.hz-more {
+  font-size: 10.5px;
+  fill: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.hz-dot.is-new {
+  animation: hz-rise 560ms var(--c-ease) both;
+  animation-delay: calc(var(--i, 0) * 12ms);
+}
+
+@keyframes hz-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.hz-arc path {
+  fill: none;
+  stroke: var(--c-gold);
+  stroke-width: 1.2;
+  opacity: 0.75;
+}
+
+.hz-arc.is-new path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hz-draw 1100ms var(--c-ease) 200ms forwards;
+}
+
+@keyframes hz-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.hz-arc-origin {
+  fill: var(--c-bg);
+  stroke: var(--c-gold);
+  stroke-width: 1.2;
+}
+
+.hz-arc-label {
+  font-size: 11.5px;
+  font-style: italic;
+  font-family: var(--c-serif);
+  fill: var(--c-gold);
+  opacity: 0.9;
+}
+
+.hz-belief-label {
+  font-size: 13.5px;
+  fill: var(--c-text);
+  letter-spacing: 0.01em;
+}
+
+.hz-belief-num {
+  fill: var(--c-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.hz-belief-tick {
+  stroke: var(--c-faint);
+  stroke-width: 1;
+}
+
+.hz-belief.is-current .hz-belief-label {
+  fill: var(--c-cream);
+  font-weight: 700;
+}
+
+.hz-belief {
+  animation: hz-fade 500ms var(--c-ease) both;
+}
+
+.hz-lesson {
+  font-size: 12px;
+  font-family: var(--c-serif);
+  font-style: italic;
+  fill: var(--c-cream);
+  opacity: 0.85;
+  animation: hz-fade 500ms var(--c-ease) both;
+}
+
+@keyframes hz-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.hz-track {
+  position: absolute;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.hz-handle {
+  position: absolute;
+  width: 0;
+  pointer-events: none;
+  transition: left 280ms var(--c-ease);
+}
+
+.hz-now {
+  stroke: var(--c-gold);
+  stroke-width: 1;
+  opacity: 0.45;
+  transition: transform 280ms var(--c-ease);
+}
+
+.hz-knob {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-gold);
+  box-shadow: 0 0 0 5px rgba(212, 184, 118, 0.14);
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.hz-knob:active {
+  cursor: grabbing;
+}
+
+.hz-knob:focus-visible {
+  outline: 2px solid var(--c-cream);
+  outline-offset: 3px;
+  border-radius: 50%;
+}
+
+.hz-lanes {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.hz-lane-label {
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.hz-lane-letter {
+  font-family: var(--c-serif);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.hz-lane-name {
+  font-size: 13px;
+  color: var(--c-muted);
+  letter-spacing: 0.02em;
+}
+
+.hz-lane-label.is-quiet .hz-lane-name {
+  color: var(--c-muted);
+}
+
+.hz-lane-label.is-axis .hz-lane-name {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-faint);
+}
+
+@media (max-width: 719px) {
+  .cp {
+    height: auto;
+    min-height: 100svh;
+  }
+
+  .cp-stage {
+    min-height: 420px;
+    padding-right: 0;
+  }
+
+  .hz-lanes {
+    background: linear-gradient(to right, var(--c-bg) 78%, rgba(13, 13, 12, 0));
+    width: 72px !important;
+  }
+
+  .hz-lane-name {
+    font-size: 11px;
+  }
+
+  .cp-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cp-controls {
+    justify-content: space-between;
+  }
+
+  .cp-btn {
+    padding: 0 10px;
+  }
+
+  .cp-btn.is-quiet {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hz-dot.is-new,
+  .hz-belief,
+  .hz-lesson {
+    animation: none;
+  }
+
+  .hz-arc.is-new path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .hz-handle,
+  .hz-now,
+  .cp-btn {
+    transition: none;
+  }
+}
+
+/* View switch (2D, 3D, Phone) and embed mode. */
+.cp-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cp-views {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--c-line);
+  border-radius: 999px;
+  width: max-content;
+}
+
+.cp-view {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--c-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 160ms var(--c-ease), background 160ms var(--c-ease);
+}
+
+.cp-view:hover {
+  color: var(--c-cream);
+}
+
+.cp-view.is-on {
+  background: rgba(212, 184, 118, 0.14);
+  color: var(--c-gold);
+}
+
+.cp.is-embed .cp-mark {
+  display: none;
+}
+
+.cp-phone {
+  position: relative;
+  min-height: 100svh;
+}
+
+.cp-phone-bar {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+}
+
+@media (max-width: 520px) {
+  .cp-phone-bar {
+    top: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}

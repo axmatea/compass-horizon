@@ -1,0 +1,17 @@
+{
+  "name": "COMPASS Workspace",
+  "short_name": "COMPASS",
+  "description": "Keep the reason. Move the work. An interactive COMPASS demo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0d0c",
+  "theme_color": "#0d0d0c",
+  "icons": [
+    {
+      "src": "/acquisition/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

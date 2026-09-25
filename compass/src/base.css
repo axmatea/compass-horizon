@@ -1,0 +1,14 @@
+/* Minimal equivalent of the source application's preflight, without its unused UI framework. */
+*,::before,::after{box-sizing:border-box;border-width:0;border-style:solid}
+html{line-height:1.5;-webkit-text-size-adjust:100%;tab-size:4;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-width:320px;min-height:100vh}
+h1,h2,h3,h4,h5,h6,p,figure,blockquote,dl,dd{margin:0}
+h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}
+a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}
+button,input,optgroup,select,textarea{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0;border-radius:0;background:transparent}
+button,input:where([type=button],[type=reset],[type=submit]){appearance:button}
+button,select{text-transform:none}textarea{resize:vertical}
+img,svg,video,canvas,audio,iframe,embed,object{display:block;vertical-align:middle}
+img,video{max-width:100%;height:auto}summary{display:list-item}
+small{font-size:80%}dialog{margin:auto;padding:0}dialog:not([open]){display:none}
+[hidden]:not([hidden=until-found]){display:none!important}

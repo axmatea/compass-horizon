@@ -1,0 +1,57 @@
+import {chromium,expect} from '@playwright/test';
+import {randomUUID} from 'node:crypto';
+import {mkdir,writeFile} from 'node:fs/promises';
+import pg from 'pg';
+import {createInvite} from './acquisition-invite.mjs';
+const url=process.env.ACQUISITION_TEST_DATABASE_URL;
+if(!url||!['localhost','127.0.0.1'].includes(new URL(url).hostname))throw new Error('Explicit loopback test database required. Never run against production.');
+const pool=new pg.Pool({connectionString:url}),browser=await chromium.launch();
+const base='http://localhost:8770';
+const email=`browser-${randomUUID()}@example.test`,password=`test-only-${randomUUID()}`;
+const report={at:new Date().toISOString(),scope:'Local synthetic invited account; no external providers',checks:[],errors:[]};
+let invite,tenant,userId;
+try{
+ invite=await createInvite({pool,email});
+ const context=await browser.newContext({viewport:{width:1440,height:1000},permissions:[]});const page=await context.newPage();
+ page.on('pageerror',e=>report.errors.push(e.message));
+ await page.goto(`${base}/acquisition/app?token=${invite.token}`);
+ await page.getByLabel('Your name',{exact:true}).fill('Synthetic QA Owner');
+ await page.getByLabel('Email',{exact:true}).fill(email);await page.getByLabel('Password',{exact:true}).fill(password);
+ await page.getByRole('button',{name:'Accept invitation',exact:true}).click();
+ await expect(page.getByText('Invitation accepted. Sign in with your new account.')).toBeVisible();
+ const member=(await pool.query('SELECT t.id,t.user_id FROM acq_tenants t JOIN acq_auth_users u ON u.id=t.user_id WHERE u.email=$1',[email])).rows[0];tenant=member.id;userId=member.user_id;
+ await page.getByLabel('Email',{exact:true}).fill(email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Open workspace',exact:true}).click();
+ await page.getByRole('button',{name:'Edit mission',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Edit mission',exact:true}).click();
+ await page.getByLabel('Business name',{exact:true}).fill('Synthetic QA Business');await page.getByLabel('Your acquisition mission').fill('Qualify synthetic AI implementation leads.');
+ await page.getByRole('button',{name:'Save business & rules'}).click();
+ await expect(page.getByRole('dialog')).toHaveCount(0);report.checks.push('Invitation, sign-in, empty private workspace, persistent business setup');
+ await page.getByRole('navigation',{name:'Workspace',exact:true}).getByRole('button',{name:/Experiments/}).click();
+ await page.getByRole('button',{name:'New experiment',exact:true}).click();
+ await page.getByLabel('Experiment name',{exact:true}).fill('QA hypothesis');await page.getByLabel('Hypothesis',{exact:true}).fill('A specific workflow improves inbound fit.');await page.getByLabel('Audience',{exact:true}).fill('Synthetic service teams');await page.getByLabel('Message',{exact:true}).fill('Fix a manual workflow.');await page.getByRole('dialog').getByRole('button',{name:'Create experiment',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'QA hypothesis',exact:true})).toBeVisible();
+ await page.getByRole('navigation',{name:'Workspace',exact:true}).getByRole('button',{name:/Pipeline/}).click();await page.getByRole('button',{name:'Add lead',exact:true}).first().click();
+ await page.getByLabel('Full name',{exact:true}).fill('Synthetic QA Lead');await page.getByRole('combobox',{name:/Attribution/}).selectOption({label:'QA hypothesis'});await page.getByLabel('Problem to solve').fill('Manual follow-up requires implementation');
+ await page.getByLabel('Timeline (days)',{exact:true}).fill('30');await page.getByLabel('Are they the decision maker?').selectOption('true');await page.getByLabel('Do they fit your business profile?').selectOption('true');
+ await page.getByRole('dialog').getByRole('button',{name:'Add lead',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Synthetic QA Lead',exact:true})).toBeVisible();
+ await expect(page.locator('.lead-detail')).toContainText('Needs context');report.checks.push('Experiment and incomplete lead saved; unknown budget preserved');
+ await page.getByRole('button',{name:'Add new context',exact:true}).click();await page.getByLabel('Budget (USD)',{exact:true}).fill('8000');await page.getByRole('button',{name:'Save new context',exact:true}).click();
+ await expect(page.locator('.lead-detail')).toContainText('Qualified');await page.reload();await expect(page.locator('.lead-detail')).toContainText('Qualified');report.checks.push('Manual correction qualifies lead and survives browser reload');
+ await page.getByRole('button',{name:'Provider operations',exact:true}).click();await page.getByLabel('Research query').fill('Synthetic research only; no vendor call authorized');await page.getByRole('button',{name:'Start provider operation',exact:true}).click();
+ await expect(page.locator('.run-card').first()).toContainText('blocked',{timeout:10000});report.checks.push('Provider operation stays BLOCKED without a paid call');
+ await page.keyboard.press('Escape');
+ await page.getByRole('navigation',{name:'Workspace',exact:true}).getByRole('button',{name:/Memory/}).click();await expect(page.locator('.timeline')).toContainText('manual');
+ await mkdir('delivery/qa',{recursive:true});await page.screenshot({path:'delivery/qa/private-memory.png',fullPage:true});
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.getByRole('button',{name:'Open workspace',exact:true}).waitFor();
+ await expect(page.getByText('Synthetic QA Lead',{exact:true})).toHaveCount(0);report.checks.push('Memory evidence shown; sign-out removes private view');
+ await context.close();
+}catch(e){report.errors.push(e.message);throw e;}
+finally{
+ await browser.close();
+ if(tenant)for(const table of ['acq_runs','acq_decisions','acq_events','acq_leads','acq_experiments','acq_rules','acq_projects'])await pool.query(`DELETE FROM ${table} WHERE tenant_id=$1`,[tenant]);
+ if(invite)await pool.query('DELETE FROM acq_invites WHERE id=$1',[invite.id]);
+ if(userId)await pool.query('DELETE FROM acq_auth_users WHERE id=$1',[userId]);
+ await pool.end();await mkdir('delivery/qa',{recursive:true});await writeFile('delivery/qa/private-browser-report.json',JSON.stringify(report,null,2));
+}
+console.log(JSON.stringify(report,null,2));

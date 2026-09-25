@@ -1,0 +1,62 @@
+{
+  "name": "compass",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "node server.mjs",
+    "test": "node --test --test-concurrency=1 'test/*.test.mjs'",
+    "test:acquisition": "node --test --test-concurrency=1 --test-reporter=spec test/acquisition-*.test.mjs",
+    "test:acquisition-ui": "node --experimental-strip-types --test src/acquisition/demo.test.mjs",
+    "test:remaster": "node --experimental-strip-types --test --test-concurrency=1 src/remaster/*.test.mjs test/remaster-*.test.mjs",
+    "qa:remaster": "node scripts/remaster-browser-qa.mjs",
+    "qa:remaster-studio": "node scripts/remaster-studio-qa.mjs",
+    "test:workspaces": "node --experimental-strip-types --test --test-concurrency=1 test/workspace*.test.mjs src/workspace/*.test.mjs",
+    "qa:workspace": "node scripts/workspace-browser-qa.mjs",
+    "qa:workspace-private": "node scripts/workspace-private-qa.mjs",
+    "test:mission": "node --experimental-strip-types --test src/mission/model.test.mjs",
+    "qa:mission": "node scripts/mission-qa.mjs",
+    "qa:finale": "node scripts/finale-qa.mjs",
+    "qa:horizon": "node scripts/horizon-release-qa.mjs",
+    "record:remaster": "node scripts/remaster-record.mjs",
+    "db:test": "node scripts/acquisition-test-db.mjs",
+    "qa:acquisition": "node scripts/acquisition-browser-qa.mjs",
+    "qa:acquisition-private": "node scripts/acquisition-private-qa.mjs",
+    "record:acquisition": "node scripts/acquisition-record.mjs",
+    "test:live": "node --env-file-if-exists=.env --test 'test/live/*.test.mjs'",
+    "probe:nebius": "node --env-file-if-exists=.env scripts/nebius-probe.mjs",
+    "start:local": "node --env-file-if-exists=.env server.mjs",
+    "doctor": "node --env-file-if-exists=.env scripts/doctor.mjs",
+    "probe:boson": "node --env-file-if-exists=.env scripts/boson-smoke.mjs",
+    "test:voice:live": "node --env-file-if-exists=.env scripts/boson-live-voice.mjs"
+  },
+  "dependencies": {
+    "better-auth": "^1.7.6",
+    "pg": "^8.23.0",
+    "@number-flow/react": "^0.6.2",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "three": "^0.186.1",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "22.16.5",
+    "@types/react": "19.2.15",
+    "@types/react-dom": "19.2.0",
+    "@types/three": "^0.186.0",
+    "@vitejs/plugin-react": "5.0.4",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "typescript": "5.8.3",
+    "vite": "7.3.6"
+  }
+}

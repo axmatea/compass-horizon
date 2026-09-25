@@ -1,0 +1,28 @@
+COMPASS — Hackathon presentation
+Tagline: Find your next step.
+Positioning: A voice-first thinking partner designed to follow your changing thoughts and help you choose a clear next action.
+
+3-minute presentation
+0:00–0:20  The problem: we often need to talk before we know what we mean. Our first request is not always our real goal.
+0:20–1:20  Play the complete 60-second film with sound.
+1:20–2:20  Open Try the concept. Choose the cofounder story. Start with wanting to leave, change direction toward repairing the partnership, and show the revised context and next-action card.
+2:20–2:45  Demonstrate editing or downloading the next step. Optional: use browser dictation if supported.
+2:45–3:00  State the boundary clearly: this is a product concept with scripted responses, not a deployed open-ended AI system.
+
+What works in this first version
+- Finished 60-second, 1080p/24fps film with dialogue, narration and original music.
+- Interactive guided scenarios, context-state revision and editable action cards.
+- Optional browser speech recognition and browser text-to-speech, subject to support and permission.
+- Responsive site, film captions and transcript, presentation mode.
+- Downloadable original footage, music, reference frames and picture EDL for DaVinci Resolve.
+
+Product vision, not implemented
+- Open-ended AI reasoning, persistent memory and interruption-aware realtime dialogue.
+- External integrations or autonomous actions.
+- No claim of customer adoption, measured effectiveness or shipped capabilities.
+
+Presentation setup
+Use a modern desktop browser. Test speakers and load the film once before judging begins.
+The film and the original footage are separate deliverables. The site does not require an account.
+Use the guided choices for a reliable demo; microphone input is optional and may use your browser provider's speech service.
+

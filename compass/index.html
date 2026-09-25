@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f0e6">
+<title>COMPASS · Six people. One shared memory. One team.</title>
+<meta name="description" content="COMPASS is an intelligent virtual office for teams. It turns what six people know into one shared organizational memory.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="/src/site/office/office.css">
+<script type="module" src="/src/site/office/office.js"></script>
+<script type="module" src="/src/site/film-slot.js"></script>
+</head>
+<body data-page="compass-home">
+<a class="skip" href="#story">Skip to the story</a>
+
+<header class="bar">
+  <a class="wordmark" href="/" aria-label="COMPASS, home">COMPASS</a>
+  <nav class="bar-nav" aria-label="Primary">
+    <a class="bar-link" href="/presentation">Presentation</a>
+    <a class="pill" href="/demo">Try the proof</a>
+  </nav>
+</header>
+
+<main>
+<section class="hero" id="top" aria-labelledby="hero-title">
+  <p class="eyebrow">COMPASS</p>
+  <h1 id="hero-title"><span>Six people.</span> <span>One shared memory.</span> <span>One team.</span></h1>
+  <p class="sub">An intelligent virtual office for teams.</p>
+  <div class="actions">
+    <a class="btn btn-dark" href="#story">See how it works</a>
+    <a class="btn btn-quiet" href="/demo">Try the proof</a>
+  </div>
+  <div class="hero-scene at-1" id="hero-scene" data-beat="1" aria-hidden="true"></div>
+</section>
+
+<section class="story" id="story" tabindex="-1" aria-labelledby="story-title">
+  <h2 class="sr-only" id="story-title">How it works, in eight beats</h2>
+  <div class="stage at-1" id="stage" data-beat="1">
+    <div class="copy">
+      <article class="beat is-active">
+        <p class="eyebrow">01 · INDIVIDUALS</p>
+        <h3>Six people. Six contexts.</h3>
+        <p class="line">Everyone works alone. The context lives in six heads.</p>
+      </article>
+      <article class="beat">
+        <p class="eyebrow">02 · CONNECT</p>
+        <h3>Context finds context.</h3>
+        <p class="line">A call, a thread and a doc turn out to be about the same thing.</p>
+      </article>
+      <article class="beat">
+        <p class="eyebrow">03 · SHARED MEMORY</p>
+        <h3>Underneath the office, one memory.</h3>
+        <p class="line">Conversations, relationships, meetings, documents, decisions, tasks. Every item keeps its source.</p>
+      </article>
+      <article class="beat">
+        <p class="eyebrow">04 · CHANGE</p>
+        <h3>Then something changes.</h3>
+        <p class="line">The client moves the launch to October 3.</p>
+      </article>
+      <article class="beat">
+        <p class="eyebrow">05 · ADAPT</p>
+        <h3>It knows what depends on what.</h3>
+        <p class="line">Goal, owner, constraint, decision, next action. The plan updates, not the whole team.</p>
+        <dl class="frame">
+          <dt>GOAL</dt><dd>Launch on Oct 3 without losing the press window</dd>
+          <dt>OWNER</dt><dd>Ana</dd>
+          <dt>CONSTRAINT</dt><dd>Build freeze moves up 9 days</dd>
+          <dt>DECISION</dt><dd>Keep scope, cut the beta invite wave</dd>
+          <dt>NEXT ACTION</dt><dd>Maya moves press to Oct 1 · Leo freezes Sep 29 · Ana confirms with the client today</dd>
+        </dl>
+      </article>
+      <article class="beat">
+        <p class="eyebrow">06 · COORDINATE</p>
+        <h3>Only the people it affects.</h3>
+        <p class="line">Three of six hear about it. The other three keep working.</p>
+      </article>
+      <article class="beat">
+        <p class="eyebrow">07 · ACT</p>
+        <h3>Everyone knows their next move.</h3>
+        <p class="line">Maya moves the press date. Leo re-scopes the build. Ana tells the client.</p>
+      </article>
+      <article class="beat">
+        <p class="eyebrow">08 · MEMORY</p>
+        <h3>Smarter every week.</h3>
+        <p class="line">Long histories compress into usable context. The reason behind every decision stays.</p>
+        <a class="text-link" href="/horizon">See memory over time</a>
+      </article>
+    </div>
+    <div class="office-box" id="story-scene"></div>
+    <ol class="dots" aria-label="Story beats">
+      <li><button type="button" aria-label="01 Individuals" aria-current="step"></button></li>
+      <li><button type="button" aria-label="02 Connect"></button></li>
+      <li><button type="button" aria-label="03 Shared memory"></button></li>
+      <li><button type="button" aria-label="04 Change"></button></li>
+      <li><button type="button" aria-label="05 Adapt"></button></li>
+      <li><button type="button" aria-label="06 Coordinate"></button></li>
+      <li><button type="button" aria-label="07 Act"></button></li>
+      <li><button type="button" aria-label="08 Memory"></button></li>
+    </ol>
+  </div>
+</section>
+
+<section class="scene film-scene" id="film" aria-labelledby="film-title">
+  <h2 class="film-title" id="film-title">Watch the film.</h2>
+  <figure class="film-slot" id="film-slot" data-manifest="/media/film/film.json" hidden><video playsinline controls preload="none"></video></figure>
+</section>
+
+<section class="proof" aria-labelledby="proof-title">
+  <p class="eyebrow">PROOF</p>
+  <h2 id="proof-title">The idea, working.</h2>
+  <ul class="proof-links">
+    <li><a href="/demo"><span class="pl-title">Change intent mid-action</span><span class="pl-line">Change your mind while the agent is acting. It keeps what holds and adapts.</span></a></li>
+    <li><a href="/horizon"><span class="pl-title">Memory over time</span><span class="pl-line">The agent learns day by day, compresses history, and revises when late facts arrive.</span></a></li>
+    <li id="proof-office" hidden><a href="/office"><span class="pl-title">The office</span><span class="pl-line">The virtual office itself.</span></a></li>
+  </ul>
+</section>
+
+<section class="closing" aria-labelledby="close-title">
+  <h2 id="close-title"><span>Six people.</span> <span>One shared memory.</span> <span>One team.</span></h2>
+  <a class="btn btn-quiet" href="/presentation">Open the presentation</a>
+</section>
+</main>
+
+<footer class="foot">
+  <p class="foot-mark">COMPASS · NAŸL × VINCENT</p>
+  <p class="honest">Demo team and data are fictional. Nothing is sent to anyone.</p>
+</footer>
+</body>
+</html>
