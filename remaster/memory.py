@@ -81,7 +81,7 @@ RAWTREE_HINT = (
     "Table `{table}` (ClickHouse SQL). Columns: id, seq, run, day, sim_ts, agent, kind, person, text. "
     "`kind` in (standup, doer_decision, web_result, cleaner_op, divergence, restore, strategist_plan, "
     "world_event). `sim_ts` looks like 'W2D3', `day` is 1..60. Always filter run = '{run}'. "
-    "Use positionCaseInsensitive(text, 'word') > 0 or text ILIKE '%word%' for text search."
+    "Use text ILIKE '%word%' for text search. ONLY these columns exist - anything else (status, name, assignee, date...) is an ERROR. "
 )
 
 
