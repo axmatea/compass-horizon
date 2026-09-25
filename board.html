@@ -155,7 +155,7 @@
     <div class="legend" id="legend"></div>
     <div id="backlog"></div>
   </div>
-  <div class="panel"><h3>Agent feed (live from Rawtree) · newest first</h3><div id="feed"></div></div>
+  <div class="panel"><h3>What the manager is doing · live from its Rawtree memory · newest first</h3><div id="feed"></div></div>
 </div>
 
 <div id="modal" onclick="if(event.target===this)this.style.display='none'">
@@ -174,8 +174,11 @@
 <script>
 const KIND_ICON = {doer_decision:'🧑‍💼', world_event:'🚨', web_result:'🌐', cleaner_op:'🌙',
                    restore:'♻️', divergence:'👥', memory_sql:'🔎', strategist_plan:'🧭', message:'💬'};
-const KIND_LABEL = {doer_decision:'decision', world_event:'event', web_result:'web', cleaner_op:'night cleanup',
-                   restore:'restore', divergence:'divergence', memory_sql:'memory SQL', strategist_plan:'strategy', message:'message'};
+const KIND_LABEL = {doer_decision:'the manager decided', world_event:'something happened',
+                   web_result:'checked the live web (Nimble)', cleaner_op:'night memory cleanup — slept on it',
+                   restore:'recovered a forgotten fact from the archive', divergence:'shadow check: memory loss detected',
+                   memory_sql:'recalled its own past (SQL over Rawtree)', strategist_plan:'strategist set the week\'s focus',
+                   message:'a teammate told the manager'};
 const DEPTS = [['ENGINEERING',['lina','tom','max','priya']], ['DESIGN',['sarah']], ['GROWTH & MARKETING',['omar','dan']],
                ['SALES',['jules']], ['CUSTOMER SUCCESS',['mia']], ['QUALITY',['eva']]];
 const SKILLS = {backend:'#60a5fa', frontend:'#22d3ee', design:'#f472b6', mobile:'#34d399', growth:'#fb923c',
@@ -312,9 +315,10 @@ function renderBacklog() {
 }
 
 function renderFeed() {
-  $('feed').innerHTML = (S.feed || []).slice().reverse().map(e => {
+  $('feed').innerHTML = (S.feed || []).map(e => {
+    const cut = e.text.length >= 178 ? '…' : '';
     const body = e.kind === 'memory_sql'
-      ? `<div class="x sql" title="${esc(e.text)}">${esc(e.text)}</div>` : `<div class="x">${esc(e.text)}</div>`;
+      ? `<div class="x sql" title="${esc(e.text)}">${esc(e.text)}${cut}</div>` : `<div class="x">${esc(e.text)}${cut}</div>`;
     return `<div class="ev"><div class="k">${KIND_ICON[e.kind]||'•'} ${esc(e.ts)} <span class="kind">${KIND_LABEL[e.kind]||esc(e.kind)}</span></div>${body}</div>`;
   }).join('');
 }
