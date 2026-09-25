@@ -231,9 +231,13 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, inject(body.get("ticket"), body.get("days", 1),
                                               body.get("note", "")))
         if self.path == "/api/say":
-            person, text = body.get("person"), (body.get("text") or "").strip()
-            if person not in W.PEOPLE or not text:
+            person, text = body.get("person") or "founder", (body.get("text") or "").strip()
+            if (person not in W.PEOPLE and person != "founder") or not text:
                 return self._send(400, {"error": "need person + text"})
+            tid = str(body.get("ticket") or "").strip().upper()
+            t = RUN.world.tickets.get(tid)
+            if t:
+                text = f"[about {t['id']} - {t['title']}] {text}"
             with LOCK:
                 if STATE["busy"]:
                     return self._send(409, {"error": "busy"})
