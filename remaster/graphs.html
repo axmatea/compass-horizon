@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>REMaster graphs</title>
+<style>
+  * { box-sizing:border-box; margin:0; font-family:-apple-system,'Segoe UI',sans-serif; }
+  body { background:#0b0e14; color:#e5e7eb; }
+  .canvas { position:relative; width:1600px; height:790px; overflow:hidden; padding:0; }
+  .canvas + .canvas { border-top:1px solid #1f2937; }
+  h1 { position:absolute; top:34px; left:48px; font-size:26px; letter-spacing:.2px; }
+  h1 span { color:#f59e0b; }
+  .sub { position:absolute; top:70px; left:48px; color:#8b95a7; font-size:14px; }
+  svg { position:absolute; inset:0; }
+  .node { position:absolute; background:#121826; border:1.5px solid #2b3648; border-radius:14px;
+          padding:14px 18px; min-width:170px; text-align:center; box-shadow:0 6px 24px #0007; }
+  .node .ic { font-size:22px; line-height:1; margin-bottom:6px; }
+  .node .nm { font-weight:700; font-size:15.5px; }
+  .node .rl { color:#8b95a7; font-size:12px; margin-top:3px; }
+  .pill { position:absolute; border-radius:99px; padding:10px 22px; font-weight:700; font-size:14px; }
+  .start { background:#f59e0b; color:#111; }
+  .end { background:#132015; border:1.5px solid #14532d; color:#34d399; }
+  .brand { display:inline-block; margin-top:7px; border-radius:99px; padding:2.5px 10px; font-size:11px; font-weight:700; }
+  .liquid { background:#2a1f33; color:#c084fc; border:1px solid #7e22ce55; }
+  .rawtree { background:#0e2a26; color:#2dd4bf; border:1px solid #0f766e66; }
+  .nimble { background:#0e2033; color:#60a5fa; border:1px solid #1d4ed866; }
+  .flux { background:#331b24; color:#fb7185; border:1px solid #be123c55; }
+  .band { position:absolute; background:#0e2a26cc; border:1.5px solid #0f766e88; border-radius:16px; }
+  .band .nm { font-weight:800; font-size:16px; color:#2dd4bf; }
+  .band .rl { color:#5eead4aa; font-size:12.5px; margin-top:4px; }
+  .zone { position:absolute; border:1.5px dashed #2b3648; border-radius:18px; }
+  .zlabel { position:absolute; font-size:12px; font-weight:800; letter-spacing:1.5px; color:#64748b; }
+  .elabel { position:absolute; font-size:12px; color:#9aa6b8; background:#0b0e14; padding:1px 7px; border-radius:6px; }
+  .cur { border-color:#f59e0b; }
+</style>
+</head>
+<body>
+
+<!-- ============ GRAPH 1: what happens when you press Next day ============ -->
+<div class="canvas" id="g1">
+  <h1>▶ Next day — <span>what actually runs</span></h1>
+
+  <svg width="1600" height="900">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+      <marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#2dd4bf"/></marker>
+    </defs>
+    <g stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#a)">
+      <line x1="205" y1="315" x2="272" y2="315"/>                     <!-- start -> standups -->
+      <line x1="470" y1="315" x2="552" y2="315"/>                     <!-- standups -> decide -->
+      <line x1="770" y1="315" x2="852" y2="315"/>                     <!-- decide -> shadows -->
+      <line x1="1070" y1="315" x2="1152" y2="315"/>                   <!-- shadows -> sleep -->
+      <line x1="1370" y1="315" x2="1442" y2="315"/>                   <!-- sleep -> end -->
+      <path d="M 660 175 L 660 245" stroke-dasharray="6 5"/>          <!-- strategist -> decide (Mon) -->
+      <line x1="482" y1="150" x2="552" y2="150" stroke-dasharray="6 5"/><!-- nimble -> strategist... adjusted below -->
+    </g>
+    <g stroke="#2dd4bf" stroke-width="2" fill="none" marker-end="url(#at)">
+      <path d="M 620 388 L 620 468"/>                                  <!-- decide -> log -->
+      <path d="M 680 468 L 680 388"/>                                  <!-- recall up -->
+      <path d="M 960 388 L 960 468"/>                                  <!-- shadows read log -->
+      <path d="M 1260 388 L 1260 468"/>                                <!-- sleep archive -->
+      <path d="M 1320 468 L 1320 388"/>                                <!-- restore up -->
+    </g>
+  </svg>
+
+  <div class="pill start" style="left:88px; top:296px;">▶ Next day</div>
+
+  <div class="node" style="left:272px; top:262px; width:198px;">
+    <div class="ic">☀️</div><div class="nm">Standups</div>
+    <div class="rl">10 people report in</div>
+  </div>
+
+  <div class="node" style="left:300px; top:84px; width:180px;">
+    <div class="ic">🌐</div><div class="nm">Live web</div>
+    <div class="rl">market &amp; vendor signals</div>
+    <span class="brand nimble">Nimble</span>
+  </div>
+
+  <div class="node" style="left:560px; top:80px; width:200px;">
+    <div class="ic">🧭</div><div class="nm">Strategist</div>
+    <div class="rl">Mondays: plans the week</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="node cur" style="left:552px; top:250px; width:218px;">
+    <div class="ic">🧑‍💼</div><div class="nm">Manager decides</div>
+    <div class="rl">assign · unblock · reshuffle</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="node" style="left:852px; top:250px; width:218px;">
+    <div class="ic">👥</div><div class="nm">Shadow check</div>
+    <div class="rl">would older memory decide differently?</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="node" style="left:1152px; top:250px; width:218px;">
+    <div class="ic">🌙</div><div class="nm">Sleep on it</div>
+    <div class="rl">curate memory: keep · fold · promote · archive</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="pill end" style="left:1442px; top:296px;">Day done ✓</div>
+
+  <div class="band" style="left:272px; top:468px; width:1230px; height:104px; padding:20px 26px;">
+    <div class="nm">Tinybird Rawtree — append-only memory</div>
+    <div class="rl">every event logged forever · nothing deleted · agents run SQL over their own past</div>
+  </div>
+
+  <div class="elabel" style="left:672px; top:198px;">Mondays</div>
+  <div class="elabel" style="left:530px; top:420px;">log</div>
+  <div class="elabel" style="left:700px; top:420px;">SQL recall</div>
+  <div class="elabel" style="left:905px; top:420px;">replay from lag</div>
+  <div class="elabel" style="left:1195px; top:420px;">archive</div>
+  <div class="elabel" style="left:1338px; top:420px;">restore exact fact</div>
+</div>
+
+<!-- ============ GRAPH 2: the whole agentic architecture ============ -->
+<div class="canvas" id="g2">
+  <h1>REMaster — <span>agent architecture</span></h1>
+
+  <div class="zone" style="left:60px; top:120px; width:880px; height:470px;"></div>
+  <div class="zlabel" style="left:64px; top:100px;">DAY</div>
+  <div class="zone" style="left:980px; top:120px; width:560px; height:470px;"></div>
+  <div class="zlabel" style="left:984px; top:100px;">NIGHT</div>
+
+  <svg width="1600" height="900">
+    <defs>
+      <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+      <marker id="bt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#2dd4bf"/></marker>
+      <marker id="bo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#f59e0b"/></marker>
+    </defs>
+    <g stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#b)">
+      <line x1="500" y1="238" x2="500" y2="300"/>                      <!-- strategist -> manager -->
+      <line x1="560" y1="300" x2="560" y2="238"/>                      <!-- reports up -->
+      <line x1="290" y1="185" x2="378" y2="185"/>                      <!-- nimble -> strategist -->
+      <line x1="640" y1="185" x2="716" y2="185"/>                      <!-- strategist -> flux -->
+      <line x1="640" y1="360" x2="700" y2="360"/>                      <!-- manager -> team -->
+      <line x1="700" y1="410" x2="640" y2="410"/>                      <!-- team -> manager -->
+      <line x1="1105" y1="238" x2="1105" y2="300"/>                    <!-- cleaner ops -->
+      <line x1="1180" y1="388" x2="1180" y2="436"/>                    <!-- shadows -> judge -->
+    </g>
+    <g stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#bo)" stroke-dasharray="7 5">
+      <path d="M 620 118 L 620 96 L 1120 96 L 1120 116"/>                                  <!-- fork -->
+      <path d="M 1080 540 L 570 540 L 570 478" />            <!-- restore into manager memory -->
+    </g>
+    <g stroke="#2dd4bf" stroke-width="2" fill="none" marker-end="url(#bt)">
+      <path d="M 520 470 L 520 648"/>                                   <!-- manager log -->
+      <path d="M 600 648 L 600 470"/>                                   <!-- recall -->
+      <path d="M 1240 500 L 1240 648"/>                                 <!-- judge reads / restore src -->
+    </g>
+  </svg>
+
+  <div class="node" style="left:100px; top:132px; width:190px;">
+    <div class="ic">🌐</div><div class="nm">Live web</div>
+    <div class="rl">research &amp; signals</div>
+    <span class="brand nimble">Nimble</span>
+  </div>
+
+  <div class="node" style="left:378px; top:120px; width:262px;">
+    <div class="ic">🧭</div><div class="nm">Strategist</div>
+    <div class="rl">owns the quarter · mutable state doc</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="node" style="left:716px; top:132px; width:200px;">
+    <div class="ic">📺</div><div class="nm">Monday briefing</div>
+    <div class="rl">text-to-video, voiced</div>
+    <span class="brand flux">FLUX 3</span>
+  </div>
+
+  <div class="node cur" style="left:378px; top:300px; width:262px; height:170px;">
+    <div class="ic">🧑‍💼</div><div class="nm">Company manager</div>
+    <div class="rl">daily decisions on a small working memory<br>+ chat with the team</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="node" style="left:700px; top:322px; width:200px; height:126px;">
+    <div class="ic">🏢</div><div class="nm">10-person team</div>
+    <div class="rl">eng · design · sales · CS · marketing · QA</div>
+  </div>
+
+  <div class="node" style="left:1010px; top:120px; width:250px;">
+    <div class="ic">🌙</div><div class="nm">Night cleaner</div>
+    <div class="rl">disposable fork of the Strategist<br>keep · fold · promote · archive</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="node" style="left:1010px; top:300px; width:340px;">
+    <div class="ic">👥</div><div class="nm">Shadows — lag 1d · 1w · never</div>
+    <div class="rl">replay decisions on older memory</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="node" style="left:1080px; top:436px; width:200px;">
+    <div class="ic">⚖️</div><div class="nm">Judge</div>
+    <div class="rl">noise vs decision-changing loss</div>
+    <span class="brand liquid">Liquid LFM-2.5</span>
+  </div>
+
+  <div class="band" style="left:100px; top:648px; width:1400px; height:120px; padding:20px 26px;">
+    <div class="nm">Tinybird Rawtree — append-only memory</div>
+    <div class="rl">every agent, every event, forever · memory_sql · feeds the live board</div>
+  </div>
+
+  <div class="elabel" style="left:404px; top:262px;">weekly plan</div>
+  <div class="elabel" style="left:575px; top:262px;">reports</div>
+  <div class="elabel" style="left:820px; top:84px;">fork, then discard</div>
+  <div class="elabel" style="left:1114px; top:262px;">memory ops</div>
+  <div class="elabel" style="left:1290px; top:520px;">if decisions differ</div>
+  <div class="elabel" style="left:880px; top:526px;">♻️ restore the exact fact</div>
+  <div class="elabel" style="left:440px; top:552px;">log</div>
+  <div class="elabel" style="left:612px; top:552px;">SQL recall</div>
+  <div class="elabel" style="left:1256px; top:610px;">read archive</div>
+</div>
+
+</body>
+</html>
