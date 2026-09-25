@@ -6,9 +6,12 @@ Holds one in-memory Run. Endpoints:
   POST /api/step          advance one simulated day (async; busy flag in state)
   POST /api/inject        {"ticket": "B3", "days": 1, "note": "..."} provider delay
 """
+import collections
 import json
 import sqlite3
+import sys
 import threading
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
@@ -18,7 +21,51 @@ from remaster.sim import Run
 
 LOCK = threading.Lock()
 RUN = Run("remaster", days=W.DAYS, run_id=None, out_dir="runs", flux_weeks=set(), verbose=True)
-STATE = {"day": 0, "busy": False, "last_diff": None, "injected": [], "ack": None}
+STATE = {"day": 0, "busy": False, "last_diff": None, "injected": [], "ack": None,
+         "activity": collections.deque(maxlen=30), "current_call": None}
+
+_ROLE_BY_CLASS = {"Strategist": "strategist", "Cleaner": "cleaner", "Judge": "judge",
+                  "Summarizer": "summarizer"}
+
+
+def _caller_role():
+    """Best-effort: which agent (by calling class) is making this LLM call."""
+    f = sys._getframe(2)
+    for _ in range(12):
+        if f is None:
+            break
+        me = f.f_locals.get("self")
+        cls = type(me).__name__ if me is not None else ""
+        if cls in _ROLE_BY_CLASS:
+            return _ROLE_BY_CLASS[cls]
+        if cls == "Doer":
+            ag = str(f.f_locals.get("agent") or "")
+            return "shadow" if ag.startswith("shadow") or ag == "oracle" else "manager"
+        f = f.f_back
+    return "manager"
+
+
+def _wrap_llm(client):
+    orig = client.json
+    name = str(getattr(client, "name", "llm"))
+    agent, _, model = name.partition(":")
+
+    def json_logged(*a, **kw):
+        call = {"agent": agent, "model": model, "t": time.time(), "role": _caller_role()}
+        STATE["activity"].append(call)
+        STATE["current_call"] = call
+        try:
+            return orig(*a, **kw)
+        finally:
+            STATE["current_call"] = None
+    client.json = json_logged
+
+
+_seen = set()
+for _c in (getattr(RUN, "doer_llm", None), getattr(RUN, "strat_llm", None), getattr(RUN, "liquid", None)):
+    if _c is not None and id(_c) not in _seen:
+        _seen.add(id(_c))
+        _wrap_llm(_c)
 
 
 def snapshot_assignees():
@@ -186,6 +233,7 @@ def state():
             "week": (max(day, 1) - 1) // 5 + 1, "demo_day": W.DEMO_DAY,
             "busy": STATE["busy"], "last_diff": STATE["last_diff"], "injected": STATE["injected"],
             "ack": STATE["ack"],
+            "activity": list(STATE["activity"]), "current_call": STATE["current_call"],
             "people": ppl, "tickets": tickets,
             "work_log": [[d, p, t] for d, p, t, _ in RUN.world.log][-400:],
             "memory": {"ctx_tokens": mem["tokens"], "visible": mem["visible"],
