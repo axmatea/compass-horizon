@@ -12,10 +12,10 @@ const videoNodes = Object.values(worlds).map(el => el.querySelector('video'));
 const orb = $('.orb-position');
 const voice = { stop() {} }; // no voice on the story page; the live voice lives at /demo
 const notes = [
- 'Six people. One shared memory. One team. Every team carries its context in six different heads: calls, threads, decisions. This is COMPASS.',
+ 'Every person. One shared memory. One team. Six people or a thousand, every team carries its context in separate heads: calls, threads, decisions. This is COMPASS.',
  'Play the film. Do not talk over it. Let it finish.',
  'COMPASS is an intelligent virtual office. One shared memory underneath the team.',
- 'Six people, six contexts. Everyone works alone. Open the website to show the office.',
+ 'Every person, their own context. Everyone works alone. Open the website to show the office.',
  'Underneath the office, one memory. Who knows what, what happened, why it was decided. Every item keeps its source. Now watch it adapt: open the proof.',
  'Proof. The agent is already acting. Voice prompt one: Build me a premium website for an AI company. Make it minimal, dark and cinematic. Let it act.',
  'While it is still acting, change the intent: Actually, make it warmer. Make the hero more ambitious, and add a pricing section. Mid-action, no restart.',
@@ -25,7 +25,7 @@ const notes = [
  'Vincent: under the hood. Voice runs through Gradium realtime over a server-side bridge: streaming speech to text with semantic turn detection, streaming speech back, and a barge-in simply becomes the next turn. Reasoning runs on General Compute, MiniMax M2.7: every sentence becomes a structured brief, and a change patches only the fields that moved. Then only the sections that depend on the change are rewritten and the page renders live in a sandbox. The reply comes back at once while the copy keeps running; a new sentence cancels only what it invalidated. Nebius GLM-5.3, Boson Higgs and browser speech stay wired as fallbacks.',
  'Coordinate and act. The client moves launch to October 3. COMPASS resolves goal, owner, constraint, decision and next action. Maya, Leo and Ana get their next move. The other three keep working.',
  'Memory. Press play on the horizon: day by day the agent learns, compresses the history, and revises when late facts arrive. Smarter every week. The reason behind every decision stays.',
- 'Six people. One shared memory. One team. Website, proof and memory are all linked here. Thank you.'
+ 'Every person. One shared memory. One team. From six people to a thousand. Website, proof and memory are all linked here. Thank you.'
 ];
 let starts = [], active = -1, position = 0, queued = false;
 let motionPaused = reducedQuery.matches, playing = false, timer = 0, scrollAnimation = 0;

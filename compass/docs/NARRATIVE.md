@@ -3,22 +3,22 @@
 Website, demo, presentation and film are four views of the same product. Copy comes from here.
 
 ## Line
-COMPASS. Six people. One shared memory. One team.
+COMPASS. Every person. One shared memory. One team. (From six people to a thousand.)
 
 ## What COMPASS is
-An intelligent virtual office for teams. Six people each carry different context across conversations, contacts, meetings, tasks, documents, decisions and calendars. COMPASS turns that into one shared organizational memory. It keeps the source history and compresses long histories into context you can act on.
+An intelligent virtual office for teams of any size, from six people to a thousand. Every person carries different context across conversations, contacts, meetings, tasks, documents, decisions and calendars. COMPASS turns that into one shared organizational memory. It keeps the source history and compresses long histories into context you can act on.
 
 It always knows: WHO knows what. WHAT happened. WHY a decision was made. WHAT changed. WHO is affected. WHAT should happen next.
 
 When something changes it does not broadcast. It resolves GOAL, OWNER, CONSTRAINT, DECISION, NEXT ACTION, and routes only the relevant context to the people it affects.
 
 ## The 8 beats (headline / one line)
-1. INDIVIDUALS. "Six people. Six contexts." / Everyone works alone. The context lives in six heads.
+1. INDIVIDUALS. "Every person. Their own context." / Everyone works alone. The context lives in separate heads.
 2. CONNECT. "Context finds context." / A call, a thread and a doc turn out to be about the same thing.
 3. SHARED MEMORY. "Underneath the office, one memory." / Conversations, relationships, meetings, documents, decisions, tasks. Every item keeps its source.
 4. CHANGE. "Then something changes." / The client moves the launch to October 3.
 5. ADAPT. "It knows what depends on what." / Goal, owner, constraint, decision, next action. The plan updates, not the whole team.
-6. COORDINATE. "Only the people it affects." / Three of six hear about it. The other three keep working.
+6. COORDINATE. "Only the people it affects." / Only the people it touches hear about it. Everyone else keeps working.
 7. ACT. "Everyone knows their next move." / Maya moves the press date. Leo re-scopes the build. Ana tells the client.
 8. MEMORY. "Smarter every week." / Long histories compress into usable context. The reason behind every decision stays.
 
