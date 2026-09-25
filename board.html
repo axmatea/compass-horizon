@@ -136,7 +136,7 @@
   <span class="step"><span class="n">1</span> Pick a teammate <span style="color:var(--dim)">(top-right menu)</span></span><span class="arrow">→</span>
   <span class="step"><span class="n">2</span> Tell the manager what happened</span><span class="arrow">→</span>
   <span class="step"><span class="n">3</span> Watch it replan the week</span>
-  <span class="alt">or click any ticket to inject a provider delay · ▶ Next day to advance time</span>
+  <span class="alt">or click any ticket to report something about it · ▶ Next day to advance time</span>
 </div>
 
 <div id="chat" style="display:none">
@@ -162,8 +162,11 @@
   <div class="box">
     <h2 id="m-title"></h2>
     <div class="meta" id="m-meta"></div>
-    <button onclick="inject(1)">🚨 Provider delayed — deliverable arrives TOMORROW</button>
-    <button onclick="inject(3)">🚨 Provider delayed — 3 days</button>
+    <input id="m-msg" placeholder="What happened with this ticket? e.g. provider slipped, spec changed, needs another pair of hands…"
+      style="width:100%; background:var(--bg); border:1px solid var(--line); border-radius:8px;
+             padding:10px 12px; color:var(--txt); font-size:13.5px;"
+      onkeydown="if(event.key==='Enter')modalSend()">
+    <button onclick="modalSend()">Tell the manager</button>
     <button class="cancel" onclick="modal.style.display='none'">cancel</button>
   </div>
 </div>
@@ -302,7 +305,7 @@ function renderBacklog() {
     label = `${me.toUpperCase()}'S TICKETS`;
   } else {
     rest = Object.values(S.tickets).filter(t => !t.assignee && !t.status.startsWith('done') && t.status!=='cut');
-    label = 'UNASSIGNED BACKLOG (click any card to inject a provider delay)';
+    label = 'UNASSIGNED BACKLOG (click any card to report something about it)';
   }
   $('backlog').innerHTML = `<h3 style="font-size:12px;color:var(--dim);margin:10px 0 2px">${label}</h3>`
     + rest.map(t => card(t)).join('');
@@ -331,13 +334,19 @@ function openModal(tid) {
   sel = tid; const t = S.tickets[tid];
   $('m-title').textContent = `${t.id} — ${t.title}`;
   $('m-meta').textContent = `skill ${t.skill} · est ${t.est}d · ${t.pct}% · ${t.status} · assignee: ${t.assignee||'none'} · deps: ${t.deps.join(', ')||'none'}`;
+  $('m-msg').value = '';
   modal.style.display = 'flex';
+  $('m-msg').focus();
 }
 
-async function inject(days) {
+async function modalSend() {
+  const text = $('m-msg').value.trim();
+  if (!text) return;
+  const t = S.tickets[sel];
   modal.style.display = 'none';
   localBusy = true; busySince = Date.now(); setBusy(true);
-  await fetch('/api/inject', {method:'POST', body: JSON.stringify({ticket: sel, days})});
+  await fetch('/api/say', {method:'POST', body: JSON.stringify(
+    {person: me || t.assignee || 'founder', text, ticket: sel})});
   localBusy = false; refresh();
 }
 
