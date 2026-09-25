@@ -1,0 +1,21 @@
+DESCRIPTION >
+    Longview ledger mirror (Events API, NDJSON). Append-only: rows may repeat, queries dedupe by id.
+    Only ids, types, times, statuses and numbers are mirrored. No names, no reply text, no tokens.
+
+SCHEMA >
+    `id` String `json:$.id`,
+    `workspace_id` String `json:$.workspace_id`,
+    `type` LowCardinality(String) `json:$.type`,
+    `occurred_at` DateTime64(3) `json:$.occurred_at`,
+    `learned_at` DateTime64(3) `json:$.learned_at`,
+    `source` LowCardinality(String) `json:$.source`,
+    `mode` LowCardinality(String) `json:$.mode`,
+    `campaign_id` String `json:$.campaign_id`,
+    `lead_id` String `json:$.lead_id`,
+    `status` String `json:$.status`,
+    `stage` String `json:$.stage`,
+    `amount_usd` Float64 `json:$.amount_usd`,
+    `value_usd` Float64 `json:$.value_usd`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "workspace_id, learned_at, id"
