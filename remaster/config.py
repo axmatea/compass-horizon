@@ -25,15 +25,23 @@ def env(name, default=None):
     return v if v not in (None, "") else default
 
 
-# --- LLMs -------------------------------------------------------------------
-OPENAI_API_KEY = env("OPENAI_API_KEY")
-OPENAI_BASE = env("OPENAI_BASE", "https://api.openai.com/v1")
-MODEL_STRATEGIST = env("REMASTER_MODEL_STRATEGIST", "gpt-6-sol")
-MODEL_DOER = env("REMASTER_MODEL_DOER", "gpt-6-luna")
+# --- LLMs (all Liquid AI — sponsor models) -----------------------------------
+# BRAIN=local (default): two llama-server instances on this machine, zero cost, private.
+# BRAIN=openrouter: Liquid's hosted free tier (needs OPENROUTER_API_KEY).
+BRAIN = env("REMASTER_BRAIN", "local")
+
+STRATEGIST_BASE = env("REMASTER_STRATEGIST_BASE", "http://localhost:8081/v1")
+DOER_BASE = env("REMASTER_DOER_BASE", "http://localhost:8080/v1")
+MODEL_STRATEGIST = env("REMASTER_MODEL_STRATEGIST", "lfm2.5-8b-a1b")
+MODEL_DOER = env("REMASTER_MODEL_DOER", "lfm2.5-2.6b")
 
 OPENROUTER_API_KEY = env("OPENROUTER_API_KEY")
 OPENROUTER_BASE = env("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
 MODEL_LIQUID = env("REMASTER_MODEL_LIQUID", "liquid/lfm-2.5-2.6b:free")
+
+if BRAIN == "openrouter":
+    STRATEGIST_BASE = DOER_BASE = OPENROUTER_BASE
+    MODEL_STRATEGIST = MODEL_DOER = MODEL_LIQUID
 
 # --- Sponsors ---------------------------------------------------------------
 NIMBLE_API_KEY = env("NIMBLE_API_KEY")
@@ -49,14 +57,15 @@ BFL_BASE = env("BFL_BASE", "https://api.bfl.ai/v1")
 
 
 def mock_llm():
-    """Mock mode: no OpenAI key, or forced via REMASTER_MOCK=1."""
-    return env("REMASTER_MOCK") == "1" or not OPENAI_API_KEY
+    """Mock mode: forced via REMASTER_MOCK=1, or openrouter brain without a key."""
+    if env("REMASTER_MOCK") == "1":
+        return True
+    return BRAIN == "openrouter" and not OPENROUTER_API_KEY
 
 
 def status():
     return {
-        "openai": "live" if not mock_llm() else "MOCK",
-        "liquid": "live" if OPENROUTER_API_KEY else "fallback",
+        "brain": "MOCK" if mock_llm() else f"liquid-{BRAIN}",
         "nimble": "live" if NIMBLE_API_KEY else "offline-fixture",
         "rawtree": "live" if RAWTREE_TOKEN else "local-sqlite-only",
         "flux": "live" if BFL_API_KEY else "off",

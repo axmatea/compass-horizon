@@ -21,13 +21,11 @@ class ChatClient:
         self.extra_headers = extra_headers or {}
         self.usage = {"calls": 0, "prompt_tokens": 0, "cached_tokens": 0, "completion_tokens": 0}
 
-    def json(self, messages, temperature=None, cache_key=None, max_retries=3):
+    def json(self, messages, temperature=None, cache_key=None, max_retries=3):  # cache_key kept for API compat
         body = {"model": self.model, "messages": messages,
                 "response_format": {"type": "json_object"}}
         if temperature is not None:
             body["temperature"] = temperature
-        if cache_key and "openai.com" in self.base:
-            body["prompt_cache_key"] = cache_key
         data = self._post("/chat/completions", body, max_retries)
         u = data.get("usage") or {}
         self.usage["calls"] += 1
@@ -69,8 +67,18 @@ class ChatClient:
         raise last
 
 
-def openai_client(model):
-    return ChatClient(config.OPENAI_BASE, config.OPENAI_API_KEY, model, f"openai:{model}")
+def brain_key():
+    return config.OPENROUTER_API_KEY if config.BRAIN == "openrouter" else "local"
+
+
+def strategist_client():
+    return ChatClient(config.STRATEGIST_BASE, brain_key(), config.MODEL_STRATEGIST,
+                      f"strategist:{config.MODEL_STRATEGIST}")
+
+
+def doer_client():
+    return ChatClient(config.DOER_BASE, brain_key(), config.MODEL_DOER,
+                      f"doer:{config.MODEL_DOER}")
 
 
 def liquid_client():

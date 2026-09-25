@@ -11,7 +11,7 @@ from pathlib import Path
 from . import config, world as W
 from .agents import Cleaner, Doer, Judge, Strategist, Summarizer
 from .context import DoerMemory, NaiveMemory
-from .llm import liquid_client, openai_client
+from .llm import doer_client, liquid_client, strategist_client
 from .memory import EventStore
 from .sponsors import flux, nimble
 
@@ -29,9 +29,9 @@ class Run:
         self.store = EventStore(str(self.dir / "events.db"), self.run_id)
         self.world = W.World()
         mock = config.mock_llm()
-        self.strat_llm = None if mock else openai_client(config.MODEL_STRATEGIST)
-        self.doer_llm = None if mock else openai_client(config.MODEL_DOER)
-        self.liquid = None if mock else liquid_client()
+        self.strat_llm = None if mock else strategist_client()
+        self.doer_llm = None if mock else doer_client()
+        self.liquid = None if mock else (liquid_client() or self.doer_llm)
         self.strategist = Strategist(self.strat_llm)
         self.memory = DoerMemory() if mode == "remaster" else NaiveMemory()
         self.doer = Doer(self.doer_llm, self.memory, self.store)
