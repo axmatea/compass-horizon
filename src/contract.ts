@@ -8,8 +8,9 @@
 export type Mode = 'DEMO' | 'LIVE';
 export type ProviderName = 'nimble' | 'liquid' | 'tinybird';
 /** LIVE = real call succeeded. BLOCKED = credentials missing, no call made.
- *  FIXTURE = recorded sample, always labeled. ERROR = call attempted and failed. */
-export type ProviderStatus = 'LIVE' | 'BLOCKED' | 'FIXTURE' | 'ERROR';
+ *  FIXTURE = recorded sample, always labeled. ERROR = call attempted and failed.
+ *  READY = credentials present but no successful call yet in this workspace. */
+export type ProviderStatus = 'LIVE' | 'READY' | 'BLOCKED' | 'FIXTURE' | 'ERROR';
 
 export type BeliefStatus = 'INSUFFICIENT' | 'LEANING' | 'SUPPORTED';
 export type LeadStatus = 'QUALIFIED' | 'UNRESOLVED' | 'NOT_A_FIT';
@@ -178,7 +179,7 @@ export interface StageBeat {
 }
 
 export interface WorldView {
-  workspace: { id: string; mode: Mode; label: string; scenario: string | null };
+  workspace: { id: string; mode: Mode; label: string; scenario: string | null; liveProviders: boolean }; // liveProviders: sponsor calls allowed here (stage + LIVE); public demo uses rules fallback, never invented sources
   clock: Clock;
   asOfDay: number;                // time machine cutoff; equals clock.day when not time travelling
   isTimeTravel: boolean;
