@@ -4,40 +4,29 @@
 <meta charset="utf-8">
 <title>REMaster — how it works</title>
 <style>
-  @page { size: A4; margin: 0; }
+  @page { size: A4 landscape; margin: 0; }
   * { box-sizing: border-box; margin: 0; }
   body { font-family: -apple-system, 'Segoe UI', sans-serif; color: #1a1f2b; background: #fff; }
-  .page { width: 210mm; height: 296mm; padding: 18mm 18mm 14mm; page-break-after: always; position: relative; }
+  .page { width: 296mm; height: 209mm; padding: 12mm 16mm; page-break-after: always; position: relative; }
   .page:last-child { page-break-after: auto; }
-  .kick { color: #b45309; font-weight: 800; font-size: 12px; letter-spacing: 2px; }
-  h1 { font-size: 30px; letter-spacing: -.3px; margin: 3mm 0 2mm; text-wrap: balance; }
-  .lede { color: #4b5563; font-size: 14.5px; line-height: 1.5; max-width: 65ch; }
-  h2 { font-size: 15px; margin: 8mm 0 3mm; color: #b45309; }
-  .step { display: flex; gap: 5mm; margin: 4.5mm 0; }
-  .step .n { flex: none; width: 11mm; height: 11mm; border-radius: 99px; background: #f59e0b;
-             color: #111; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; }
-  .step h3 { font-size: 15.5px; margin-bottom: 1.2mm; }
-  .step p { font-size: 13px; line-height: 1.55; color: #374151; max-width: 68ch; }
-  .step b { color: #111; }
+  .kick { color: #b45309; font-weight: 800; font-size: 11px; letter-spacing: 2px; }
+  h1 { font-size: 26px; letter-spacing: -.3px; margin: 2mm 0 1.5mm; }
+  .lede { color: #4b5563; font-size: 13.5px; }
+  .lede b { color: #111; }
+  img.graph { width: 100%; border-radius: 10px; margin-top: 5mm; display: block; }
   .quote { background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 10px;
-           padding: 5mm 6mm; margin-top: 7mm; font-size: 13.5px; line-height: 1.6; color: #453a16; }
+           padding: 3.5mm 5mm; margin-top: 5mm; font-size: 13px; line-height: 1.5; color: #453a16; }
   .quote b { color: #92400e; }
-  .foot { position: absolute; bottom: 9mm; left: 18mm; right: 18mm; display: flex;
-          justify-content: space-between; color: #9ca3af; font-size: 10.5px; }
-  .srow { display: flex; gap: 5mm; margin: 5mm 0; align-items: flex-start; }
-  .stag { flex: none; width: 44mm; border-radius: 9px; padding: 3.2mm 4mm; font-weight: 800; font-size: 14px; text-align: center; }
+  .srow { display: flex; gap: 6mm; margin: 6.5mm 0; align-items: center; }
+  .stag { flex: none; width: 52mm; border-radius: 9px; padding: 4mm; font-weight: 800; font-size: 15px; text-align: center; }
   .liquid { background: #f5f0fa; color: #7e22ce; border: 1.5px solid #d8c3ee; }
   .rawtree { background: #ecfdf8; color: #0f766e; border: 1.5px solid #99e5d3; }
   .nimble { background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfd7fe; }
   .flux { background: #fdf1f4; color: #be123c; border: 1.5px solid #fbcfd8; }
-  .srow .what { font-size: 13px; line-height: 1.55; color: #374151; }
-  .srow .what b { color: #111; }
-  .srow .why { font-size: 11.5px; color: #9a6b13; margin-top: 1.5mm; }
-  .analogy { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; margin-top: 3mm; }
-  .an { border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 4mm; }
-  .an .who { font-weight: 800; font-size: 13.5px; }
-  .an .as { color: #b45309; font-weight: 700; font-size: 11.5px; margin: .8mm 0 1.5mm; }
-  .an p { font-size: 11.8px; line-height: 1.5; color: #4b5563; }
+  .srow p { font-size: 15px; line-height: 1.5; color: #374151; }
+  .srow b { color: #111; }
+  .foot { position: absolute; bottom: 7mm; left: 16mm; right: 16mm; display: flex;
+          justify-content: space-between; color: #9ca3af; font-size: 10px; }
 </style>
 </head>
 <body>
@@ -45,102 +34,47 @@
 <div class="page">
   <div class="kick">REMASTER · LONG HORIZON AGENTS HACKATHON</div>
   <h1>The AI company manager that sleeps on it</h1>
-  <p class="lede">It ran a 10-person startup for a full quarter and never lost the plot —
-  because it forgets <b>on purpose</b>, tests its own forgetting, and can always restore
-  the exact fact it needs.</p>
+  <p class="lede">It ran a 10-person startup for a full quarter on a <b>~400-token working memory</b> —
+  because it <b>forgets on purpose</b>, tests its own forgetting with three delayed copies of itself,
+  and restores the <b>exact fact</b> when a decision would change.</p>
 
-  <h2>THE PROBLEM</h2>
-  <p class="lede" style="font-size:13px;">Long-horizon agents die from memory. Keep everything → the model drowns in its
-  own history. Summarize → a generic model guesses <i>today</i> what will matter <i>later</i>, deletes the wrong
-  thing forever, and nobody ever checks. The facts that matter most are tiny and old:
-  <i>"Sarah is off in week 9 — wedding."</i></p>
+  <img class="graph" src="runs/graph_innovation.png" alt="The innovation">
 
-  <h2>HOW IT WORKS — THREE LAYERS + THE TRIPLE DELAY</h2>
-
-  <div class="step"><div class="n">1</div><div>
-    <h3>The Strategist owns the quarter</h3>
-    <p>Thinks in months, like a CEO. Sets each week's plan and knows what will matter later.</p>
-  </div></div>
-
-  <div class="step"><div class="n">2</div><div>
-    <h3>Every night, a disposable copy of the Strategist cleans the memory</h3>
-    <p>The fork reviews the day and decides what the Manager keeps, folds, promotes, or archives —
-    <b>forgetting by intent</b>, because only the one who knows the plan knows what's safe to forget.
-    Then the copy is destroyed.</p>
-  </div></div>
-
-  <div class="step"><div class="n">3</div><div>
-    <h3>The Manager runs the company on ~400 tokens</h3>
-    <p>Thinks in days, like a COO: assigns work, unblocks people, reacts when someone says
-    "our vendor slipped" — on a tiny, curated working memory.</p>
-  </div></div>
-
-  <div class="step"><div class="n">✓</div><div>
-    <h3>The triple delay proves the memory is safe</h3>
-    <p>Three copies of the Manager replay the same decision on older memory — <b>1 day behind,
-    1 week behind, never cleaned</b>. All agree → forgetting was safe. They differ → the cleanup
-    deleted something that mattered, and the <b>exact fact</b> is restored from the append-only archive.</p>
-  </div></div>
-
-  <div class="analogy">
-    <div class="an"><div class="who">Strategist</div><div class="as">= the CEO</div>
-      <p>Owns the goal. Thinks in months. Doesn't care who does what today.</p></div>
-    <div class="an"><div class="who">Night cleaner</div><div class="as">= the CEO's fork, at 2am</div>
-      <p>"Knowing the plan — what should the COO remember tomorrow?" Sorts memory, then vanishes.</p></div>
-    <div class="an"><div class="who">Manager</div><div class="as">= the COO</div>
-      <p>Runs the day. Talks to the team. Reshuffles the week when reality changes.</p></div>
-  </div>
-
-  <div class="quote"><b>The one-liner:</b> "Most agents forget by accident. Ours forgets on purpose —
-  and proves it. Working context stays ~400 tokens for an entire quarter, on a 2.6-billion-parameter
-  model. The architecture does the work, not model size."</div>
-
-  <div class="foot"><span>REMaster · how it works</span><span>1 / 2</span></div>
+  <div class="foot"><span>REMaster · the innovation</span><span>1 / 2</span></div>
 </div>
 
 <div class="page">
   <div class="kick">REMASTER · THE STACK</div>
   <h1>Four tools, four load-bearing jobs</h1>
-  <p class="lede">Remove any of them and the system breaks — none of this is decoration.</p>
 
-  <div style="margin-top:8mm;"></div>
+  <div style="margin-top:7mm;"></div>
 
   <div class="srow">
     <div class="stag liquid">Liquid<br>LFM-2.5 · 2.6B</div>
-    <div><div class="what"><b>Every brain in the system.</b> The strategist, the manager, the night
-    cleaner, the three delayed copies, the judge — six agent roles, one tiny model, called via API,
-    <b>$0 total</b>. Small enough to run on a phone.</div>
-    <div class="why">Remove it → nothing thinks. The whole point: long horizons need architecture, not giant models.</div></div>
+    <p><b>Every brain.</b> All six agent roles think with one tiny model, via API — <b>$0 total</b>.
+    Long horizons need architecture, not giant models.</p>
   </div>
 
   <div class="srow">
     <div class="stag rawtree">Tinybird<br>Rawtree</div>
-    <div><div class="what"><b>The memory itself.</b> Every event, decision, and standup is appended
-    forever — nothing is ever deleted. The manager literally runs <b>SQL over its own past</b> to
-    remember, and when forgetting breaks something, the exact fact is recovered from here.</div>
-    <div class="why">Remove it → forgetting becomes permanent, and the whole "reversible memory" thesis collapses.</div></div>
+    <p><b>The memory.</b> Every event appended forever. The manager runs <b>SQL over its own past</b> —
+    and lost facts are restored from here.</p>
   </div>
 
   <div class="srow">
     <div class="stag nimble">Nimble</div>
-    <div><div class="what"><b>The outside world.</b> When a teammate reports "our vendor slipped,"
-    the agent researches alternatives on the <b>live web</b> before replanning. Market signals feed
-    the strategist's weekly plans.</div>
-    <div class="why">Remove it → the agent plans blind, in a simulation bubble.</div></div>
+    <p><b>The outside world.</b> "Our vendor slipped" → the agent researches alternatives on the
+    <b>live web</b> before replanning.</p>
   </div>
 
   <div class="srow">
     <div class="stag flux">Black Forest Labs<br>FLUX 3</div>
-    <div><div class="what"><b>The Monday briefing.</b> The strategist's weekly plan becomes a
-    10-second <b>text-to-video briefing with voice</b> — the team's Monday morning stand-up video,
-    generated from the real state of the company.</div>
-    <div class="why">Remove it → the humans lose their window into what the agent decided.</div></div>
+    <p><b>The Monday briefing.</b> The weekly plan becomes a 10-second <b>voiced video</b> for the team.</p>
   </div>
 
-  <div class="quote" style="margin-top:9mm;"><b>Live demo:</b> the week board runs in real time —
-  pick any teammate, tell the manager "our provider got delayed, we'll only have it tomorrow,"
-  and watch it query its Rawtree memory, check the web through Nimble, answer you, and reshuffle
-  the week so nobody idles. Every thought on screen is Liquid.</div>
+  <div class="quote"><b>Live demo:</b> pick any teammate on the week board, type "our provider got
+  delayed" — watch it recall (Rawtree), research (Nimble), reply and reshuffle the week. Every
+  thought is Liquid.</div>
 
   <div class="foot"><span>REMaster · the stack</span><span>2 / 2</span></div>
 </div>
