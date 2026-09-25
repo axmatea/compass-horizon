@@ -21,6 +21,10 @@ PEOPLE = {
     "max":   {"role": "full-stack engineer", "skills": {"backend": 0.7, "frontend": 0.7, "design": 0.8, "mobile": 0.4, "growth": 0.3, "qa": 0.9}, "overrun": 1.0},
     "priya": {"role": "mobile engineer",   "skills": {"backend": 0.3, "frontend": 0.6, "design": 0.2, "mobile": 1.0, "growth": 0.1, "qa": 0.7}, "overrun": 1.0},
     "omar":  {"role": "growth lead",       "skills": {"backend": 0.0, "frontend": 0.2, "design": 0.3, "mobile": 0.0, "growth": 1.0, "qa": 0.3}, "overrun": 1.0},
+    "jules": {"role": "sales lead",        "skills": {"sales": 1.0, "growth": 0.5, "cs": 0.4, "marketing": 0.3}, "overrun": 1.0},
+    "mia":   {"role": "customer success",  "skills": {"cs": 1.0, "sales": 0.4, "qa": 0.5, "marketing": 0.2}, "overrun": 1.0},
+    "dan":   {"role": "content marketer",  "skills": {"marketing": 1.0, "growth": 0.7, "design": 0.3, "sales": 0.2}, "overrun": 1.2},
+    "eva":   {"role": "QA engineer",       "skills": {"qa": 1.0, "backend": 0.3, "frontend": 0.3, "cs": 0.3}, "overrun": 0.9},
 }
 
 # Absences (ground truth). Sarah's is the planted "wedding" fact.
@@ -54,6 +58,13 @@ BACKLOG = {
     "G3": ("Product Hunt launch kit", "growth", 4, ["D4"], 1),
     "G4": ("Press list outreach", "growth", 3, [], 1),
     "Q1": ("Launch QA pass", "qa", 4, ["F4", "F6", "M3", "B6"], 1),
+    "S1": ("Sales pipeline & CRM setup", "sales", 4, [], 1),
+    "S2": ("First 10 customer demos", "sales", 6, ["S1", "F3"], 1),
+    "S3": ("Pricing page & contracts", "sales", 4, ["S1"], 1),
+    "C1": ("Support playbook & help center", "cs", 5, [], 1),
+    "C2": ("Beta onboarding calls", "cs", 5, ["C1", "F2"], 1),
+    "K1": ("Content calendar & SEO posts", "marketing", 6, [], 1),
+    "K2": ("Launch email campaign", "marketing", 4, ["K1", "D4"], 36),
 }
 LAUNCH_REQUIRED = ["B6", "F2", "F3", "F4", "F5", "F6", "M3", "G2", "G3", "Q1"]
 
@@ -157,7 +168,7 @@ class World:
             if not self.available(p, day):
                 self.idle_in_absence.append((day, p, t["id"]))
                 continue
-            rate = PEOPLE[p]["skills"][t["skill"]]
+            rate = PEOPLE[p]["skills"].get(t["skill"], 0)
             if rate <= 0.05:
                 continue
             t["progress"] += rate

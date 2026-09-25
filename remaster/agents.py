@@ -256,9 +256,9 @@ def mock_doer(day, world, text):
             continue
         start = max(day, t["not_before"])
         span_weeks = {(d - 1) // 5 + 1 for d in range(start, start + t["estimate"] + 2)}
-        ranked = sorted(W.PEOPLE, key=lambda p: (-W.PEOPLE[p]["skills"][t["skill"]], load[p]))
+        ranked = sorted(W.PEOPLE, key=lambda p: (-W.PEOPLE[p]["skills"].get(t["skill"], 0), load[p]))
         for p in ranked:
-            if W.PEOPLE[p]["skills"][t["skill"]] < 0.5 or load[p] >= 2:
+            if W.PEOPLE[p]["skills"].get(t["skill"], 0) < 0.5 or load[p] >= 2:
                 continue
             if off.get(p, set()) & span_weeks:
                 continue
