@@ -16,7 +16,7 @@ export default function Home(){
  return <div className="compass-site">
   <a className="skip-link" href="#main">Skip to content</a>
   <header className="site-header"><a className="brand" href="#" aria-label="COMPASS home"><Mark/><span>COMPASS</span></a>
-   <nav aria-label="Main navigation"><a href="#film">The film</a><a href="#demo">Try the concept</a><a href="#idea">The idea</a></nav>
+   <nav aria-label="Main navigation"><a href="#film">The film</a><a href="#demo">Try the concept</a><a href="/original">Original office</a><a href="/">Current site</a></nav>
    <button className="present-link" onClick={openPresentation}>Present <Arrow/></button>
   </header>
   <main id="main">
