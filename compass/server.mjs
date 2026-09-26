@@ -32,6 +32,7 @@ const server = createServer(async (req,res) => {
   if(['/present','/story','/present.html'].includes(pathname.replace(/\/$/,''))){res.writeHead(302,{Location:'/presentation','Cache-Control':'no-store'}).end();return;}
   const normalized=pathname.replace(/\/$/,'')||'/';
   const route = ['/acquisition','/acquisition/app','/login'].includes(normalized) ? '/acquisition.html'
+   : ['/studio','/studio/tour'].includes(normalized) ? '/studio.html'
    : ['/voice-demo','/demo'].includes(normalized) ? '/live.html'
    : normalized==='/horizon' ? '/horizon.html'
    : normalized==='/presentation/legacy' ? '/story.html'

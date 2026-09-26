@@ -1,0 +1,11 @@
+/* Keep the headline off the small-screen seat controls. */
+@media (max-width: 520px) {
+  .of-room-heading { position: relative; top: auto; left: auto; width: auto; grid-row: 1; padding: 16px 10px; background: var(--of-paper); }
+  .of-toolbar { grid-row: 2; }
+  .of-workspace-grid { grid-row: 3; }
+  .of-context-input { grid-row: 4; }
+  .of-status { grid-row: 5; }
+  .of-room-heading > div:first-child { padding: 0; background: none; }
+  .of-room-heading h1 { font-size: 23px; }
+  .of-mobile-break { display: none; }
+}

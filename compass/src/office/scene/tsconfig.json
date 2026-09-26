@@ -1,0 +1,5 @@
+{
+  "extends": "../../../tsconfig.json",
+  "include": ["./OfficeScene.tsx", "./layout.ts"],
+  "exclude": []
+}

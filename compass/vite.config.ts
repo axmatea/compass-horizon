@@ -11,6 +11,7 @@ export default defineConfig({
         else if (req.url && /^\/(demo|voice-demo)\/?(?:\?|$)/.test(req.url)) req.url = "/live.html";
         else if (req.url && /^\/horizon\/?(?:\?|$)/.test(req.url)) req.url = "/horizon.html";
         else if (req.url && /^\/office\/?(?:\?|$)/.test(req.url)) req.url = "/office.html";
+        else if (req.url && /^\/studio(?:\/tour)?\/?(?:\?|$)/.test(req.url)) req.url = "/studio.html";
         else if (req.url && /^\/vision\/?(?:\?|$)/.test(req.url)) req.url = "/vision.html";
         else if (req.url && /^\/(presentation(?:\/legacy)?|present|story)\/?(?:\?|$)/.test(req.url)) req.url = "/story.html";
         else if (req.url && /^\/(app|presentation\/finale|demo\/(?:table|workspace|remaster(?:\/app)?))\/?(?:\?|$)/.test(req.url)) req.url = "/app.html" + (req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "");
@@ -23,6 +24,7 @@ export default defineConfig({
         else if (req.url && /^\/(demo|voice-demo)\/?(?:\?|$)/.test(req.url)) req.url = "/live.html";
         else if (req.url && /^\/horizon\/?(?:\?|$)/.test(req.url)) req.url = "/horizon.html";
         else if (req.url && /^\/office\/?(?:\?|$)/.test(req.url)) req.url = "/office.html";
+        else if (req.url && /^\/studio(?:\/tour)?\/?(?:\?|$)/.test(req.url)) req.url = "/studio.html";
         else if (req.url && /^\/vision\/?(?:\?|$)/.test(req.url)) req.url = "/vision.html";
         else if (req.url && /^\/(presentation(?:\/legacy)?|present|story)\/?(?:\?|$)/.test(req.url)) req.url = "/story.html";
         else if (req.url && /^\/(app|presentation\/finale|demo\/(?:table|workspace|remaster(?:\/app)?))\/?(?:\?|$)/.test(req.url)) req.url = "/app.html" + (req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "");
@@ -36,6 +38,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         website: fileURLToPath(new URL("./index.html", import.meta.url)),
+        studio: fileURLToPath(new URL("./studio.html", import.meta.url)),
         app: fileURLToPath(new URL("./app.html", import.meta.url)),
         vision: fileURLToPath(new URL("./vision.html", import.meta.url)),
         acquisition: fileURLToPath(new URL("./acquisition.html", import.meta.url)),
