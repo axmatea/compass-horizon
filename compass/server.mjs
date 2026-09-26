@@ -35,7 +35,7 @@ const server = createServer(async (req,res) => {
    : ['/voice-demo','/demo'].includes(normalized) ? '/live.html'
    : normalized==='/horizon' ? '/horizon.html'
    : normalized==='/presentation/legacy' ? '/story.html'
-   : normalized === '/' ? '/index.html' : ['/presentation','/presentation/legacy','/story'].includes(normalized) ? '/story.html' : normalized === '/office' ? '/office.html' : ['/app','/presentation/finale','/demo/table','/demo/workspace','/demo/remaster','/demo/remaster/app'].includes(normalized) ? '/app.html' : pathname;
+   : normalized === '/' ? '/index.html' : normalized === '/vision' ? '/vision.html' : ['/presentation','/presentation/legacy','/story'].includes(normalized) ? '/story.html' : normalized === '/office' ? '/office.html' : ['/app','/presentation/finale','/demo/table','/demo/workspace','/demo/remaster','/demo/remaster/app'].includes(normalized) ? '/app.html' : pathname;
   const file=resolve(root,'.'+route);
   if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
   const info=await stat(file);
