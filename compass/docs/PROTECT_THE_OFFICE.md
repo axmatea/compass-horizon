@@ -216,3 +216,14 @@ separate from this additive page deployment.
   (not enabled). Dependency/container remediation is outside this page release.
 - The user subsequently authorized website deployment on an additional page.
   No paid provider runs, video uploads or new billing resources are authorized.
+
+## Attack lab release (2026-09-29)
+
+Source of truth for the training frontend is now
+`vincent38wargnier/security_hackathon` (`frontend/`, PR #2, branch
+`frontend/attack-patch-lab`). This subtree mirrors its `src/protect/**` and QA
+scripts. `/protect` opens the Attack lab (Vincent's five levels: inspect, attack,
+observe, patch, exact replay, benign control, explain) in labelled scripted mode;
+the three-incident game is the "Offline drills" tab (`/protect?mode=drills`).
+Public builds keep Live AI disabled (no `VITE_LAB_LIVE`) and the page CSP keeps
+`connect-src 'none'`. No lab server is exposed and no paid model call is made.
