@@ -13,6 +13,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "start": "node server.mjs",
     "test": "node --test --test-concurrency=1 'test/*.test.mjs'",
+    "test:protect": "node --experimental-strip-types --test src/protect/*.test.mjs",
+    "qa:protect": "node scripts/protect-qa.mjs",
     "test:acquisition": "node --test --test-concurrency=1 --test-reporter=spec test/acquisition-*.test.mjs",
     "test:acquisition-ui": "node --experimental-strip-types --test src/acquisition/demo.test.mjs",
     "test:remaster": "node --experimental-strip-types --test --test-concurrency=1 src/remaster/*.test.mjs test/remaster-*.test.mjs",

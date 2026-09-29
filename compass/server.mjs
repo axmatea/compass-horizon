@@ -31,7 +31,12 @@ const server = createServer(async (req,res) => {
   if(pathname==='/healthz'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify({ok:true,revision:process.env.RAILWAY_GIT_COMMIT_SHA||'local',acquisition:acquisition.status().database}));return;}
   if(['/present','/story','/present.html'].includes(pathname.replace(/\/$/,''))){res.writeHead(302,{Location:'/presentation','Cache-Control':'no-store'}).end();return;}
   const normalized=pathname.replace(/\/$/,'')||'/';
+  if(['/protect','/protect.html'].includes(normalized)) {
+   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");
+   res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');
+  }
   const route = ['/acquisition','/acquisition/app','/login'].includes(normalized) ? '/acquisition.html'
+   : normalized==='/protect' ? '/protect.html'
    : ['/studio','/studio/tour'].includes(normalized) ? '/studio.html'
    : ['/voice-demo','/demo'].includes(normalized) ? '/live.html'
    : normalized==='/horizon' ? '/horizon.html'

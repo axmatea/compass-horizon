@@ -7,7 +7,8 @@ export default defineConfig({
     name: "compass-demo-route",
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
-        if (req.url && /^\/(acquisition(?:\/app)?|login)\/?(?:\?|$)/.test(req.url)) req.url = "/acquisition.html" + (req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "");
+        if (req.url && /^\/protect\/?(?:\?|$)/.test(req.url)) req.url = "/protect.html";
+        else if (req.url && /^\/(acquisition(?:\/app)?|login)\/?(?:\?|$)/.test(req.url)) req.url = "/acquisition.html" + (req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "");
         else if (req.url && /^\/(demo|voice-demo)\/?(?:\?|$)/.test(req.url)) req.url = "/live.html";
         else if (req.url && /^\/horizon\/?(?:\?|$)/.test(req.url)) req.url = "/horizon.html";
         else if (req.url && /^\/office\/?(?:\?|$)/.test(req.url)) req.url = "/office.html";
@@ -20,7 +21,8 @@ export default defineConfig({
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, _res, next) => {
-        if (req.url && /^\/(acquisition(?:\/app)?|login)\/?(?:\?|$)/.test(req.url)) req.url = "/acquisition.html" + (req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "");
+        if (req.url && /^\/protect\/?(?:\?|$)/.test(req.url)) req.url = "/protect.html";
+        else if (req.url && /^\/(acquisition(?:\/app)?|login)\/?(?:\?|$)/.test(req.url)) req.url = "/acquisition.html" + (req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "");
         else if (req.url && /^\/(demo|voice-demo)\/?(?:\?|$)/.test(req.url)) req.url = "/live.html";
         else if (req.url && /^\/horizon\/?(?:\?|$)/.test(req.url)) req.url = "/horizon.html";
         else if (req.url && /^\/office\/?(?:\?|$)/.test(req.url)) req.url = "/office.html";
@@ -37,6 +39,7 @@ export default defineConfig({
     outDir: "dist",
     rollupOptions: {
       input: {
+        protect: fileURLToPath(new URL("./protect.html", import.meta.url)),
         website: fileURLToPath(new URL("./index.html", import.meta.url)),
         studio: fileURLToPath(new URL("./studio.html", import.meta.url)),
         app: fileURLToPath(new URL("./app.html", import.meta.url)),

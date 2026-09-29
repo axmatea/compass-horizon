@@ -35,6 +35,7 @@ membership. Tokens are secrets: share only with the intended recipient.
 
 | Route | Purpose |
 | --- | --- |
+| `/protect` | Security training game: three fictional incidents, hints, retries and agent proposals requiring player confirmation; no paid model calls |
 | `/`, `/demo/workspace` | Immediate populated local demo; no account or model calls |
 | `/presentation` | Final narrative with speaker notes and embedded Horizon |
 | `/horizon` | Browser-only long-horizon simulation; 2D, 3D and Phone |
@@ -52,6 +53,10 @@ opening the public workspace or presentation. `/present` and `/story` redirect
 to the final presentation. There are no new billing services or public signup.
 
 ## Verification and release
+
+For Protect the Office, use `npm run test:protect`, `npm run build`, and
+`npm run qa:protect` against localhost. See `docs/PROTECT_THE_OFFICE.md` for
+source provenance, agent integration boundaries and the short stage script.
 
 Run `npm run build`, `npm test`, `npm run test:workspaces` and
 `npm run qa:workspace`. Database tests require an explicit local test DSN; see

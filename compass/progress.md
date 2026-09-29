@@ -1,5 +1,41 @@
 Original prompt: Implement COMPASS REMaster as one interactive game: launch an AI-managed quarter, introduce changes, inspect memory and recovery. Keep the existing warm Manrope/cobalt design; Vincent owns the runtime. Preserve Acquisition separately, no paid calls or production deployment before release gates.
 
+## Protect the Office, 2026-09-29
+
+- Current request: build an engaging security training app, not just a Guild chat.
+- Sponsor speech supplied by user is the content source. YouTube web fetch was
+  throttled and yt-dlp subtitle download returned HTTP 429; full video not verified.
+- New isolated /protect React game: prompt injection, secret exfiltration, and a
+  legitimate scoped request so blocking every action cannot win.
+- Parent owns pure game model/tests, routing, docs and QA. Frontend worker owns
+  App.tsx/protect.css/entry.tsx. Prior security-hardening edits are preserved.
+- Local deterministic coach is explicitly scripted. User-approved Guild login
+  succeeded; read-only agent/workspace/code fetches verify the existing setup.
+  Published agent initially included skillsTools and github_issues_get;
+  removed with explicit approval in Guild version 1.0.1 / fc845279f7e6.
+  Workspace updated to 1.0.1. Two platform built-ins remain, so do not claim
+  absolute zero capabilities. No remote agent/model run started.
+  Guild workspace opens separately, not a fabricated embedded integration.
+- Guild configuration update only was committed/pushed/published with approval.
+  No paid model runs or website publication. App changes remain local/uncommitted.
+- UI/model/router complete. Nineteen model/protocol tests pass, TypeScript/Vite build passes.
+  Backend regression: 223 pass, five DB tests skipped, no failures. Browser QA
+  390/768/1440 passed, screenshots inspected, zero external/API requests.
+- TODO: live embedded Guild API remains unimplemented; verify judge access,
+  Snyk Code enablement, source publication and a recorded demo before submission.
+
+### Transcript application and additive deployment, 2026-09-29
+
+- Full 3:18 English auto-caption transcript successfully read through native
+  YouTube export after the CLI hit 429. It is KodeKloud's prompt-injection
+  explainer, not the sponsor speech. Source and timestamps in the product doc.
+- Added transferable threat examples (email/README/tool results), instruction
+  authority and fictional sandbox limits to the three existing cases.
+- Added a provider-neutral proposal protocol and JSON import/export. Other
+  agents can suggest; the player confirms. No credentials or paid calls.
+- User explicitly authorized deploying an additional website page. Publishing
+  only the Protect page/router/footer/docs; prior hardening stays uncommitted.
+
 ## Human workspace implementation, 2026-09-25
 
 - Demo table visual revision: full-width project room, original SVG desk,
