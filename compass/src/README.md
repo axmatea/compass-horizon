@@ -1,26 +1,9 @@
-# Core frontend
+# Homepage frontend
 
-Only three HTML inputs ship: `index.html` (existing landing design and its used
-media), `app.html` (real private workspace), and `login.html` (minimal auth).
-`routes.ts` maps `/`, `/app`, `/office`, and `/login` in Vite dev/preview without
-SPA fallback for unknown routes. Production routing belongs to the server.
+Only index.html is built. src/site/ contains the existing cinematic homepage
+CSS, browser-only menu/motion code and Sora font. Font terms ship in
+public/licenses/sora-OFL.txt. Navigation stays on the same page.
 
-`entry.tsx` loads only `workspace/App`. Workspace CRUD, source import, invitations,
-membership acceptance, SSE, and version conflicts retain their real API paths.
-No fictional data or browser-only mutation path is available. Missing storage
-or identity blocks the office rather than pretending to save.
-
-`auth/` uses the existing Better Auth cookie/session endpoints, the new core
-readiness endpoint, and the invitation-registration compatibility alias. Only
-the bounded redirect helper lives in `auth/login-return.ts`.
-The Manrope font, its OFL notice, and workspace favicon keep their existing
-neutral `/brand` asset URLs. The MIT facing-helper notice is retained for the real team table.
-
-Presentation, voice, security game, Horizon, studio, mission, acquisition product,
-and REMaster entries and their exclusive source/assets have been retired.
-The landing's labeled concept film and cinematic styling remain without
-provider calls. The embedded builder/pricing and scripted overture are removed.
-Its product navigation leads only to `/app` or `/login`.
-
-Validate with `npm run typecheck`, `npm run build`, and
-`node --experimental-strip-types --test src/core.test.mjs src/auth/*.test.mjs src/workspace/*.test.mjs`.
+No React, workspace, auth, API, demo or presentation modules remain. No forms,
+provider calls or stored browser state are used. Unknown routes do not fall
+back to the homepage. Verify with npm run check, npm test and npm run build.

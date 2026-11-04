@@ -1,70 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir, access } from 'node:fs/promises';
-import { corePage } from './routes.ts';
-import { workspaceReturn, afterSignupLocation } from './auth/login-return.ts';
 
 const root = new URL('../', import.meta.url);
 const read = path => readFile(new URL(path, root), 'utf8');
 
-test('only core routes map to HTML and invitation query parameters survive', () => {
-  assert.equal(corePage('/'), '/index.html');
-  assert.equal(corePage('/app?demo=1'), '/app.html?demo=1');
-  assert.equal(corePage('/office/?workspaceInvite=token'), '/app.html?workspaceInvite=token');
-  assert.equal(corePage('/login/?returnTo=%2Fapp&token=token'), '/login.html?returnTo=%2Fapp&token=token');
-  for (const route of ['/demo', '/demo/workspace', '/demo/remaster/app', '/voice-demo', '/presentation', '/presentation/finale', '/protect', '/horizon', '/studio', '/vision', '/live', '/acquisition', '/acquisition/app', '/missing']) assert.equal(corePage(route), undefined, route);
-});
-
-test('auth redirects stay internal and never revive retired products', () => {
-  const token = 'a'.repeat(43);
-  assert.equal(workspaceReturn('/login/', `?returnTo=/app&workspaceInvite=${token}`), `/app?workspaceInvite=${token}`);
-  assert.equal(afterSignupLocation('/login', `?returnTo=/app&workspaceInvite=${token}&token=${token}`), `/login?returnTo=/app&workspaceInvite=${token}`);
-  for (const destination of ['https://example.test', '//example.test', '/demo/remaster/app', '/acquisition/app']) {
-    assert.equal(workspaceReturn('/login', `?returnTo=${encodeURIComponent(destination)}`), null);
-    assert.equal(afterSignupLocation('/login', `?returnTo=${encodeURIComponent(destination)}`), '/login?returnTo=/app');
-  }
-  assert.equal(workspaceReturn('/login', '?returnTo=/app&workspaceInvite=invalid'), '/app');
-});
-
-test('home links target existing anchors or the core office/login pages, with no embedded demo', async () => {
+test('homepage has only working same-page navigation and no app/demo entry', async () => {
   const html = await read('index.html');
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
-    if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
-    else assert(['/', '/app', '/login'].includes(href), href);
+    assert(href.startsWith('#'), href);
+    assert(html.includes(`id="${href.slice(1)}"`), href);
   }
-  assert.doesNotMatch(html, /Try it live|yourcompany\.ai|page-pricing|page-build|voice-builder|overture|href="\/(demo|presentation|horizon|studio|vision|protect|acquisition)/i);
-  assert.doesNotMatch(await read('src/site/landing.js'), /fetch\(|EventSource|WebSocket|overture|setStep/);
+  assert.doesNotMatch(html, /<form|href="\/(?:app|office|login|demo|presentation)(?:["?/.])|id="film"|Try it live|page-pricing/i);
+  assert.match(html, /not an available app/);
+  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')), ['index.html']);
+  assert.doesNotMatch(await read('src/site/landing.js'), /fetch\(|EventSource|WebSocket|localStorage|sessionStorage/);
 });
 
-test('build entries, public pages, and shared brand dependencies are core-only', async () => {
-  const config = await read('vite.config.ts');
-  assert(config.includes("appType: 'mpa'"));
-  assert.deepEqual([...config.matchAll(/new URL\("\.\/([^\"]+\.html)"/g)].map(match => match[1]).sort(), ['app.html', 'index.html', 'login.html']);
-  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['app.html', 'index.html', 'login.html']);
-  assert(!(await readdir(new URL('public/', root))).some(name => name.endsWith('.html') || name === 'acquisition'));
-  for (const path of ['app.html', 'login.html', 'src/auth/styles.css', 'src/workspace/styles.css', 'public/manifest.webmanifest']) {
-    const source = await read(path);
-    assert.doesNotMatch(source, /\/acquisition\//, path);
-    for (const [, asset] of source.matchAll(/['"](\/brand\/[^'"]+)['"]/g)) await access(new URL(`public${asset}`, root));
+test('only referenced homepage assets and font licence are retained', async () => {
+  const html = await read('index.html');
+  for (const [, path] of html.matchAll(/(?:href|src|poster)="(\/[^"]+)"/g)) {
+    if (path.startsWith('/src/')) await access(new URL(path.slice(1), root));
+    else await access(new URL('public' + path, root));
   }
-  await access(new URL('public/brand/fonts/OFL.txt', root));
+  assert.deepEqual((await readdir(new URL('public/', root))).sort(), ['apple-touch-icon.png', 'assets', 'favicon.ico', 'favicon.svg', 'licenses', 'robots.txt', 'sitemap.xml']);
+  assert.match(await read('public/licenses/sora-OFL.txt'), /SIL OPEN FONT LICENSE/);
+  assert.doesNotMatch(await read('public/sitemap.xml'), /\/(?:app|office|login|demo|presentation)</);
 });
 
-test('private workspace has no public mode, demo mutation, or fixture imports', async () => {
-  const entry = await read('src/entry.tsx');
-  assert.deepEqual([...entry.matchAll(/import\('([^']+)'\)/g)].map(match => match[1]), ['./workspace/App']);
-  const hook = await read('src/workspace/useWorkspace.ts');
-  assert.doesNotMatch(hook, /createDemo|localChange|demoProjects|if \(demo\)/);
-  assert.match(hook, /fetchSnapshot/);
-  assert.match(hook, /version: task.version/);
-  assert.match(hook, /Workspace membership was not confirmed/);
-  const ui = await read('src/workspace/App.tsx');
-  assert.doesNotMatch(ui, /LOCAL_DEMO|Explore demo|SCRIPTED DEMO|demo=|kind === 'proposal'/);
-  assert.match(ui, /parseTaskCSV/);
-  assert.match(ui, /model.acceptInvite/);
-  assert.match(ui, /model.error \? 'Unavailable' : model.connection/);
-  assert.match(ui, /className="cw-welcome-actions"/);
-  assert.match(ui, /href="\/">Homepage/);
-  assert.match(ui, /type="file" disabled=\{!snapshot \|\| busy \|\| importing\}/);
-  assert.match(ui, /if \(!file \|\| !snapshot\) return/);
+test('runtime, build and CI have no retired database or React dependencies', async () => {
+  const pkg = JSON.parse(await read('package.json'));
+  assert.deepEqual(pkg.dependencies ?? {}, {});
+  assert.deepEqual(Object.keys(pkg.devDependencies), ['vite']);
+  assert.match(await read('vite.config.ts'), /input: "index.html"/);
+  for (const path of ['server', 'scripts', 'app.html', 'login.html', 'src/auth', 'src/workspace']) await assert.rejects(access(new URL(path, root)));
+  assert.doesNotMatch(await read('server.mjs'), /import.+(?:pg|auth|workspace|react)/i);
 });

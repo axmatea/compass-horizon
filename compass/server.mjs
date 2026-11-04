@@ -3,67 +3,81 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve, sep, extname } from 'node:path';
-import { createIdentityService } from './server/auth-service.mjs';
-import { createWorkspaces } from './server/workspaces/index.mjs';
-export async function createCompassServer({env=process.env,identity:injectedIdentity,workspaces:injectedWorkspaces}={}) {
-const identity = injectedIdentity || await createIdentityService({env});
-const workspaces = injectedWorkspaces || createWorkspaces({env,getIdentity:req=>identity.getIdentity(req)});
-const root = resolve(env.STATIC_ROOT || fileURLToPath(new URL('./dist/', import.meta.url)));
-const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp','.mp4':'video/mp4','.woff2':'font/woff2','.ttf':'font/ttf','.vtt':'text/vtt; charset=utf-8','.txt':'text/plain; charset=utf-8','.json':'application/json','.webmanifest':'application/manifest+json','.ico':'image/x-icon'};
-const server = createServer(async (req,res) => {
- res.setHeader('X-Content-Type-Options','nosniff');
- res.setHeader('Referrer-Policy','no-referrer');
- if(env.NODE_ENV==='production'&&req.headers.host==='www.mycompass.world'){
-  res.writeHead(308,{Location:`https://mycompass.world${req.url.startsWith('/')&&!req.url.startsWith('//')?req.url:'/'}`}).end();return;
- }
- try {
- const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
- const normalized=pathname.replace(/\/$/,'')||'/';
- if (pathname.startsWith('/api/')) {
-  if(await workspaces.handle(req,res))return;
-  if(await identity.handle(req,res))return;
-  res.writeHead(404,{'Content-Type':'application/json','Cache-Control':'no-store'}).end(JSON.stringify({error:'API endpoint is not available.'}));return;
- }
- if (!['GET','HEAD'].includes(req.method)) {res.writeHead(405,{Allow:'GET, HEAD'}).end();return;}
-  if(pathname==='/healthz'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify({ok:true,revision:env.RAILWAY_GIT_COMMIT_SHA||env.COMPASS_REVISION||'local',auth:identity.status().database,workspaces:workspaces.status().status}));return;}
-  if(normalized==='/office'){res.writeHead(308,{Location:`/app${new URL(req.url,'http://localhost').search}`,'Cache-Control':'no-store'}).end();return;}
-  if(/^\/(?:demo|voice-demo|presentation|present|story|protect|studio|horizon|vision|acquisition|live)(?:\/|\.|$)/.test(normalized)) {
-   res.writeHead(410,{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:'This COMPASS demonstration has been retired. Open /app for your workspace.');return;
-  }
-  const pages = {'/':'/index.html','/index.html':'/index.html','/app':'/app.html','/app.html':'/app.html','/login':'/login.html','/login.html':'/login.html'};
-  const route=pages[normalized]||pathname;
-  if(!pages[normalized] && (pathname.endsWith('.html')||pathname.split('/').some(part=>part.startsWith('.'))||!types[extname(pathname)])){res.writeHead(404).end();return;}
-  const file=resolve(root,'.'+route);
-  if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
-  const info=await stat(file);
-  if(!info.isFile()){res.writeHead(404).end();return;}
-  const headers={'Content-Type':types[extname(file)]||'application/octet-stream','Cache-Control':'public, max-age=0, must-revalidate','Accept-Ranges':'bytes'};
-  let start=0,end=info.size-1,status=200;
-  if(req.headers.range && req.method==='GET'){
-   const m=/^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
-   if(!m || (!m[1]&&!m[2])){res.writeHead(416,{'Content-Range':`bytes */${info.size}`}).end();return;}
-   if(!m[1]){start=Math.max(0,info.size-Number(m[2]));}
-   else{start=Number(m[1]);if(m[2])end=Math.min(end,Number(m[2]));}
-   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start>end||start>=info.size){res.writeHead(416,{'Content-Range':`bytes */${info.size}`}).end();return;}
-   status=206;headers['Content-Range']=`bytes ${start}-${end}/${info.size}`;
-  }
-  headers['Content-Length']=info.size===0?0:end-start+1;res.writeHead(status,headers);
-  if(req.method==='HEAD'||info.size===0){res.end();return;}
-  const stream=createReadStream(file,{start,end});stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);
- }catch{if(!res.headersSent)res.writeHead(404);res.end('Not found');}
-});
-return {server,async close(){
- const stopped=server.listening?new Promise(resolve=>server.close(resolve)):Promise.resolve();
- server.closeIdleConnections();
- await Promise.all([workspaces.close(),identity.close()]);
- await stopped;
-}};
+
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.mp4': 'video/mp4',
+  '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf',
+  '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8',
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
+const retired = /^\/(?:app|office|login|demo|voice-demo|presentation|present|story|protect|studio|horizon|vision|acquisition|live|film)(?:\/|\.|$)/;
+const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+export function createCompassServer({ env = process.env } = {}) {
+  const root = resolve(env.STATIC_ROOT || fileURLToPath(new URL('./dist/', import.meta.url)));
+  const server = createServer(async (req, res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', csp);
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    const text = (status, message) => {
+      res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(req.method === 'HEAD' ? undefined : message);
+    };
+    if (!['GET', 'HEAD'].includes(req.method)) { res.setHeader('Allow', 'GET, HEAD'); text(405, 'Method not allowed'); return; }
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      const pathname = decodeURIComponent(url.pathname);
+      if (env.NODE_ENV === 'production' && req.headers.host === 'www.mycompass.world') {
+        res.writeHead(308, { Location: `https://mycompass.world${url.pathname}${url.search}` }).end(); return;
+      }
+      if (pathname === '/healthz') {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ ok: true, mode: 'homepage-only',
+          revision: env.RAILWAY_GIT_COMMIT_SHA || env.COMPASS_REVISION || 'local' })); return;
+      }
+      if (pathname === '/api' || pathname.startsWith('/api/')) { text(404, 'No application API is available.'); return; }
+      const normalized = pathname.replace(/\/$/, '') || '/';
+      if (retired.test(normalized)) { text(410, 'This section has been retired. Visit the COMPASS homepage at /.'); return; }
+      const page = normalized === '/' || normalized === '/index.html';
+      if (!page && (pathname.endsWith('.html') || pathname.split('/').some(part => part.startsWith('.')) || !types[extname(pathname)])) {
+        text(404, 'Not found'); return;
+      }
+      const file = resolve(root, '.' + (page ? '/index.html' : pathname));
+      if (!file.startsWith(root + sep)) { text(403, 'Forbidden'); return; }
+      const info = await stat(file);
+      if (!info.isFile()) { text(404, 'Not found'); return; }
+      const headers = { 'Content-Type': types[extname(file)], 'Cache-Control': 'public, max-age=0, must-revalidate',
+        'Accept-Ranges': 'bytes' };
+      let start = 0, end = info.size - 1, status = 200;
+      if (req.headers.range && req.method === 'GET') {
+        const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+        if (!match || (!match[1] && !match[2])) { res.setHeader('Content-Range', `bytes */${info.size}`); text(416, 'Invalid range'); return; }
+        if (!match[1]) start = Math.max(0, info.size - Number(match[2]));
+        else { start = Number(match[1]); if (match[2]) end = Math.min(end, Number(match[2])); }
+        if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= info.size) {
+          res.setHeader('Content-Range', `bytes */${info.size}`); text(416, 'Invalid range'); return;
+        }
+        status = 206; headers['Content-Range'] = `bytes ${start}-${end}/${info.size}`;
+      }
+      headers['Content-Length'] = info.size === 0 ? 0 : end - start + 1;
+      res.writeHead(status, headers);
+      if (req.method === 'HEAD' || info.size === 0) { res.end(); return; }
+      const stream = createReadStream(file, { start, end });
+      stream.on('error', () => res.destroy()); res.on('close', () => stream.destroy()); stream.pipe(res);
+    } catch { if (!res.headersSent) text(404, 'Not found'); else res.destroy(); }
+  });
+  return { server, async close() {
+    const stopped = server.listening ? new Promise(resolve => server.close(resolve)) : Promise.resolve();
+    server.closeIdleConnections(); await stopped;
+  } };
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- const app=await createCompassServer();
- app.server.listen(Number(process.env.PORT||8770),'0.0.0.0',()=>console.log('COMPASS ready'));
- let shuttingDown=false;
- const shutdown=async()=>{if(shuttingDown)return;shuttingDown=true;await app.close();process.exit(0);};
- process.on('SIGTERM',()=>void shutdown());
- process.on('SIGINT',()=>void shutdown());
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const app = createCompassServer();
+  app.server.listen(Number(process.env.PORT || 8770), '0.0.0.0', () => console.log('COMPASS homepage ready'));
+  let stopping = false;
+  const stop = async () => { if (stopping) return; stopping = true; await app.close(); process.exit(0); };
+  process.on('SIGTERM', () => void stop()); process.on('SIGINT', () => void stop());
 }

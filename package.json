@@ -11,13 +11,11 @@
     "start": "npm --prefix compass run start",
     "preview": "npm --prefix compass run preview",
     "test": "npm --prefix compass run test",
-    "test:workspaces": "npm --prefix compass run test:workspaces",
-    "typecheck": "npm --prefix compass run typecheck",
+    "check": "npm --prefix compass run check",
     "product:install": "npm --prefix compass ci",
     "product:dev": "npm --prefix compass run dev",
     "product:build": "npm --prefix compass run build",
     "product:start": "npm --prefix compass run start",
-    "product:test": "npm --prefix compass run test",
-    "product:typecheck": "npm --prefix compass run typecheck"
+    "product:test": "npm --prefix compass run test"
   }
 }

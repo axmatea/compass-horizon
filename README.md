@@ -1,15 +1,14 @@
 # COMPASS
 
-**Keep the reason. Move the work.**
+Canonical source: [axmatea/compass-horizon](https://github.com/axmatea/compass-horizon).
 
-Canonical repository: [axmatea/compass-horizon](https://github.com/axmatea/compass-horizon).
-The single maintained application lives in `compass/`: a Vite/React frontend
-and Node server with a PostgreSQL-backed private workspace and Better Auth.
-The root package is only a command launcher, with no application dependencies.
+This repository contains only the public COMPASS homepage. Workspace, login,
+registration, APIs, demos, presentations and disconnected research are retired.
+Historical code is recoverable from Git history; no history rewrite is needed.
 
 ## Run
 
-Use Node 22.12 or newer. From the repository root:
+Use Node 22.12 or newer:
 
 ```sh
 npm run product:install
@@ -17,62 +16,37 @@ npm run build
 npm start
 ```
 
-Open http://localhost:8770. For frontend development, use `npm run dev`;
-API requests are proxied to the Node server on port 8770, which must also be
-running. `npm run preview` previews static build output, not the private API.
-Root `npm ci` only installs the empty launcher package; install the application
-dependencies with `npm run product:install`.
-
-## Product Boundary
-
-| Route | Purpose |
-| --- | --- |
-| `/` | Public homepage |
-| `/app` | Actual private working office, requiring a team account |
-| `/login?returnTo=/app` | Sign-in for the private office |
-
-There are no supported demos, presentations, games, simulations or research
-projects. The retired root Next.js concept and disconnected Python research
-are recoverable from Git history, not an archive directory.
-
-The current publication scope does not provision a new database. The private
-office remains unavailable until DB/auth configuration is separately authorized
-and verified. Public homepage publication is not private-workspace availability.
-
-Private collaboration requires PostgreSQL, `DATABASE_URL`, `BETTER_AUTH_SECRET`
-and `BETTER_AUTH_URL`, with HTTPS in production. Use the application's existing
-invitation and authentication flows; keep invitation tokens private. Sources,
-task updates, membership and approvals are human-workspace records, not proof
-of autonomous agents. The AI runtime is **BLOCKED** until a compatible
-human-workspace contract is implemented and verified. Starting the app or
-configuring a provider does not verify AI integration, learning or performance.
+Open http://localhost:8770. npm run dev starts Vite for frontend development.
+The root package only forwards commands to compass/; install that package
+rather than expecting root npm ci to install the application.
 
 ## Verify
 
 ```sh
-npm run typecheck
+npm run check
 npm test
-npm run test:workspaces
 npm run build
+npm audit --prefix compass
 ```
 
-All application commands forward to `npm --prefix compass`; existing
-`product:*` aliases remain for compatibility. Private database integration and
-browser QA require an explicitly configured local test database. Never run
-cleanup tests against production, load production credentials or invoke paid
-provider probes as ordinary verification. See [the product guide](compass/README.md)
-and [workspace contract](compass/docs/WORKSPACE_API.md) for application details.
+The build produces one HTML page. The Node delivery server uses built-in modules
+only: no runtime dependencies, database, login, sessions, workers, AI calls or
+outbound application requests. Previously supported page URLs return 410; API
+URLs return 404. Do not reintroduce those systems as incidental cleanup.
 
-## Deployment And Attribution
+## Deploy and recover
 
-Railway service `compass-web` owns `mycompass.world`.
-Its source still points to the deleted legacy `axmatea/compass` repository and
-its root directory is unset. The pending post-merge publication step
-is to bind canonical `axmatea/compass-horizon` main with root directory `/compass`,
-using the existing `compass/Dockerfile` and `compass/railway.json`.
-No root Dockerfile, provider settings, DNS, service binding or deployment changes
-are part of this cleanup. Do not claim the new version is deployed before the
-release operator verifies that publication.
+Production is the existing Railway compass-nayl-vincent / compass-web service,
+serving mycompass.world. Source: this repository main, root directory /compass.
+Use compass/Dockerfile; Railway supplies PORT; healthcheck is /healthz.
+The response records mode=homepage-only and the deployed Git revision.
 
-Keep the product's required third-party notices and bundled font licenses with
-their assets. The root copies were duplicates, not replacement license sources.
+GitHub stores the source and lockfile needed to rebuild on another computer.
+Verify a fresh clone, npm run product:install, npm test and npm run build before
+relying on that recovery path. Website recovery does not prove that unrelated
+local data, credentials or personal files are backed up.
+
+Keep the homepage's bundled font licenses. Do not publish secrets, .env files,
+local recovery exports, transcripts or personal files. Provider billing and
+account access are managed separately; do not spend, change DNS, create resources
+or erase data without explicit approval.
