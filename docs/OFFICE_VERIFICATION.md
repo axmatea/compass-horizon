@@ -11,8 +11,10 @@
 - Six presentation scenes manually inspected at all three widths before final
   build; keyboard navigation and notes checked. Slides can scroll vertically.
 - npx eslint src: no errors, one advisory for the unchanged local room img.
-- Full npm run lint is blocked by a pre-existing require-style import in
-  remaster/uitest.js. Backend files were not changed to suppress it.
+- Full npm run lint originally failed on the workstation-only
+  `remaster/uitest.js` scratch script. Repository cleanup retired that script:
+  it had no supported package command and wrote into a former developer's
+  absolute directory. This does not add or replace Python backend UI coverage.
 
 Reproduce browser checks with a local Playwright installation:
 `BASE_URL=http://localhost:8902 node scripts/office-smoke.mjs`.

@@ -53,7 +53,9 @@ memory drawers render fact IDs, source, cleanup reasons and actual checks.
 
 ## Ownership
 
-- UI worker: `src/remaster/App.tsx`, `components.tsx`, `styles.css`, `main.tsx`.
+- UI worker: `src/remaster/App.tsx`, `components.tsx`, `styles.css`. The shared
+  `src/entry.tsx` lazy-loads `App.tsx` for `/demo/remaster` and
+  `/demo/remaster/app`; there is no separate REMaster bootstrap.
 - Fixture worker: `src/remaster/fixture.ts`, fixture tests only.
 - Live worker: `src/remaster/live.ts`, `server/remaster-bridge.mjs`, live/bridge tests.
 - Integrator: DTOs, entrypoints, routing, docs, scripts, QA, commits and PR.

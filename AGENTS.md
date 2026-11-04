@@ -10,9 +10,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # COMPASS repo guide for agents
 
-Canonical repository: axmatea/compass-horizon. Public office concept plus the preserved Horizon simulation. No live office backend yet.
+Canonical repository: axmatea/compass-horizon. The maintained product imported
+from axmatea/compass lives in compass/. Do not use the legacy repository as a
+source for new changes. Read README.md first.
 
 ## Structure
+- `compass/`: Vite + Node product with its own README, package and lockfile.
+  It includes a PostgreSQL/auth workspace server, scripted public demos and
+  Protect the Office. The AI team runtime is not automatically connected.
+- `remaster/`: separate Python simulation/research runtime, not an office backend.
+- The paths below belong to the separate root Next.js office concept:
 - `src/engine`: pure deterministic engine (scenario `ai-media-q4`, wake runs, in-memory ledger, `project()` returns `WorldView` from `src/contract.ts`).
 - `src/lib/sim.ts`: client-side simulation, `frameAt(day)` memoized. Replace it with a fetch of `WorldView` frames to feed real data.
 - `src/components/horizon`: `Compass.tsx` (screen), `Horizon.tsx` (graph), `story.ts` (labels), `horizon.css`.
@@ -21,10 +28,17 @@ Canonical repository: axmatea/compass-horizon. Public office concept plus the pr
 - `/horizon`: original graph. `/demo` redirects to `/` in `next.config.ts`.
 
 ## Commands
-- `npm run dev`, `npm test`, `npm run typecheck`, `npx eslint src`, `npm run build`.
+- Product: `npm run product:install`, `npm run product:dev`,
+  `npm run product:typecheck`, `npm run product:test`, `npm run product:build`.
+- Next.js: `npm run dev`, `npm test`, `npm run test:office`,
+  `npm run typecheck`, `npm run lint`, `npm run build`.
 
 ## Rules
 - No em dashes anywhere in copy, code or comments.
 - Honest labels: demo data and the simulated clock stay labeled. Unknown stays unknown, never $0.
-- Deploys go through Vercel from `main`.
-- Vincent owns the upcoming backend. Do not import the old compass server or pretend fixtures are live.
+- Preserve the root Next.js deployment and the product's compass/ Docker/Railway
+  paths. Cleanup is not permission to merge main, deploy, change DNS or run
+  paid provider probes. Keep dependency versions and lockfiles independent.
+- Do not import the product server into Next.js or pretend fixtures are live.
+- Delete files only after checking build entries, routes, dynamic imports,
+  assets, tests and supported scripts. Preserve attribution and unique modules.
