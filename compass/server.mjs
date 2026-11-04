@@ -1,47 +1,38 @@
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve, sep, extname } from 'node:path';
-import { createCompassBackend } from './server/app.mjs';
-import { createAcquisition } from './server/acquisition/api.mjs';
-import { createRemasterBridge } from './server/remaster-bridge.mjs';
+import { createIdentityService } from './server/auth-service.mjs';
 import { createWorkspaces } from './server/workspaces/index.mjs';
-const backend = createCompassBackend();
-const acquisition = await createAcquisition();
-const remaster = createRemasterBridge({getIdentity:req=>acquisition.getIdentity(req)});
-const workspaces = await createWorkspaces({getIdentity:req=>acquisition.getIdentity(req)});
-const root = resolve(process.env.STATIC_ROOT || fileURLToPath(new URL('./dist/', import.meta.url)));
+export async function createCompassServer({env=process.env,identity:injectedIdentity,workspaces:injectedWorkspaces}={}) {
+const identity = injectedIdentity || await createIdentityService({env});
+const workspaces = injectedWorkspaces || createWorkspaces({env,getIdentity:req=>identity.getIdentity(req)});
+const root = resolve(env.STATIC_ROOT || fileURLToPath(new URL('./dist/', import.meta.url)));
 const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp','.mp4':'video/mp4','.woff2':'font/woff2','.ttf':'font/ttf','.vtt':'text/vtt; charset=utf-8','.txt':'text/plain; charset=utf-8','.json':'application/json','.webmanifest':'application/manifest+json','.ico':'image/x-icon'};
 const server = createServer(async (req,res) => {
  res.setHeader('X-Content-Type-Options','nosniff');
  res.setHeader('Referrer-Policy','no-referrer');
- if(process.env.NODE_ENV==='production'&&req.headers.host==='www.mycompass.world'){
+ if(env.NODE_ENV==='production'&&req.headers.host==='www.mycompass.world'){
   res.writeHead(308,{Location:`https://mycompass.world${req.url.startsWith('/')&&!req.url.startsWith('//')?req.url:'/'}`}).end();return;
  }
- if (req.url.startsWith('/api/')) {
+ try {
+ const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
+ const normalized=pathname.replace(/\/$/,'')||'/';
+ if (pathname.startsWith('/api/')) {
   if(await workspaces.handle(req,res))return;
-  if(await remaster.handle(req,res))return;
-  if(await acquisition.handle(req,res))return;
-  await backend.handleApi(req,res); return;
+  if(await identity.handle(req,res))return;
+  res.writeHead(404,{'Content-Type':'application/json','Cache-Control':'no-store'}).end(JSON.stringify({error:'API endpoint is not available.'}));return;
  }
  if (!['GET','HEAD'].includes(req.method)) {res.writeHead(405,{Allow:'GET, HEAD'}).end();return;}
- try {
-  const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
-  if(pathname==='/healthz'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify({ok:true,revision:process.env.RAILWAY_GIT_COMMIT_SHA||'local',acquisition:acquisition.status().database}));return;}
-  if(['/present','/story','/present.html'].includes(pathname.replace(/\/$/,''))){res.writeHead(302,{Location:'/presentation','Cache-Control':'no-store'}).end();return;}
-  const normalized=pathname.replace(/\/$/,'')||'/';
-  if(['/protect','/protect.html'].includes(normalized)) {
-   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");
-   res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');
+  if(pathname==='/healthz'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify({ok:true,revision:env.RAILWAY_GIT_COMMIT_SHA||env.COMPASS_REVISION||'local',auth:identity.status().database,workspaces:workspaces.status().status}));return;}
+  if(normalized==='/office'){res.writeHead(308,{Location:`/app${new URL(req.url,'http://localhost').search}`,'Cache-Control':'no-store'}).end();return;}
+  if(/^\/(?:demo|voice-demo|presentation|present|story|protect|studio|horizon|vision|acquisition|live)(?:\/|\.|$)/.test(normalized)) {
+   res.writeHead(410,{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:'This COMPASS demonstration has been retired. Open /app for your workspace.');return;
   }
-  const route = ['/acquisition','/acquisition/app','/login'].includes(normalized) ? '/acquisition.html'
-   : normalized==='/protect' ? '/protect.html'
-   : ['/studio','/studio/tour'].includes(normalized) ? '/studio.html'
-   : ['/voice-demo','/demo'].includes(normalized) ? '/live.html'
-   : normalized==='/horizon' ? '/horizon.html'
-   : normalized==='/presentation/legacy' ? '/story.html'
-   : normalized === '/' ? '/index.html' : normalized === '/vision' ? '/vision.html' : ['/presentation','/presentation/legacy','/story'].includes(normalized) ? '/story.html' : normalized === '/office' ? '/office.html' : ['/app','/presentation/finale','/demo/table','/demo/workspace','/demo/remaster','/demo/remaster/app'].includes(normalized) ? '/app.html' : pathname;
+  const pages = {'/':'/index.html','/index.html':'/index.html','/app':'/app.html','/app.html':'/app.html','/login':'/login.html','/login.html':'/login.html'};
+  const route=pages[normalized]||pathname;
+  if(!pages[normalized] && (pathname.endsWith('.html')||pathname.split('/').some(part=>part.startsWith('.'))||!types[extname(pathname)])){res.writeHead(404).end();return;}
   const file=resolve(root,'.'+route);
   if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
   const info=await stat(file);
@@ -61,17 +52,18 @@ const server = createServer(async (req,res) => {
   const stream=createReadStream(file,{start,end});stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);
  }catch{if(!res.headersSent)res.writeHead(404);res.end('Not found');}
 });
-backend.attachVoice(server,{authorizeDomain:acquisition.authorizeVoice});
-server.listen(Number(process.env.PORT||8770),'0.0.0.0',()=>console.log('COMPASS ready'));
-let shuttingDown=false;
-async function shutdown(){
- if(shuttingDown)return;shuttingDown=true;
- remaster.close?.();
- const stopped=new Promise(resolve=>server.close(resolve));
- await Promise.all([workspaces.close(),acquisition.close()]);
+return {server,async close(){
+ const stopped=server.listening?new Promise(resolve=>server.close(resolve)):Promise.resolve();
  server.closeIdleConnections();
+ await Promise.all([workspaces.close(),identity.close()]);
  await stopped;
- process.exit(0);
+}};
 }
-process.on('SIGTERM',()=>void shutdown());
-process.on('SIGINT',()=>void shutdown());
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
+ const app=await createCompassServer();
+ app.server.listen(Number(process.env.PORT||8770),'0.0.0.0',()=>console.log('COMPASS ready'));
+ let shuttingDown=false;
+ const shutdown=async()=>{if(shuttingDown)return;shuttingDown=true;await app.close();process.exit(0);};
+ process.on('SIGTERM',()=>void shutdown());
+ process.on('SIGINT',()=>void shutdown());
+}

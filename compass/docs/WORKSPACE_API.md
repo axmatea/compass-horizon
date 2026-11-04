@@ -6,11 +6,11 @@
 import { createWorkspaces } from './server/workspaces/index.mjs';
 const workspaces = createWorkspaces({
   env: process.env,
-  getIdentity: req => acquisition.getIdentity(req),
+  getIdentity: req => identity.getIdentity(req),
 });
 // Before static fallback, with the original unread Node IncomingMessage:
 if (await workspaces.handle(req, res)) return;
-// During shutdown, before closing the acquisition auth owner:
+// During shutdown, before closing the identity service:
 await workspaces.close();
 ```
 

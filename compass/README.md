@@ -1,77 +1,50 @@
 # COMPASS
 
-**Keep the reason. Move the work.**
-
-COMPASS is a workspace for people, not an agent-session monitor. Bring a project
-brief, task CSV or a short update; keep source material alongside the work it
-informs. Team members update tasks. The owner controls invitations and approval.
+One application: homepage, private team office and sign-in. Canonical repository:
+axmatea/compass-horizon. Node 22.12 or newer.
 
 ## Run
 
-Node 22.12+. `npm ci`, `npm run build`, `npm start`.
-Open http://localhost:8770. The public demo uses fictional data and no model APIs.
+npm ci
+npm run build
+npm start
 
-Private collaboration requires PostgreSQL, `DATABASE_URL`, `BETTER_AUTH_SECRET`
-and `BETTER_AUTH_URL`. Use HTTPS in production. Existing invited Better Auth
-accounts are retained; there is no public signup, automatic email or billing.
-Team invitations allow an invited new user to register, then sign in and accept
-membership. Tokens are secrets: share only with the intended recipient.
+Open http://localhost:8770. npm run dev starts frontend-only development; use
+the Node server to verify the full same-origin API/auth flow.
 
-## What works and what does not
+## Routes and reality
 
-- Public team cockpit with accessible tasks, original context and a scripted
-  approval flow. No cartoon office, fabricated presence or productivity scores.
-- Separate PostgreSQL workspace domain, owner/member permissions, versioned
-  task changes, one-use invitations and source/audit records.
-- Text, TXT, Markdown and CSV task imports with preview. Uploaded content is
-  data, not permission to execute instructions. PDF/connectors are not included.
-- Public demo interactions and sample recommendations are explicitly scripted.
-- The AI runtime is **BLOCKED** until a human-workspace contract is implemented
-  and verified. The existing simulated REMaster runtime is not sufficient.
-  Manual collaboration does not depend on that runtime. No autonomous learning,
-  lossless compression, provider success or long-horizon performance is claimed.
+- /: current homepage.
+- /app: real private workspace; /office redirects here, retaining invite parameters.
+- /login: invite-only sign-in/registration.
+- /healthz: process health, release revision and separate readiness fields.
 
-## Routes
+All presentations, demos, Protect, Horizon, studio and voice prototypes are
+retired and return 410. Their source is preserved in Git history only.
+With configured PostgreSQL/auth, people can create workspaces, import text/CSV
+with preview, manage tasks, invite teammates and see saved changes/audit events.
+Missing database/auth explicitly blocks persistence and sign-in. There are no
+fixture accounts or successful-save simulations. The team AI runtime is BLOCKED.
 
-| Route | Purpose |
-| --- | --- |
-| `/protect` | Security training game: three fictional incidents, hints, retries and agent proposals requiring player confirmation; no paid model calls |
-| `/`, `/demo/workspace` | Immediate populated local demo; no account or model calls |
-| `/presentation` | Final narrative with speaker notes and embedded Horizon |
-| `/horizon` | Browser-only long-horizon simulation; 2D, 3D and Phone |
-| `/app`, `/login?returnTo=/app` | Real team account, requires configured DB/auth |
-| `/demo`, `/voice-demo` | Existing voice-to-site prototype, not team-runtime integration |
-| `/presentation/legacy` | Previous cinematic deck, including its Horizon scene and film |
-| `/demo/table`, `/demo/remaster` | Previous table and memory simulation examples |
-| `/acquisition`, `/acquisition/app` | Previous acquisition domain, unchanged storage |
+## Server configuration
 
-Horizon percentages and revenue are illustrative simulation inputs/results,
-not customer outcomes or measured model confidence. Workspace proposals are
-scripted and local. Voice/provider capabilities are separate and are not
-represented as connected to team memory. No paid model call is made merely by
-opening the public workspace or presentation. `/present` and `/story` redirect
-to the final presentation. There are no new billing services or public signup.
+DATABASE_URL, BETTER_AUTH_SECRET (32+ high-entropy characters), BETTER_AUTH_URL
+(exact origin; https://mycompass.world in production), NODE_ENV=production, PORT.
+Keep values server-side, never VITE_*. COMPASS_REVISION records CLI releases;
+Railway's Git SHA has priority. Existing acq_auth_* tables, tenants, invitations
+and cookie names stay compatible. No old acquisition queues/provider calls run.
+Cleanup does not drop data, reset credentials or send invitations.
 
-## Verification and release
+## Verify
 
-For Protect the Office, use `npm run test:protect`, `npm run build`, and
-`npm run qa:protect` against localhost. See `docs/PROTECT_THE_OFFICE.md` for
-source provenance, agent integration boundaries and the short stage script.
+npm test
+npm run typecheck
+npm run build
 
-Run `npm run build`, `npm test`, `npm run test:workspaces` and
-`npm run qa:workspace`. Database tests require an explicit local test DSN; see
-`docs/WORKSPACE_RELEASE.md`. Never run cleanup tests against production.
+DB suites need an explicit expendable ACQUISITION_TEST_DATABASE_URL. npm run
+db:test starts loopback PostgreSQL on 55438. Test-only DSN:
+postgresql://compass_test:local-test-only@127.0.0.1:55438/compass_test
+Never use production databases for tests.
 
-See `docs/WORKSPACE_API.md` for the workspace contract and
-`docs/FINAL_RELEASE.md` for this public-demo release and
-`docs/WORKSPACE_RELEASE.md` for private-SaaS gates. A local screenshot
-or HTTP 200 is not proof of a deployed collaborative SaaS.
-
-## Attribution
-
-Selective movement/facing adaptation and visual-interaction reference:
-[KbWen/agent-virtual-office](https://github.com/KbWen/agent-virtual-office), pinned
-at `c238a30d51881fb2add5a0a875736d6e32ce542c`, MIT. Notice is served at
-`/third-party/agent-virtual-office-LICENSE.txt`. No upstream session scanners,
-coding-agent hooks or installers are imported. COMPASS's shared-workspace
-backend is separate from that project.
+See docs/WORKSPACE_API.md, docs/ACQUISITION_AUTH.md and DEPLOYMENT.md.
+Preserve attribution notices accompanying retained assets and adapted code.

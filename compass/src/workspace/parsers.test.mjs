@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCSV, parseTaskCSV, validDate, validateTitle, validateUpload, MAX_UPLOAD_BYTES } from './parsers.ts';
 import { parseSequence, parseSnapshot } from './types.ts';
-import { createDemo } from './demo.ts';
 
 test('CSV supports BOM, quoted commas, escaped quotes, CRLF, embedded newlines and empty last fields', () => {
   assert.deepEqual(parseCSV('\uFEFFtitle,description,empty\r\n"A, B","A ""quote""\r\nand another line",\r\n'), [
@@ -47,12 +46,16 @@ test('sequence parsing preserves bigint precision and rejects unsafe or malforme
   assert.equal(parseSequence(12), 12n);
   for (const value of [null, undefined, -1, 0.5, 9007199254740993, '1e2', '12x', '-1', '']) assert.throws(() => parseSequence(value));
 });
-test('snapshots are validated and demo creation never shares mutable arrays', () => {
-  const first = createDemo(); const second = createDemo();
-  assert.equal(parseSnapshot(first), first);
-  first.tasks.pop(); assert.equal(second.tasks.length, 4);
-  assert.throws(() => parseSnapshot({ ...second, seq: 'not-a-sequence' }));
-  assert.throws(() => parseSnapshot({ ...second, tasks: [{ ...second.tasks[0], status: 'online' }] }));
-  assert.throws(() => parseSnapshot({ ...second, members: [{ name: 'Fake' }] }));
-  assert.throws(() => parseSnapshot({ ...second, ai: null }));
+test('snapshots are validated without a runtime fixture fallback', () => {
+  const snapshot = {
+    workspace: { id: 'test-workspace', name: 'Test', goal: 'Validate', deadline: null, role: 'owner' },
+    members: [{ userId: 'test-user', name: 'Test user', email: 'test@example.test', role: 'owner' }],
+    tasks: [{ id: 'test-task', title: 'Validate', assigneeId: null, status: 'todo', dueDate: null, version: 1 }],
+    materials: [], proposals: [], events: [], ai: { status: 'BLOCKED', reason: 'Test fixture' }, seq: '1',
+  };
+  assert.equal(parseSnapshot(snapshot), snapshot);
+  assert.throws(() => parseSnapshot({ ...snapshot, seq: 'not-a-sequence' }));
+  assert.throws(() => parseSnapshot({ ...snapshot, tasks: [{ ...snapshot.tasks[0], status: 'online' }] }));
+  assert.throws(() => parseSnapshot({ ...snapshot, members: [{ name: 'Fake' }] }));
+  assert.throws(() => parseSnapshot({ ...snapshot, ai: null }));
 });

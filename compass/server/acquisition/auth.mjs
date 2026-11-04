@@ -15,7 +15,7 @@ const ROUTES = new Map([
 const MAX_BODY_BYTES = 16 * 1024;
 const PASSWORD_MIN = 12;
 const PASSWORD_MAX = 128;
-// Same email grammar as Zod 4.5.4's z.email(), used by Better Auth 1.7.6 sign-in.
+// Match the pinned Better Auth release's z.email() grammar for sign-in.
 const EMAIL_PATTERN = /^(?:[A-Za-z0-9_'+\-]+\.)*[A-Za-z0-9_'+\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
 
 export class AcquisitionAuthError extends Error {
@@ -221,7 +221,7 @@ export async function createAuth({ pool, env = process.env } = {}) {
         if (!invite.rowCount) throw invalidInvite();
         const passwordHash = await hashPassword(password);
         const userId = randomUUID();
-        // Match Better Auth 1.7.6's credential account mapping; use its own hasher.
+        // Match Better Auth's credential account mapping; use its own hasher.
         // All four writes share a pg transaction, not auth.api.signUpEmail's pool.
         await client.query(`INSERT INTO acq_auth_users
           (id, name, email, "emailVerified", "createdAt", "updatedAt")
