@@ -1,9 +1,11 @@
-// COMPASS landing: menu, word reveals, and cinematic motion. No API or provider calls.
+// COMPASS homepage: menu, word reveals, and cinematic motion.
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
 const bar = document.querySelector('.bar')
 const burger = document.querySelector('.burger')
-burger?.addEventListener('click', () => { const open = bar.classList.toggle('open'); burger.setAttribute('aria-expanded', String(open)) })
-bar?.querySelectorAll('.menu a').forEach(a => a.addEventListener('click', () => { bar.classList.remove('open'); burger?.setAttribute('aria-expanded', 'false') }))
+const closeMenu = () => { bar?.classList.remove('open'); burger?.setAttribute('aria-expanded', 'false') }
+burger?.addEventListener('click', () => { const open = bar?.classList.toggle('open'); burger.setAttribute('aria-expanded', String(Boolean(open))) })
+bar?.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu))
+addEventListener('keydown', e => { if (e.key === 'Escape' && bar?.classList.contains('open')) { closeMenu(); burger?.focus() } })
 
 // Word reveals: split text nodes into words, keep <br> and <em> intact.
 let wi = 0
@@ -20,13 +22,16 @@ const split = node => {
     } else if (child.nodeType === 1 && child.tagName !== 'BR') split(child)
   }
 }
-document.querySelectorAll('.reveal').forEach(el => { wi = 0; split(el) })
-
-const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } }), { rootMargin: '0px 0px -12% 0px' })
-document.querySelectorAll('section:not(.hero) .wrap, .reveal').forEach(el => io.observe(el))
+if (!reduce && 'IntersectionObserver' in window) {
+  document.querySelectorAll('.reveal').forEach(el => { wi = 0; split(el) })
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } }), { rootMargin: '0px 0px -12% 0px' })
+  document.documentElement.classList.add('motion-ready')
+  document.querySelectorAll('section:not(.hero) .wrap, .reveal').forEach(el => io.observe(el))
+}
 
 // Hero: the art drifts and swells as the journey begins, the copy lifts away.
 const hero = document.querySelector('.hero')
+if (reduce) hero?.querySelector('video')?.pause()
 let queued = false
 function frame() {
   queued = false
@@ -39,7 +44,3 @@ function frame() {
 const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(frame) } }
 addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll, { passive: true })
 frame()
-
-// The film pauses when it leaves the viewport, so audio never plays over the rest of the page.
-const filmEl = document.getElementById('film-video')
-if (filmEl && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => { if (!e.isIntersecting && !filmEl.paused) filmEl.pause() }, { threshold: 0.2 }).observe(filmEl)

@@ -1,60 +1,26 @@
 # COMPASS Agent Guide
 
-Read `README.md` first, then relevant guidance inside `compass/`.
-Canonical repository: `axmatea/compass-horizon`. Do not develop in the legacy
-`axmatea/compass` repository or restore retired projects as incidental cleanup.
+Read README.md, then compass/README.md. Canonical repo: axmatea/compass-horizon.
 
-## Single-App Architecture
+Only the public homepage is maintained. Do not restore office, auth, React,
+databases, invite tools, research, voice, games, presentations or demos.
+The single source page is compass/index.html with src/site assets. Vite builds
+it; a dependency-free Node server serves dist and /healthz. All retired sections
+return 410, APIs 404. Never silently serve index.html for unknown app routes.
 
-- `compass/` is the only application: Vite/React frontend, Node server,
-  PostgreSQL workspace records and Better Auth.
-- Supported UI: public homepage `/`, private working office `/app`, and login
-  `/login?returnTo=/app`. There are no supported demo or presentation routes.
-- Root `package.json` only forwards commands with `npm --prefix compass`.
-  Application dependencies and their lockfile belong to `compass/`, not root.
-- The root Next.js office/simulation concept, disconnected Python research,
-  historical presentations and roadmap documents are retired. Git history is
-  the recovery source. Do not create archive directories or rewrite history.
-- The AI runtime is **BLOCKED** pending an implemented and verified
-  human-workspace contract. Real manual collaboration is not autonomous AI.
-- Publication does not authorize a new database. The private office remains
-  unavailable until DB/auth configuration is separately authorized and verified.
+Root commands forward to compass/. Use product:install, check, test, build,
+start and dev. No TypeScript/React checking or database fixture is required.
+Keep each actual asset and its license only while referenced by the homepage.
 
-## Commands
+Preserve concurrent user changes. Delete files only after checking imports,
+build entries, scripts, styles, routes and asset references. Do not rewrite Git
+history, force-push, drop production data, or create archive directories.
+User-requested cleanup can retire source code, not erase an existing database.
+Never read/print secrets or load old .env files to build this static homepage.
+No external calls, fake live-agent status or working-account claims in the page.
 
-```sh
-npm run product:install
-npm run dev
-npm run typecheck
-npm test
-npm run test:workspaces
-npm run build
-npm start
-```
-
-`npm run dev` runs the frontend; run the Node server separately for the API.
-Existing `product:*` aliases remain supported. Root `npm ci` installs no app
-dependencies. After changing root scripts, regenerate its dependency-free
-lockfile with `npm install --package-lock-only`.
-
-## Safety And Ownership
-
-- Work with dirty state and other workers. Respect assigned write boundaries,
-  do not revert others' changes, and never stage unrelated files.
-- Check imports, dynamic loads, build entries, routes, scripts and assets
-  before deletion. Communicate cross-owner dependencies before removing them.
-- Keep private office data, auth and membership checks, persistence, invitation
-  handling, required attribution and licenses. No production-data cleanup.
-- Do not fabricate presence, results, model confidence or successful provider
-  integration. Unknown is unknown. Do not silently substitute fixture data.
-- Tests must use local fixtures or an explicitly approved local test database.
-  Do not load live secrets, invoke paid probes or run tests against production.
-- Provider/backend/product-package changes and frontend changes may have
-  separate owners. Coordinate instead of editing another worker's files.
-- The parent owns hosting and the pending post-merge rebind to canonical main.
-  Planned Railway root directory is `/compass`, using its existing Dockerfile
-  and Railway configuration. Do not add root infra,
-  edit `.vercel` settings, deploy, rebind services or change DNS without current
-  explicit approval. A local build or HTTP 200 is not deployment verification.
-- No em dashes in copy, code or comments. No commit, push or history rewriting
-  unless specifically requested.
+Production belongs to existing Railway compass-web, mycompass.world, main with
+root directory /compass and /healthz healthcheck. Deploy only with current user
+approval and verify exact public revision plus assets in the browser.
+Website deploy success is not a Mac factory-reset authorization: local recovery
+requires its own verified backup and restore evidence. Never initiate reset.
