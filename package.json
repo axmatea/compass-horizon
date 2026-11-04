@@ -2,35 +2,22 @@
   "name": "compass-horizon",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "test": "vitest run",
-    "typecheck": "next typegen && tsc --noEmit",
-    "test:office": "node --experimental-strip-types --test src/office/model.test.mjs src/office/scene/layout.test.mjs",
+    "dev": "npm --prefix compass run dev",
+    "build": "npm --prefix compass run build",
+    "start": "npm --prefix compass run start",
+    "preview": "npm --prefix compass run preview",
+    "test": "npm --prefix compass run test",
+    "test:workspaces": "npm --prefix compass run test:workspaces",
+    "typecheck": "npm --prefix compass run typecheck",
     "product:install": "npm --prefix compass ci",
     "product:dev": "npm --prefix compass run dev",
     "product:build": "npm --prefix compass run build",
     "product:start": "npm --prefix compass run start",
     "product:test": "npm --prefix compass run test",
     "product:typecheck": "npm --prefix compass run typecheck"
-  },
-  "dependencies": {
-    "next": "16.3.6",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^22.20.4",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.6",
-    "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^5.0.2"
   }
 }

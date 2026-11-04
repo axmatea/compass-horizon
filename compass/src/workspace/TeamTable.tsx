@@ -25,8 +25,8 @@ export function Avatar({ name, variant = 0, small = false }: { name: string; var
   </svg>;
 }
 
-export function TeamTable({ snapshot, onMember, onTask, onMaterials, lastEvent, demo }: {
-  snapshot: Snapshot; onMember: (member: Member) => void; onTask: (task: Task) => void; onMaterials: () => void; lastEvent: string; demo: boolean;
+export function TeamTable({ snapshot, onMember, onTask, onMaterials, lastEvent }: {
+  snapshot: Snapshot; onMember: (member: Member) => void; onTask: (task: Task) => void; onMaterials: () => void; lastEvent: string;
 }) {
   const id = useId().replace(/:/g, '');
   const members = snapshot.members.slice(0, 4);
@@ -63,6 +63,6 @@ export function TeamTable({ snapshot, onMember, onTask, onMaterials, lastEvent, 
       <span className={`cw-status-dot ${task.status}`} /><span className="cw-table-card-label">{task.status === 'doing' ? 'IN MOTION' : task.status === 'done' ? 'DONE' : 'UP NEXT'}</span><strong>{task.title}</strong><span className="cw-card-rule" /><small>{snapshot.members.find(m => m.userId === task.assigneeId)?.name.split(' ')[0] ?? 'Unassigned'}</small>
     </button>)}</div>
     <button className="cw-table-materials" onClick={onMaterials} aria-label={`Open ${snapshot.materials.length} shared materials`}><svg viewBox="0 0 62 48" aria-hidden="true"><path d="M2 10Q2 5 7 5H24L31 12H56Q60 12 60 17V43H2Z" fill="#9dafa1" /><rect x="7" y="9" width="47" height="30" rx="2" fill="#fffdf6" /><path d="M14 17H43M14 23H36" stroke="#c7cbc2" strokeWidth="2" /><path d="M2 22Q2 18 6 18H57Q62 18 61 23L56 45H4Z" fill="#b6c4b3" /></svg><span>Shared context <b>{snapshot.materials.length}</b></span></button>
-    <div className="cw-room-caption"><span>Pull up a chair.</span><small>{demo ? 'Fictional people. Real interactions.' : 'Members shown, not online presence.'}</small></div>
+    <div className="cw-room-caption"><span>Pull up a chair.</span><small>Members shown, not online presence.</small></div>
   </section>;
 }

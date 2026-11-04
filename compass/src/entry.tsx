@@ -3,9 +3,6 @@ import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 const Workspace = lazy(() => import('./workspace/App'));
-const Remaster = lazy(() => import('./remaster/App'));
-const Mission = lazy(() => import('./mission/App'));
-const Finale = lazy(() => import('./finale/App'));
 
 class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -15,9 +12,8 @@ class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   }
 }
 
-const legacy = /^\/demo\/remaster(?:\/|$)/.test(location.pathname);
 createRoot(document.getElementById('root')!).render(
   <Boundary><Suspense fallback={<main aria-busy="true">Opening COMPASS...</main>}>
-    {legacy ? <Remaster /> : /^\/presentation\/finale\/?$/.test(location.pathname) ? <Finale /> : /^\/(office|demo\/workspace)\/?$/.test(location.pathname) ? <Mission /> : <Workspace />}
+    <Workspace />
   </Suspense></Boundary>,
 );

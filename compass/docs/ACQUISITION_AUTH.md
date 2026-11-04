@@ -1,7 +1,12 @@
-# Acquisition Authentication
+# COMPASS Authentication
+
+Directory and cookie names keep their historical prefix for existing accounts.
+The acquisition UI/API is retired. server/auth-service.mjs mounts this module
+without any acquisition worker or provider. Its public-safe readiness endpoint
+is GET /api/auth/status.
 
 Invite-only email/password authentication backed by PostgreSQL and Better Auth.
-Implementation verified against installed Better Auth **1.7.6**. No account,
+Implementation verified against installed Better Auth **1.7.7**. No account,
 workspace, invitation, email, or external service call is created at startup.
 
 ## Integration Contract
@@ -74,7 +79,7 @@ and trusted server clients; no CORS access is granted. Better Auth's own
 origin/CSRF checks remain enabled. Bodies are limited to 16 KiB; name is 1-120
 trimmed characters and passwords are 12-128 characters at enrollment. Email is
 trimmed/lowercased and follows the same ASCII email grammar as Better Auth
-1.7.6's Zod validator, not provider-specific dot/plus transformations.
+1.7.7's Zod validator, not provider-specific dot/plus transformations.
 
 Cookies are HttpOnly, SameSite=Strict, host-only, Path=/, and Secure on HTTPS
 and always in production. Session duration is seven days, refresh age one day.

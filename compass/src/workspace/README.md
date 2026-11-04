@@ -4,10 +4,11 @@ Owned scope: `src/workspace/**`. `App.tsx` is the default export and imports its
 stylesheet. Routing, HTML, backend, login and package scripts belong to the
 integrator. No commits or deployments are made by this frontend task.
 
-## Modes and interaction
+## Private interaction
 
-- `/app` is live, even with `?demo`. Other entry routes render a clearly labeled
-  local session demo. Demo performs no fetch or EventSource calls.
+- `/app` and the `/office` alias always use the real workspace API, even with
+  `?demo`. There is no public fictional mode, local persistence, or fixture
+  fallback. Unavailable storage/auth blocks access and creation truthfully.
 - SVG/React table and original illustrated human avatars use existing local
   Manrope. No generated images or external visual assets. The integrator added
   a small MIT-licensed facing helper from agent-virtual-office at c238a30;
@@ -16,8 +17,8 @@ integrator. No commits or deployments are made by this frontend task.
   timers simulating work, online indicators or productivity claims.
 - Task, member and material drawers use native modal dialogs. All visible
   controls are keyboard accessible, with reduced-motion and mobile layouts.
-- Demo approval is a prewritten, explicitly scripted example with inspectable
-  source evidence. It adds one local task, not a model execution.
+- AI execution remains blocked. The retired scripted proposal and demo account
+  links are not part of the private workspace.
 
 ## Trust and imports
 

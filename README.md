@@ -1,88 +1,78 @@
 # COMPASS
 
+**Keep the reason. Move the work.**
+
 Canonical repository: [axmatea/compass-horizon](https://github.com/axmatea/compass-horizon).
+The single maintained application lives in `compass/`: a Vite/React frontend
+and Node server with a PostgreSQL-backed private workspace and Better Auth.
+The root package is only a command launcher, with no application dependencies.
 
-The application from the former `axmatea/compass` repository was consolidated
-in `compass/` by commit `4f498d7`. Make changes here, not in the legacy
-repository. Git history preserves the imported source and subsequent changes.
+## Run
 
-## Start the product
-
-Use Node 22.12 or newer. Run these commands from the repository root:
+Use Node 22.12 or newer. From the repository root:
 
 ```sh
 npm run product:install
-npm run product:build
-npm run product:start
+npm run build
+npm start
 ```
 
-Open http://localhost:8770. For development, use `npm run product:dev`.
-The public workspace demo, presentation, Horizon and security-training game
-use synthetic data and do not require paid model calls.
+Open http://localhost:8770. For frontend development, use `npm run dev`;
+API requests are proxied to the Node server on port 8770, which must also be
+running. `npm run preview` previews static build output, not the private API.
+Root `npm ci` only installs the empty launcher package; install the application
+dependencies with `npm run product:install`.
 
-Private collaboration requires explicitly configured PostgreSQL and auth.
-The team AI runtime is not connected merely by starting this application.
-See [the product guide](compass/README.md) for routes, environment requirements
-and the boundary between real collaboration and scripted demonstrations.
+## Product Boundary
 
-## Repository layout
+| Route | Purpose |
+| --- | --- |
+| `/` | Public homepage |
+| `/app` | Actual private working office, requiring a team account |
+| `/login?returnTo=/app` | Sign-in for the private office |
 
-| Area | Purpose | Commands from the root |
-| --- | --- | --- |
-| `compass/` | Vite + Node product, workspace/auth server, voice prototype and training game | `product:dev`, `product:build`, `product:start`, `product:test`, `product:typecheck` |
-| `src/`, `public/`, `tests/` | Separate Next.js public-office concept and deterministic Horizon engine | `dev`, `build`, `start`, `test`, `test:office`, `typecheck`, `lint` |
-| `remaster/` | Vincent's Python simulation/research runtime | [Research guide](remaster/README.md) |
+There are no supported demos, presentations, games, simulations or research
+projects. The retired root Next.js concept and disconnected Python research
+are recoverable from Git history, not an archive directory.
 
-These are not interchangeable copies. The Next.js concept has no live auth,
-database or multi-user persistence. Its edits reset on reload. The Python
-runtime is not wired into either office frontend. Keep each component's
-simulation disclosures, licenses and deployment boundary intact.
+The current publication scope does not provision a new database. The private
+office remains unavailable until DB/auth configuration is separately authorized
+and verified. Public homepage publication is not private-workspace availability.
 
-Both JavaScript applications retain independent lockfiles and React versions.
-Do not combine their dependency trees or move `compass/` as incidental cleanup.
+Private collaboration requires PostgreSQL, `DATABASE_URL`, `BETTER_AUTH_SECRET`
+and `BETTER_AUTH_URL`, with HTTPS in production. Use the application's existing
+invitation and authentication flows; keep invitation tokens private. Sources,
+task updates, membership and approvals are human-workspace records, not proof
+of autonomous agents. The AI runtime is **BLOCKED** until a compatible
+human-workspace contract is implemented and verified. Starting the app or
+configuring a provider does not verify AI integration, learning or performance.
 
-## Verify changes
-
-For the product:
-
-```sh
-npm run product:typecheck
-npm run product:test
-npm run product:build
-npm --prefix compass run test:protect
-```
-
-Database tests require an explicit local test DSN. Never run them against
-production. Provider probes and `test:live` are not ordinary cleanup checks.
-
-For the Next.js concept and Horizon engine:
+## Verify
 
 ```sh
-npm ci
-npm test
-npm run test:office
-npm run lint
 npm run typecheck
+npm test
+npm run test:workspaces
 npm run build
 ```
 
-`/`, `/app` and `/presentation` expose the fictional public-office scenario.
-`/horizon?day=9` opens the deterministic campaign simulation: events distinguish
-when something happened from when it became known. Belief gates and policy
-changes are tested; campaign revenue and confidence labels are illustrative,
-not actual customer results or measured model confidence.
+All application commands forward to `npm --prefix compass`; existing
+`product:*` aliases remain for compatibility. Private database integration and
+browser QA require an explicitly configured local test database. Never run
+cleanup tests against production, load production credentials or invoke paid
+provider probes as ordinary verification. See [the product guide](compass/README.md)
+and [workspace contract](compass/docs/WORKSPACE_API.md) for application details.
 
-## Deployment boundaries
+## Deployment And Attribution
 
-The existing root `build` and `start` commands remain Next.js commands for
-the root deployment. The product keeps `compass/Dockerfile`,
-`compass/railway.json`, its own server and the existing root-directory layout.
-This consolidation does not change DNS, service bindings or production data.
-Verify the provider's active source and obtain approval before deploying.
+Railway service `compass-web` owns `mycompass.world`.
+Its source still points to the deleted legacy `axmatea/compass` repository and
+its root directory is unset. The pending post-merge publication step
+is to bind canonical `axmatea/compass-horizon` main with root directory `/compass`,
+using the existing `compass/Dockerfile` and `compass/railway.json`.
+No root Dockerfile, provider settings, DNS, service binding or deployment changes
+are part of this cleanup. Do not claim the new version is deployed before the
+release operator verifies that publication.
 
-See [the consolidation verification](docs/REPOSITORY_CONSOLIDATION.md) for the
-removed-file scope and local checks.
-
-See [the historical Next.js migration](docs/OFFICE_DESIGN_MIGRATION.md),
-[product release gates](compass/docs/WORKSPACE_RELEASE.md) and
-[the office speaker script](src/office/story/SPEAKER_SCRIPT.md).
+Keep the product's required third-party notices and bundled font licenses with
+their assets. The root copies were duplicates, not replacement license sources.

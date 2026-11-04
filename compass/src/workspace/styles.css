@@ -1,4 +1,5 @@
-@font-face{font-family:Compass Manrope;src:url('/acquisition/fonts/manrope-variable.ttf') format('truetype');font-style:normal;font-weight:200 800;font-display:swap}
+@font-face{font-family:Compass Manrope;src:url('/brand/fonts/manrope-variable.ttf') format('truetype');font-style:normal;font-weight:200 800;font-display:swap}
+.cw-welcome-actions{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
 body{margin:0}
 .cw-app{--cw-paper:#f6f5f0;--cw-surface:#fffefa;--cw-ink:#303630;--cw-muted:#70766b;--cw-line:#dddfd5;--cw-cobalt:#3658dc;--cw-bluewash:#e9edfc;--cw-sage:#e8ecdf;--cw-radius:16px;font-family:Compass Manrope,Manrope,sans-serif;color:var(--cw-ink);background:var(--cw-paper);min-height:100vh;padding-bottom:108px;font-size:14px;line-height:1.6;isolation:isolate;color-scheme:light}
 .cw-app *{box-sizing:border-box}
