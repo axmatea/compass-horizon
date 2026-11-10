@@ -1,0 +1,67 @@
+[hidden]{display:none !important}
+.demo-body{background:
+  radial-gradient(50% 40% at 50% 0%, rgba(220,191,124,.16), transparent 70%),
+  var(--bg)}
+.demo{max-width:1120px;margin:0 auto;padding:128px 20px 72px}
+.demo h1{font-size:clamp(2.4rem,7vw,4.4rem)}
+.lede{margin-top:14px;color:var(--sub);font-size:1.05rem;max-width:40rem}
+.progress{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 8px;padding:0;list-style:none}
+.progress li{min-height:36px;display:inline-flex;align-items:center;padding:0 12px;border-radius:999px;border:1px solid var(--line);color:var(--sub);font-size:.82rem}
+.progress li[aria-current="step"]{color:#1a1006;background:var(--gold);border-color:var(--gold)}
+#intent-form,#questions-form{margin-top:22px;display:grid;gap:10px}
+.demo-body textarea{min-height:96px;resize:vertical}
+.count{color:var(--mute);font-size:.8rem}
+#intent-error:empty{display:none}
+#intent-error{color:#ffd0d0}
+.actions.left{justify-content:flex-start}
+.examples{display:grid;gap:10px;margin-top:22px}
+.examples button{text-align:left;min-height:48px;padding:12px 16px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--ink);font:inherit;cursor:pointer}
+.examples button:hover{border-color:var(--gold)}
+fieldset{border:0;margin:0 0 18px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+legend{width:100%;margin-bottom:4px;font-size:1.05rem}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);cursor:pointer}
+.chip input{width:1.05rem;height:1.05rem;accent-color:#dcbf7c}
+.chip:has(input:checked){border-color:var(--gold);background:rgba(220,191,124,.12)}
+.notice{margin-top:12px;color:var(--sub)}
+.plan{display:grid;gap:14px;margin-top:28px}
+.plan section{padding:16px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.03)}
+.plan h3,.app h3{font-size:1rem;font-variation-settings:'wght' 480;letter-spacing:0}
+.plan ul{display:grid;gap:10px;margin-top:10px}
+.plan li{display:grid;gap:2px}
+.plan li span{color:var(--sub);font-size:.86rem;line-height:1.4}
+.row small{color:#5c564c;font-size:.86rem;line-height:1.4}
+.devices{display:flex;flex-direction:column;gap:18px;margin-top:18px}
+.phone{order:-1;width:min(100%,320px);margin:0 auto;padding:12px;border-radius:36px;background:#111;border:1px solid rgba(255,255,255,.18);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.phone .row{flex-direction:column;gap:2px}
+.phone .row small{text-align:left}
+.phone .tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:4px}
+.phone .tabs button{padding:0 4px;font-size:.72rem;min-height:40px}
+.web{border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#f6f3ec;color:#1c1915}
+.chrome{display:flex;align-items:center;gap:6px;height:42px;padding:0 14px;background:#ebe6dc;color:#5c564c}
+.chrome i{width:8px;height:8px;border-radius:50%;background:#c9c1b4}
+.chrome span{margin-left:8px;font-size:.75rem}
+.app{display:flex;flex-direction:column;gap:10px;min-height:420px;padding:18px 16px 14px;background:#f7f4ef;color:#1c1915;border-radius:26px}
+.web-app{border-radius:0;min-height:360px}
+.kicker{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:#5c564c}
+.app h3{font-size:1.45rem;line-height:1.15}
+.app-lines{display:grid;gap:8px}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px;border-radius:14px;background:#fff;border:1px solid rgba(28,25,21,.08);overflow-wrap:anywhere}
+.plan,.lede,.notice{overflow-wrap:anywhere}
+.row b{font-variation-settings:'wght' 480}
+.row small{text-align:right}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.tabs button{min-height:44px;padding:0 12px;border-radius:999px;border:1px solid rgba(28,25,21,.16);background:transparent;color:#1c1915;font:inherit;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:#1c1915;color:#f7f4ef}
+.web-app .tabs{margin-top:0}
+@media(max-width:700px){
+  .web-app .tabs{flex-wrap:nowrap}
+  .web-app .tabs button{flex:1 1 0;min-width:0;padding:0 4px;font-size:.72rem}
+}
+@media(min-width:960px){
+  .demo{padding-left:32px;padding-right:32px}
+  .examples{grid-template-columns:1fr}
+  .plan{grid-template-columns:repeat(3,1fr)}
+  .devices{flex-direction:row;align-items:stretch}
+  .phone{order:0;flex:none;margin:0}
+  .web{flex:1}
+}

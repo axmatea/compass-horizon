@@ -1,4 +1,4 @@
-// COMPASS homepage: menu, word reveals, and cinematic motion.
+// COMPASS homepage: menu, word reveals, cinematic motion, film slot, waitlist note.
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
 const bar = document.querySelector('.bar')
 const burger = document.querySelector('.burger')
@@ -7,7 +7,6 @@ burger?.addEventListener('click', () => { const open = bar?.classList.toggle('op
 bar?.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu))
 addEventListener('keydown', e => { if (e.key === 'Escape' && bar?.classList.contains('open')) { closeMenu(); burger?.focus() } })
 
-// Word reveals: split text nodes into words, keep <br> and <em> intact.
 let wi = 0
 const split = node => {
   for (const child of [...node.childNodes]) {
@@ -29,18 +28,68 @@ if (!reduce && 'IntersectionObserver' in window) {
   document.querySelectorAll('section:not(.hero) .wrap, .reveal').forEach(el => io.observe(el))
 }
 
-// Hero: the art drifts and swells as the journey begins, the copy lifts away.
 const hero = document.querySelector('.hero')
-if (reduce) hero?.querySelector('video')?.pause()
 let queued = false
 function frame() {
   queued = false
   const y = window.scrollY, vh = innerHeight
-  if (hero && !reduce) {
-    const t = Math.min(1, Math.max(0, y / vh))
-    hero.style.setProperty('--hy', (t * 80).toFixed(1)); hero.style.setProperty('--hs', (t * .08).toFixed(3)); hero.style.setProperty('--hf', (t * 1.4).toFixed(3))
-  }
+  if (hero && !reduce) hero.style.setProperty('--hf', (Math.min(1, Math.max(0, y / vh)) * 1.4).toFixed(3))
 }
 const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(frame) } }
 addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll, { passive: true })
 frame()
+
+const player = document.querySelector('#watch-player')
+function embedUrl(raw) {
+  let url
+  try { url = new URL(raw) } catch { return null }
+  if (url.protocol !== 'https:' || url.username || url.password) return null
+  const host = url.hostname.replace(/^www\./, '')
+  if (host === 'youtu.be') {
+    const id = url.pathname.split('/').filter(Boolean)[0]
+    return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : null
+  }
+  if (host === 'youtube.com' || host === 'youtube-nocookie.com' || host === 'm.youtube.com') {
+    const id = url.searchParams.get('v') || (url.pathname.startsWith('/embed/') ? url.pathname.split('/')[2] : url.pathname.startsWith('/shorts/') ? url.pathname.split('/')[2] : '')
+    return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}` : null
+  }
+  if (host === 'vimeo.com') {
+    const id = url.pathname.split('/').filter(Boolean).pop()
+    return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null
+  }
+  return url.toString()
+}
+function mountFilm(raw) {
+  const src = embedUrl(raw)
+  if (!player || !src) return
+  player.dataset.state = 'ready'
+  player.replaceChildren()
+  const play = document.createElement('button')
+  play.type = 'button'
+  play.className = 'play'
+  play.textContent = 'Play the demo'
+  play.addEventListener('click', () => {
+    const file = /\.(mp4|webm|ogv)(?:$|\?)/i.test(src)
+    const frame = document.createElement(file ? 'video' : 'iframe')
+    frame.title = 'COMPASS demo video'
+    if (file) { frame.controls = true; frame.playsInline = true; frame.src = src }
+    else { frame.src = src; frame.allow = 'fullscreen; picture-in-picture'; frame.referrerPolicy = 'no-referrer'; frame.setAttribute('allowfullscreen', '') }
+    player.replaceChildren(frame)
+  })
+  player.append(play)
+}
+if (player) {
+  const stop = AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined
+  fetch('/api/config', { headers: { accept: 'application/json' }, signal: stop })
+    .then(res => res.ok ? res.json() : null)
+    .then(data => { if (data?.demoVideoUrl) mountFilm(data.demoVideoUrl) })
+    .catch(() => {})
+}
+
+const form = document.querySelector('#waitlist')
+form?.addEventListener('submit', event => {
+  event.preventDefault()
+  const status = document.querySelector('#waitlist-status')
+  if (!form.reportValidity()) return
+  if (status) status.textContent = 'Not sent. TODO: connect a waitlist destination before this form can store an email.'
+})

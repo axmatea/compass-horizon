@@ -1,9 +1,10 @@
 # Homepage frontend
 
-Only index.html is built. src/site/ contains the existing cinematic homepage
-CSS, browser-only menu/motion code and Sora font. Font terms ship in
-public/licenses/sora-OFL.txt. Navigation stays on the same page.
+index.html and demo.html are built. src/site/ is the cinematic homepage.
+src/demo/ is the early-access preview and the prepared examples. Font terms
+ship in public/licenses/sora-OFL.txt.
 
-No React, workspace, auth, API, demo or presentation modules remain. No forms,
-provider calls or stored browser state are used. Unknown routes do not fall
-back to the homepage. Verify with npm run check, npm test and npm run build.
+No React, workspace, auth, voice or presentation modules remain. The waitlist
+form does not store email. The demo calls /api/demo and falls back to the
+prepared examples if that call fails. Unknown routes do not fall back to the
+homepage. Verify with npm run check, npm test and npm run build.

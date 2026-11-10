@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#03060c">
+<title>COMPASS demo · Describe it. COMPASS builds it.</title>
+<meta name="description" content="Early access demo. Describe a product, answer a few questions, and preview it on web and mobile.">
+<link rel="canonical" href="https://mycompass.world/demo">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="COMPASS">
+<meta property="og:title" content="COMPASS demo · Describe it. COMPASS builds it.">
+<meta property="og:description" content="Early access demo. Describe a product, answer a few questions, and preview it on web and mobile.">
+<meta property="og:url" content="https://mycompass.world/demo">
+<meta property="og:image" content="https://mycompass.world/assets/hero/compass-hero.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="COMPASS demo">
+<meta name="twitter:description" content="Early access demo. Describe a product, answer a few questions, and preview it on web and mobile.">
+<meta name="twitter:image" content="https://mycompass.world/assets/hero/compass-hero.jpg">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/src/site/landing.css">
+<link rel="stylesheet" href="/src/demo/demo.css">
+<script type="module" src="/src/demo/demo.js"></script>
+</head>
+<body class="warm demo-body">
+<a class="skip" href="#stage-intent">Skip to the demo</a>
+<header class="bar">
+<a class="brand" href="/" aria-label="COMPASS homepage"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg><span>COMPASS</span></a>
+<nav class="menu" id="primary-menu" aria-label="Primary"><a href="/">Home</a><a href="/#how">How it works</a><a href="/demo" aria-current="page">Demo</a></nav>
+<a class="pill" href="/#access">Request access</a>
+<button class="burger" type="button" aria-label="Menu" aria-controls="primary-menu" aria-expanded="false"><i></i><i></i></button>
+</header>
+<main class="demo" id="demo">
+<p class="eyebrow">Early access</p>
+<ol class="progress" aria-label="Demo progress">
+<li data-step="intent" aria-current="step">Describe</li>
+<li data-step="questions">Questions</li>
+<li data-step="preview">Preview</li>
+</ol>
+<p id="demo-status" class="sr" role="status"></p>
+<section id="stage-intent" aria-labelledby="intent-title">
+<h1 id="intent-title" tabindex="-1">Describe it.</h1>
+<p class="lede">COMPASS builds a plan, then a web preview and a phone preview. One to three questions. Nothing is published.</p>
+<form id="intent-form">
+<label for="intent">What should it do?</label>
+<textarea id="intent" name="intent" maxlength="500" rows="3" required placeholder="Describe the software you need"></textarea>
+<p class="count"><span id="intent-count">0</span> / 500</p>
+<p id="intent-error" role="alert"></p>
+<div class="actions left"><button class="cta" type="submit">Continue</button></div>
+</form>
+<div class="examples" role="group" aria-label="Example intents">
+<button type="button" data-example="barber">a booking app for my barbershop with SMS reminders</button>
+<button type="button" data-example="jobs">a job tracker for my plumbing crew with on-the-way texts</button>
+<button type="button" data-example="classes">a class schedule for my yoga studio with a full-class waitlist</button>
+</div>
+</section>
+<section id="stage-questions" hidden aria-labelledby="questions-title">
+<h2 id="questions-title" tabindex="-1">A few questions</h2>
+<p class="lede" id="questions-intent"></p>
+<form id="questions-form"></form>
+</section>
+<section id="stage-preview" hidden aria-labelledby="preview-title">
+<h2 id="preview-title" tabindex="-1">Your preview</h2>
+<p class="lede" id="preview-summary"></p>
+<p class="notice" id="preview-notice"></p>
+<div id="preview-root"></div>
+<div class="actions left"><button class="ghost" type="button" id="start-over">Start over</button><a class="cta" href="/#access">Request access</a></div>
+</section>
+<noscript><p class="notice">This demo needs JavaScript to build the preview. The three example intents are on the page above.</p></noscript>
+</main>
+<footer class="foot">
+<span class="brand"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</span>
+<span class="tag">Early access demo</span>
+<nav aria-label="Footer"><a href="/">Home</a><a href="/#access">Request access</a></nav>
+<span class="credit">NAŸL × VINCENT</span>
+</footer>
+</body></html>

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "check": "node --check server.mjs && node --check src/site/landing.js",
+    "check": "node --check server.mjs && node --check llm.mjs && node --check demo-api.mjs && node --check src/demo/catalog.mjs && node --check src/demo/demo.js && node --check src/site/landing.js",
     "preview": "vite preview --host 0.0.0.0",
     "start": "node server.mjs",
     "test": "node --test test/*.test.mjs src/core.test.mjs"
