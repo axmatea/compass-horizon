@@ -9,7 +9,9 @@ const read = path => readFile(new URL(path, root), 'utf8');
 test('homepage offers the demo and does not call the product unavailable', async () => {
   const html = await read('index.html');
   const demo = await read('demo.html');
+  const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro', 'https://docs.lovable.dev/introduction/welcome', 'https://docs.lovable.dev/introduction/faq', 'https://bolt.new/', 'https://replit.com/', 'https://v0.app/']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
+    if (external.has(href)) continue;
     assert(href.startsWith('#') || href === '/demo', href);
     if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
   }
@@ -21,7 +23,14 @@ test('homepage offers the demo and does not call the product unavailable', async
   assert.match(html, /Watch the video/);
   assert.match(html, /TODO: waitlist destination/);
   assert.match(html, /TODO: team bios and logos/);
-  assert.match(html, /property="og:image"/);
+  assert.match(html, /AX Media Global builds software for business clients/);
+  assert.match(html, /id="team"/);
+  assert.match(html, /id="compare"/);
+  assert.match(html, /id="how"/);
+  assert.match(html, /property="og:image" content="https:\/\/mycompass\.world\/assets\/og\.jpg"/);
+  assert.match(html, /og:image:width" content="1200"/);
+  assert.match(html, /og:image:height" content="630"/);
+  await access(new URL('public/assets/og.jpg', root));
   assert.doesNotMatch(html + demo, /not an available app|concept, not|Try it live|page-pricing|id="film"/i);
   assert.doesNotMatch(html, /action="https?:/);
   assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['demo.html', 'index.html']);

@@ -20,9 +20,13 @@ let busy = false
 
 function say(text) { if (status) status.textContent = text }
 function show(stage) {
-  for (const name of ['intent', 'questions', 'preview']) {
+  for (const name of ['intent', 'questions', 'building', 'preview']) {
     const node = document.querySelector('#stage-' + name)
-    if (node) node.hidden = name !== stage
+    if (!node) continue
+    const on = name === stage
+    node.hidden = !on
+    node.classList.toggle('is-on', on)
+    node.inert = !on
   }
   document.querySelectorAll('.progress li').forEach(item => {
     if (item.dataset.step === stage) item.setAttribute('aria-current', 'step')
@@ -31,6 +35,14 @@ function show(stage) {
   const heading = document.querySelector(`#stage-${stage} h1, #stage-${stage} h2`)
   heading?.focus({ preventScroll: reduce })
   document.getElementById('demo')?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' })
+}
+function setBuilding(title) {
+  const node = document.querySelector('#building-title')
+  if (node) node.textContent = title
+}
+function pause(ms) {
+  if (reduce) return Promise.resolve()
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag)
@@ -86,6 +98,17 @@ function questionsView(data) {
   say('Answer ' + data.questions.length + (data.questions.length === 1 ? ' question.' : ' questions.'))
 }
 
+function tone(meta) {
+  const text = String(meta || '').toLowerCase()
+  if (text.includes('full')) return 'full'
+  if (text.includes('open') || text.includes('spot')) return 'open'
+  if (text.includes('not sent') || text.includes('preview') || text.includes('not connected')) return 'quiet'
+  if (text.includes('scheduled') || text.includes('checked') || text.includes('staged')) return 'hold'
+  return ''
+}
+function toneLabel(kind) {
+  return { full: 'Full', open: 'Open', quiet: 'Preview', hold: 'Set' }[kind] || ''
+}
 function previewView(data, note) {
   const summary = document.querySelector('#preview-summary')
   const notice = document.querySelector('#preview-notice')
@@ -96,29 +119,44 @@ function previewView(data, note) {
   if (notice) notice.textContent = [note, source, data.notice || 'Preview only. Nothing is sent or published.'].filter(Boolean).join(' ')
   const tabs = data.preview?.tabs || []
   let active = tabs[0]?.id || ''
-  const phoneLines = el('div', { class: 'app-lines' })
-  const webLines = el('div', { class: 'app-lines' })
-  const phoneTitle = el('h3')
-  const webTitle = el('h3')
-  const phoneKicker = el('p', { class: 'kicker' })
-  const webKicker = el('p', { class: 'kicker' })
+  const shells = []
   const paint = () => {
     const tab = tabs.find(item => item.id === active) || tabs[0]
     if (!tab) return
-    phoneTitle.textContent = tab.title
-    webTitle.textContent = tab.title
-    phoneKicker.textContent = tab.kicker || ''
-    webKicker.textContent = data.preview?.subhead || ''
-    const rows = (tab.lines || []).map(item => el('div', { class: 'row' }, [el('b', { text: item.title }), el('small', { text: item.meta || '' })]))
-    phoneLines.replaceChildren(...rows.map(row => row.cloneNode(true)))
-    webLines.replaceChildren(...(tab.lines || []).map(item => el('div', { class: 'row' }, [el('b', { text: item.title }), el('small', { text: item.meta || '' })])))
-    previewRoot.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tab === active)))
+    for (const shell of shells) {
+      shell.title.textContent = tab.title
+      shell.kicker.textContent = tab.kicker || data.productName || ''
+      shell.cards.replaceChildren(...(tab.lines || []).map(item => {
+        const kind = item.status || tone(item.meta)
+        const when = /(\d{1,2}:\d{2})/.exec(item.title)?.[1] || ''
+        const label = when ? item.title.replace(when, '').replace(/[·-]/g, ' ').replace(/\s+/g, ' ').trim() : item.title
+        return el('article', { class: 'card' }, [
+          when ? el('time', { text: when }) : el('i', { class: 'mark', 'aria-hidden': 'true' }),
+          el('div', {}, [el('b', { text: label || item.title }), el('small', { text: item.meta || '' })]),
+          kind ? el('em', { class: 'state is-' + kind, text: toneLabel(kind) }) : el('em', { class: 'state is-quiet', text: 'Preview' }),
+        ])
+      }))
+      shell.nav.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tab === active)))
+    }
   }
-  const tabButtons = tabs.map(tab => {
-    const button = el('button', { type: 'button', 'data-tab': tab.id, text: tab.label })
-    button.addEventListener('click', () => { active = tab.id; paint() })
-    return button
-  })
+  function shell(compact) {
+    const kicker = el('p', { class: 'shell-kicker' })
+    const heading = el('h3')
+    const cards = el('div', { class: 'cards' })
+    const nav = el('div', { class: 'shell-tabs' })
+    for (const tab of tabs) {
+      const button = el('button', { type: 'button', 'data-tab': tab.id, text: tab.label })
+      button.addEventListener('click', () => { active = tab.id; paint() })
+      nav.append(button)
+    }
+    const node = el('div', { class: 'shell' + (compact ? ' is-phone' : ''), style: '--accent:' + (data.preview?.accent || '#1c3a34') }, [
+      el('div', { class: 'shell-bar' }, [el('strong', { text: data.productName || 'Preview' }), el('span', { class: 'shell-live', text: 'Preview' })]),
+      el('div', { class: 'shell-body' }, [kicker, heading, el('p', { class: 'shell-note', text: data.preview?.subhead || '' }), cards]),
+      nav,
+    ])
+    shells.push({ kicker, title: heading, cards, nav })
+    return node
+  }
   const planCard = (heading, items) => el('section', {}, [
     el('h3', { text: heading }),
     el('ul', {}, items),
@@ -130,19 +168,13 @@ function previewView(data, note) {
       planCard('Integrations', (data.integrations || []).map(item => el('li', {}, [el('b', { text: item.name }), el('span', { text: item.purpose })]))),
     ]),
     el('div', { class: 'devices' }, [
-      el('article', { class: 'phone', 'aria-label': 'Phone preview' }, [
-        el('div', { class: 'app' }, [phoneKicker, phoneTitle, phoneLines, el('div', { class: 'tabs' }, tabButtons.map(button => button.cloneNode(true)))]),
-      ]),
+      el('article', { class: 'phone', 'aria-label': 'Phone preview' }, [shell(true)]),
       el('article', { class: 'web', 'aria-label': 'Web preview' }, [
         el('div', { class: 'chrome' }, [el('i'), el('i'), el('i'), el('span', { text: 'Preview' })]),
-        el('div', { class: 'app web-app' }, [
-          el('header', {}, [el('div', {}, [webKicker, webTitle]), el('div', { class: 'tabs' }, tabButtons)]),
-          webLines,
-        ]),
+        shell(false),
       ]),
     ]),
   )
-  previewRoot.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => { active = button.dataset.tab; paint() }))
   paint()
   show('preview')
   say((data.productName || 'Preview') + ' is ready.')
@@ -151,12 +183,16 @@ function previewView(data, note) {
 async function clarify(intent, exampleId) {
   if (busy) return
   busy = true
-  say('Preparing questions.')
+  const started = performance.now()
+  setBuilding('Reading what you described')
+  show('building')
+  say('Reading what you described.')
   const payload = exampleId ? { exampleId, intent } : { intent }
   try {
     let data
     try { data = await post('/api/demo/clarify', payload) }
     catch { data = { ...clarifyLocal(intent, exampleId), source: 'fallback' } }
+    await pause(Math.max(0, 700 - (performance.now() - started)))
     if (data.error === 'rate_limited' && data.fallback) { previewView(data.fallback, 'Too many previews from this network.'); return }
     if (data.error === 'too_long') { formError('Keep it under ' + MAX_INTENT + ' characters.'); return }
     if (data.error === 'empty' || data.ok === false) { formError('Describe what the software should do.'); return }
@@ -187,7 +223,10 @@ questionForm?.addEventListener('submit', async event => {
   event.preventDefault()
   if (busy) return
   busy = true
-  say('Building the preview.')
+  const started = performance.now()
+  setBuilding('Laying out the screens')
+  show('building')
+  say('Laying out the screens.')
   const prompts = JSON.parse(questionForm.dataset.prompts || '{}')
   const answers = [...new FormData(questionForm).entries()].filter(([key]) => key.startsWith('q')).map(([id, value]) => ({ id, value: String(value), prompt: prompts[id] || '' }))
   const payload = { intent: questionForm.dataset.intent, exampleId: questionForm.dataset.exampleId || undefined, answers }
@@ -195,6 +234,7 @@ questionForm?.addEventListener('submit', async event => {
     let data
     try { data = await post('/api/demo/plan', payload) }
     catch { data = { ...planLocal(payload.intent, payload.exampleId, answers), source: 'fallback' } }
+    await pause(Math.max(0, 900 - (performance.now() - started)))
     if (data.error === 'rate_limited' && data.fallback) { previewView(data.fallback, 'Too many previews from this network.'); return }
     if (!data.ok && data.ok !== undefined) throw new Error('plan')
     if (!data.preview?.tabs?.length) throw new Error('plan')

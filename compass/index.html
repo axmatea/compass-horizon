@@ -10,11 +10,16 @@
 <meta property="og:title" content="COMPASS · Describe it. COMPASS builds it.">
 <meta property="og:description" content="Early access. Describe the software you need and COMPASS shows a working web and mobile preview.">
 <meta property="og:url" content="https://mycompass.world/">
-<meta property="og:image" content="https://mycompass.world/assets/hero/compass-hero.jpg">
+<meta property="og:image" content="https://mycompass.world/assets/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="COMPASS. Describe it. COMPASS builds it. A web preview and a phone preview.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="COMPASS · Describe it. COMPASS builds it.">
 <meta name="twitter:description" content="Early access. Describe the software you need and COMPASS shows a working web and mobile preview.">
-<meta name="twitter:image" content="https://mycompass.world/assets/hero/compass-hero.jpg">
+<meta name="twitter:image" content="https://mycompass.world/assets/og.jpg">
+<meta name="twitter:image:alt" content="COMPASS. Describe it. COMPASS builds it. A web preview and a phone preview.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/src/site/landing.css">
@@ -26,14 +31,14 @@
 
 <header class="bar">
 <a class="brand" href="#top" aria-label="COMPASS homepage"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg><span>COMPASS</span></a>
-<nav class="menu" id="primary-menu" aria-label="Primary"><a href="#top">Home</a><a href="#how">How it works</a><a href="/demo">Demo</a></nav>
+<nav class="menu" id="primary-menu" aria-label="Primary"><a href="#top">Home</a><a href="#how">How it works</a><a href="#team">Team</a><a href="#compare">Compare</a><a href="/demo">Demo</a></nav>
 <a class="pill" href="/demo">Try the demo</a>
 <button class="burger" type="button" aria-label="Menu" aria-controls="primary-menu" aria-expanded="false"><i></i><i></i></button>
 </header>
 
 <main>
 <section class="hero" id="top" aria-labelledby="hero-title">
-<img class="hero-art" src="/assets/hero/compass-hero.jpg" alt="" width="1600" height="900" fetchpriority="high" decoding="async">
+<img class="hero-art" src="/assets/hero/compass-hero.jpg" alt="" width="1536" height="1024" fetchpriority="high" decoding="async">
 <div class="hero-veil"></div><div class="grain" aria-hidden="true"></div>
 <div class="hero-copy">
 <p class="eyebrow">Early access</p>
@@ -68,6 +73,81 @@
 </div>
 </section>
 
+<section class="team" id="team" aria-labelledby="team-title">
+<div class="wrap">
+<p class="eyebrow center">Built by a team that ships</p>
+<h2 class="center reveal" id="team-title">AX Media Global</h2>
+<p class="center sub">AX Media Global builds software for business clients.</p>
+<div class="team-links">
+<a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a>
+<a href="https://jarrarcpa.pro" rel="noopener noreferrer">jarrarcpa.pro</a>
+</div>
+<p class="todo">TODO: team bios and logos. Publish names only after the founder confirms them.</p>
+</div>
+</section>
+
+<!--
+Comparison sources, checked 2026-11-10. Wording below is a paraphrase, not a ranking.
+Lovable: https://docs.lovable.dev/introduction/welcome — natural language to a web application with interface, backend, database, authentication, and integrations; publish to a URL.
+Lovable FAQ: https://docs.lovable.dev/introduction/faq — web applications, not native iOS/Android or React Native projects.
+Bolt: https://bolt.new/ — "Create stunning apps & websites by chatting with AI." Bolt Cloud lists hosting, databases, and user management and authentication.
+Replit: https://replit.com/ — "Turn ideas into apps in minutes" and "Describe it. Publish it." Built-in authentication, database, and hosting.
+v0: https://v0.app/ — prompt to build UI and backend logic; "Deploy with one click" on Vercel.
+The COMPASS card describes only this demo.
+-->
+<section class="compare" id="compare" aria-labelledby="compare-title">
+<div class="wrap">
+<p class="eyebrow center">In public</p>
+<h2 class="center reveal" id="compare-title">What each builder says</h2>
+<p class="center sub">The COMPASS card is only what this demo does. The others are short paraphrases of each company's own page, linked below.</p>
+<div class="compare-grid">
+<article class="is-demo">
+<h3>COMPASS demo</h3>
+<dl>
+<dt>You describe</dt><dd>The software you want, then one to three questions.</dd>
+<dt>What you get</dt><dd>A plan with screens, a data model, and integrations, plus a browser preview and a phone preview.</dd>
+<dt>Published</dt><dd>Nothing. The preview stays on this page.</dd>
+</dl>
+</article>
+<article>
+<h3>Lovable</h3>
+<dl>
+<dt>You describe</dt><dd>What you want, in plain language.</dd>
+<dt>What you get</dt><dd>Their docs say a web application with an interface, backend, database, authentication, and integrations, which can be published to a URL.</dd>
+<dt>Phone</dt><dd>Their FAQ says web applications, not a native iOS or Android project.</dd>
+</dl>
+</article>
+<article>
+<h3>Bolt</h3>
+<dl>
+<dt>You describe</dt><dd>An app or a website, in chat.</dd>
+<dt>What you get</dt><dd>bolt.new says Bolt Cloud includes hosting, databases, and user management and authentication.</dd>
+</dl>
+</article>
+<article>
+<h3>Replit</h3>
+<dl>
+<dt>You describe</dt><dd>An idea, then publish.</dd>
+<dt>What you get</dt><dd>replit.com says Replit writes code you can publish, with authentication, a database, and hosting.</dd>
+</dl>
+</article>
+<article>
+<h3>v0</h3>
+<dl>
+<dt>You describe</dt><dd>A prompt.</dd>
+<dt>What you get</dt><dd>v0.app says UI and backend logic, with one-click deploy on Vercel.</dd>
+</dl>
+</article>
+</div>
+<ol class="sources" id="sources">
+<li><a href="https://docs.lovable.dev/introduction/welcome" rel="noopener noreferrer">Lovable docs</a> and <a href="https://docs.lovable.dev/introduction/faq" rel="noopener noreferrer">Lovable FAQ</a></li>
+<li><a href="https://bolt.new/" rel="noopener noreferrer">bolt.new</a></li>
+<li><a href="https://replit.com/" rel="noopener noreferrer">replit.com</a></li>
+<li><a href="https://v0.app/" rel="noopener noreferrer">v0.app</a></li>
+</ol>
+</div>
+</section>
+
 <section class="access" id="access" aria-labelledby="access-title">
 <div class="wrap">
 <p class="eyebrow center">Early access</p>
@@ -80,15 +160,14 @@
 <p id="waitlist-note" class="todo">TODO: waitlist destination is not connected. This form does not store or send your email.</p>
 <p id="waitlist-status" role="status"></p>
 </form>
-<p class="todo">TODO: team bios and logos. Publish names only after the founder confirms them.</p>
 </div>
 </section>
 </main>
 
 <footer class="foot">
 <span class="brand"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</span>
-<span class="tag">Describe it. COMPASS builds it.</span>
-<nav aria-label="Footer"><a href="/demo">Demo</a><a href="#watch">Watch the video</a><a href="#access">Request access</a></nav>
+<span class="tag">AX Media Global</span>
+<nav aria-label="Footer"><a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a><a href="/demo">Demo</a><a href="#team">Team</a><a href="#access">Request access</a></nav>
 <span class="credit">NAŸL × VINCENT</span>
 </footer>
 </body></html>

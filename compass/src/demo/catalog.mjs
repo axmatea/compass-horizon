@@ -45,6 +45,7 @@ const barber = {
     const when = answer(answers, 'q2', '24 hours before');
     const who = answer(answers, 'q3', 'The customer');
     return {
+      accent: '#1c3a34',
       headline: 'Book a chair',
       subhead: `${service}. Reminder ${when.toLowerCase()}, to ${who.toLowerCase()}.`,
       tabs: [
@@ -86,6 +87,7 @@ const jobs = {
     const when = answer(answers, 'q2', 'On the way');
     const capture = answer(answers, 'q3', 'Photos');
     return {
+      accent: '#16324f',
       headline: 'Today’s board',
       subhead: `${kind}. Text the customer ${when.toLowerCase()}. Capture ${capture.toLowerCase()}.`,
       tabs: [
@@ -127,6 +129,7 @@ const classes = {
     const full = answer(answers, 'q2', 'Waitlist');
     const home = answer(answers, 'q3', 'Today’s classes');
     return {
+      accent: '#6b3f2a',
       headline: home,
       subhead: `Join by ${join.toLowerCase()}. When a class is full: ${full.toLowerCase()}.`,
       tabs: [
@@ -177,6 +180,7 @@ function genericPreview(intent, answers) {
       { name: connect, purpose: connect === 'Nothing yet' ? 'No outside service in this preview.' : `${connect} can be added later. Not connected in this preview.` },
     ],
     preview: {
+      accent: '#243044',
       headline: first,
       subhead: intent,
       tabs: [

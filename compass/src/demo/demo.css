@@ -1,4 +1,9 @@
 [hidden]{display:none !important}
+.stage.is-on{animation:rise .5s ease}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.meter{height:3px;max-width:240px;margin-top:28px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.meter span{display:block;height:100%;width:35%;background:var(--gold);animation:slide 1.1s ease-in-out infinite}
+@keyframes slide{from{transform:translateX(-120%)}to{transform:translateX(340%)}}
 .demo-body{background:
   radial-gradient(50% 40% at 50% 0%, rgba(220,191,124,.16), transparent 70%),
   var(--bg)}
@@ -40,23 +45,30 @@ legend{width:100%;margin-bottom:4px;font-size:1.05rem}
 .chrome{display:flex;align-items:center;gap:6px;height:42px;padding:0 14px;background:#ebe6dc;color:#5c564c}
 .chrome i{width:8px;height:8px;border-radius:50%;background:#c9c1b4}
 .chrome span{margin-left:8px;font-size:.75rem}
-.app{display:flex;flex-direction:column;gap:10px;min-height:420px;padding:18px 16px 14px;background:#f7f4ef;color:#1c1915;border-radius:26px}
-.web-app{border-radius:0;min-height:360px}
-.kicker{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:#5c564c}
-.app h3{font-size:1.45rem;line-height:1.15}
-.app-lines{display:grid;gap:8px}
-.row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px;border-radius:14px;background:#fff;border:1px solid rgba(28,25,21,.08);overflow-wrap:anywhere}
 .plan,.lede,.notice{overflow-wrap:anywhere}
-.row b{font-variation-settings:'wght' 480}
-.row small{text-align:right}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
-.tabs button{min-height:44px;padding:0 12px;border-radius:999px;border:1px solid rgba(28,25,21,.16);background:transparent;color:#1c1915;font:inherit;cursor:pointer}
-.tabs button[aria-pressed="true"]{background:#1c1915;color:#f7f4ef}
-.web-app .tabs{margin-top:0}
-@media(max-width:700px){
-  .web-app .tabs{flex-wrap:nowrap}
-  .web-app .tabs button{flex:1 1 0;min-width:0;padding:0 4px;font-size:.72rem}
-}
+.shell{--accent:#1c3a34;display:flex;flex-direction:column;min-height:480px;background:linear-gradient(180deg,#fbf8f2,#efe7da);color:#1c1915}
+.phone .shell{border-radius:26px;overflow:hidden}
+.shell-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 16px 0}
+.shell-bar strong{font-size:1rem;letter-spacing:-.03em;font-variation-settings:'wght' 520}
+.shell-live{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:#5c564c}
+.shell-body{display:grid;gap:8px;padding:14px 16px 8px}
+.shell-kicker{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:#5c564c}
+.shell h3{font-size:clamp(1.45rem,2vw,1.9rem);line-height:1.05;letter-spacing:-.035em;font-variation-settings:'wght' 460}
+.shell-note{color:#5c564c;font-size:.92rem;line-height:1.45}
+.cards{display:grid;gap:8px}
+.card{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px;border-radius:16px;background:#fff;box-shadow:0 10px 28px rgba(28,25,21,.07)}
+.card time{font-variant-numeric:tabular-nums;font-size:.95rem;font-variation-settings:'wght' 520}
+.card .mark{width:8px;height:8px;border-radius:50%;background:var(--accent);justify-self:center}
+.card b{display:block;font-variation-settings:'wght' 520;letter-spacing:-.02em}
+.card small{display:block;color:#5c564c;font-size:.82rem;line-height:1.35}
+.state{font-style:normal;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:5px 8px;background:#e7f2ea;color:#1c3a34}
+.state.is-full{background:#f6e4d8;color:#6b3f2a}
+.state.is-hold{background:#f8ebc8;color:#6a4b12}
+.state.is-quiet{background:#ece7df;color:#5c564c}
+.shell-tabs{display:flex;gap:6px;padding:10px 12px 14px;margin-top:auto}
+.shell-tabs button{flex:1 1 0;min-width:0;min-height:42px;padding:0 6px;border-radius:999px;border:1px solid rgba(28,25,21,.14);background:transparent;color:#1c1915;font:inherit;font-size:.78rem;cursor:pointer}
+.shell-tabs button[aria-pressed="true"]{background:var(--accent);color:#f7f4ef;border-color:var(--accent)}
+@media(min-width:700px){.web .cards{grid-template-columns:1fr 1fr}}
 @media(min-width:960px){
   .demo{padding-left:32px;padding-right:32px}
   .examples{grid-template-columns:1fr}

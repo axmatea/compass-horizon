@@ -58,7 +58,7 @@ function partsFromModel(json, intent, answers) {
     productName: clip(json?.title, 48) || 'Your product',
     summary: clip(json?.summary, 220) || `A first plan for “${intent}”.`,
     screens, dataModel, integrations,
-    preview: { headline: tabs[0].title, subhead: clip(json?.summary, 140) || intent, tabs },
+    preview: { accent: '#243044', headline: tabs[0].title, subhead: clip(json?.summary, 140) || intent, tabs },
   };
 }
 
