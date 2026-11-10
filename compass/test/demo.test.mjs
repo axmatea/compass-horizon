@@ -5,8 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
 import { createCompassServer } from '../server.mjs';
+import { mock } from 'node:test';
 import { clarifyLocal, planLocal, EXAMPLES, MAX_INTENT } from '../src/demo/catalog.mjs';
 import { demoVideoUrl } from '../demo-api.mjs';
+import { createDictation, defaultAnswers, joinSpeech, pauseShouldSubmit, voiceErrorMessage } from '../src/demo/voice.mjs';
 
 const secret = 'super-secret-key-value';
 
@@ -109,4 +111,119 @@ test('a valid model response is used and never echoes the key', async () => {
     await ctx.app.close();
     await rm(ctx.root, { recursive: true, force: true });
   }
+});
+
+test('voice skip defaults are the first answer and the transcript stays text', () => {
+  assert.equal(pauseShouldSubmit({ text: '  a booking app ', manual: false }), true);
+  assert.equal(pauseShouldSubmit({ text: 'a booking app', manual: true }), false);
+  assert.equal(pauseShouldSubmit({ text: '   ', manual: false }), false);
+  assert.equal(joinSpeech(['  a booking ', 'app\nfor my shop'], 500), 'a booking app for my shop');
+  assert.equal(joinSpeech(['a booking app for my barbershop with SMS'], 18), 'a booking app for');
+  assert.equal(voiceErrorMessage('not-allowed'), 'Microphone access was denied. Type the idea instead.');
+  for (const example of EXAMPLES) {
+    const clarified = clarifyLocal(example.intent);
+    const answers = defaultAnswers(clarified.questions);
+    assert.deepEqual(answers.map(item => item.value), clarified.questions.map(question => question.options[0]));
+    const plan = planLocal(clarified.intent, null, answers);
+    assert.equal(plan.ok, true);
+    assert.match(JSON.stringify(plan.preview), new RegExp(answers[0].value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});
+
+test('dictation streams interim speech and submits the text after a pause', t => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  const seen = [];
+  let session = null;
+  class FakeRecognition {
+    constructor() { session = this; }
+    start() { this.started = true; }
+    abort() { this.aborted = true; }
+  }
+  const dictation = createDictation({ SpeechRecognition: FakeRecognition }, {
+    onState: state => seen.push('state:' + state),
+    onTranscript: text => seen.push('text:' + text),
+    onSubmit: text => seen.push('submit:' + text),
+    onError: message => seen.push('error:' + message),
+    onEnd: reason => seen.push('end:' + reason),
+  }, { pauseMs: 1000, max: 80 });
+  assert.equal(dictation.start(), true);
+  assert.equal(session.started, true);
+  assert.equal(session.interimResults, true);
+  assert.equal(session.continuous, true);
+  session.onresult({ results: [{ isFinal: false, 0: { transcript: 'a booking' } }] });
+  assert.equal(seen.at(-1), 'text:a booking');
+  mock.timers.tick(1000);
+  assert.equal(seen.some(item => item.startsWith('submit:')), false);
+  session.onspeechend();
+  mock.timers.tick(999);
+  assert.equal(seen.some(item => item.startsWith('submit:')), false);
+  mock.timers.tick(1);
+  assert.equal(seen.at(-1), 'submit:a booking');
+  assert.equal(session.aborted, true);
+});
+
+test('stopping the microphone or denying it does not submit', t => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
+  let session = null;
+  class FakeRecognition {
+    constructor() { session = this; }
+    start() {}
+    abort() { this.aborted = true; }
+  }
+  const submitted = [];
+  const errors = [];
+  const dictation = createDictation({ webkitSpeechRecognition: FakeRecognition }, {
+    onSubmit: text => submitted.push(text),
+    onError: message => errors.push(message),
+    onState() {},
+    onTranscript() {},
+    onEnd() {},
+  }, { pauseMs: 1000, max: 500 });
+  dictation.start();
+  session.onresult({ results: [{ isFinal: true, 0: { transcript: 'keep this draft' } }] });
+  dictation.stop();
+  mock.timers.tick(5000);
+  assert.deepEqual(submitted, []);
+  assert.equal(dictation.active, false);
+
+  const denied = [];
+  let deniedSession = null;
+  class Denied {
+    constructor() { deniedSession = this; }
+    start() {}
+    abort() {}
+  }
+  const second = createDictation({ SpeechRecognition: Denied }, {
+    onSubmit: text => denied.push(text),
+    onError: message => errors.push(message),
+    onState() {},
+    onTranscript() {},
+    onEnd() {},
+  }, { pauseMs: 1000, max: 500 });
+  second.start();
+  deniedSession.onresult({ results: [{ isFinal: false, 0: { transcript: 'secret audio' } }] });
+  deniedSession.onerror({ error: 'not-allowed' });
+  mock.timers.tick(5000);
+  assert.deepEqual(denied, []);
+  assert.match(errors.at(-1), /Microphone access was denied/);
+
+  class SyncDeny {
+    start() { this.onerror?.({ error: 'not-allowed' }); }
+    abort() {}
+  }
+  const syncSubmits = [];
+  const syncErrors = [];
+  const sync = createDictation({ SpeechRecognition: SyncDeny }, {
+    onSubmit: text => syncSubmits.push(text),
+    onError: message => syncErrors.push(message),
+    onState() {},
+    onTranscript() {},
+    onEnd() {},
+  }, { pauseMs: 1000, max: 500 });
+  assert.equal(sync.start(), false);
+  assert.equal(sync.active, false);
+  assert.deepEqual(syncSubmits, []);
+  assert.match(syncErrors[0], /Microphone access was denied/);
 });
