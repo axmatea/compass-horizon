@@ -19,6 +19,7 @@ test('homepage-only delivery retires old pages even if stale files exist', async
   const home = await fetch(origin + '/');
   assert.equal(home.status, 200); assert.equal(await home.text(), '<h1>index</h1>');
   assert.match(home.headers.get('content-security-policy'), /connect-src 'self'/);
+  assert.equal(home.headers.get('permissions-policy'), 'camera=(), microphone=(self), geolocation=()');
   assert.equal(home.headers.get('x-frame-options'), 'DENY');
   assert.equal(home.headers.get('x-content-type-options'), 'nosniff');
   assert.equal((await fetch(origin + '/demo')).status, 200);

@@ -20,6 +20,15 @@ test('homepage offers the demo and does not call the product unavailable', async
   assert.match(html, /web, mobile, real software/);
   assert.match(html, /href="\/demo"/);
   assert.match(html, /Try the demo/);
+  assert.match(html, /class="voice-loop"/);
+  assert.match(html, /aria-hidden="true"/);
+  assert.match(demo, /id="mic"/);
+  assert.match(demo, /Speak your idea/);
+  assert.match(demo, /Skip to the demo/);
+  const voice = await read('src/demo/voice.mjs');
+  const demoJs = await read('src/demo/demo.js');
+  assert.match(voice, /webkitSpeechRecognition/);
+  assert.doesNotMatch(voice + demoJs, /MediaRecorder|getUserMedia|webkitSpeechRecognition\(\)|new WebSocket|EventSource/);
   assert.match(html, /Watch the video/);
   assert.match(html, /TODO: waitlist destination/);
   assert.match(html, /TODO: team bios and logos/);
