@@ -12,7 +12,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/src/demo/catalog.mjs ./src/demo/catalog.mjs
-COPY server.mjs llm.mjs demo-api.mjs ./
+COPY server.mjs llm.mjs demo-api.mjs early-access.mjs homepage.mjs ./
 USER node
 EXPOSE 8080
 CMD ["node", "server.mjs"]

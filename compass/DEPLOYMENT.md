@@ -4,7 +4,7 @@ Canonical repo: axmatea/compass-horizon. Existing Railway service:
 compass-nayl-vincent / compass-web, serving mycompass.world.
 Verified source binding: main, root directory /compass, healthcheck /healthz.
 Use the existing Dockerfile. No database or auth setup. Optional environment
-names, values never committed: DEMO_VIDEO_URL, LLM_PROVIDER,
+names, values never committed: DEMO_VIDEO_URL, WAITLIST_WEBHOOK_URL, LLM_PROVIDER,
 GENERAL_COMPUTE_API_KEY, GENERALCOMPUTE_API_KEY, GENERAL_COMPUTE_MODEL,
 GENERALCOMPUTE_MODEL, GENERAL_COMPUTE_BASE_URL, GENERALCOMPUTE_BASE_URL,
 GENERALCOMPUTE_TIMEOUT_MS, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_MODEL,

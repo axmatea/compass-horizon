@@ -45,7 +45,7 @@
 <h1 class="reveal" id="hero-title">Describe it.<br>COMPASS builds it: <em>web, mobile, real software.</em></h1>
 <p class="sub">Say it or type it. Answer a few questions, or skip them by voice. COMPASS shows a web preview and a phone preview.</p>
 <div class="hero-row">
-<div class="actions"><a class="cta" href="/demo">Try the demo<svg viewBox="0 0 16 11" aria-hidden="true"><path d="M0 5.5H14.6M10.3 1.2 14.9 5.5 10.3 9.8"/></svg></a><a class="ghost" href="#watch">Watch the video</a></div>
+<div class="actions"><a class="cta" href="/demo">Try the demo<svg viewBox="0 0 16 11" aria-hidden="true"><path d="M0 5.5H14.6M10.3 1.2 14.9 5.5 10.3 9.8"/></svg></a><a class="ghost" id="hero-secondary" href="#how">See how it works</a></div>
 <div class="voice-loop" aria-hidden="true">
 <div class="vl-top">
 <span class="vl-orb"><span class="vl-bars"><i></i><i></i><i></i><i></i><i></i></span></span>
@@ -63,16 +63,7 @@
 </div>
 </section>
 
-<section class="watch" id="watch" aria-labelledby="watch-title">
-<div class="wrap">
-<p class="eyebrow center">Watch the demo</p>
-<h2 class="center reveal" id="watch-title">The walkthrough</h2>
-<div class="player" id="watch-player" data-state="request">
-<p>The demo film is not on this page yet.</p>
-<a class="cta" href="#access">Request access</a>
-</div>
-</div>
-</section>
+<div id="compass-video" hidden></div>
 
 <section class="how" id="how" aria-labelledby="how-title">
 <div class="wrap">
@@ -96,7 +87,6 @@
 <a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a>
 <a href="https://jarrarcpa.pro" rel="noopener noreferrer">jarrarcpa.pro</a>
 </div>
-<p class="todo">TODO: team bios and logos. Publish names only after the founder confirms them.</p>
 </div>
 </section>
 
@@ -166,13 +156,14 @@ The COMPASS card describes only this demo.
 <div class="wrap">
 <p class="eyebrow center">Early access</p>
 <h2 class="center reveal" id="access-title">Request access</h2>
-<p class="center sub">Email only. The list is not connected yet.</p>
-<form id="waitlist" novalidate>
+<p class="center sub">Email only.</p>
+<form id="early-access" method="post" action="mailto:info@aimedia.global?subject=COMPASS%20early%20access" enctype="text/plain">
 <label for="email">Email</label>
-<input id="email" name="email" type="email" autocomplete="email" required maxlength="200" placeholder="you@example.com" aria-describedby="waitlist-note">
+<input id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="200" placeholder="you@example.com" aria-describedby="early-access-note early-access-status">
+<div class="hp" inert><label for="hp">Leave blank</label><input id="hp" name="hp" type="text" autocomplete="off" value=""></div>
 <button class="cta" type="submit">Request access</button>
-<p id="waitlist-note" class="todo">TODO: waitlist destination is not connected. This form does not store or send your email.</p>
-<p id="waitlist-status" role="status"></p>
+<p id="early-access-note">If this page cannot store it, your email app sends the request to info@aimedia.global.</p>
+<p id="early-access-status" class="form-status" role="status" aria-live="polite"></p>
 </form>
 </div>
 </section>
