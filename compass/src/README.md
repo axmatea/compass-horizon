@@ -6,6 +6,9 @@ ship in public/licenses/sora-OFL.txt.
 
 No React, workspace, auth, or presentation modules remain. The demo microphone
 uses the browser Speech Recognition API. Audio is not uploaded. Only the final
-transcript is posted to /api/demo. The waitlist form does not store email. The
-demo falls back to the prepared examples if that call fails. Unknown routes do
-not fall back to the homepage. Verify with npm run check, npm test and npm run build.
+transcript is posted to /api/demo. The early-access form posts to
+/api/early-access. Email is delivered to WAITLIST_WEBHOOK_URL when that https
+URL is set. Otherwise the visitor sends it from their email app, and the page
+does not claim it was stored. The demo falls back to the prepared examples if
+the model call fails. Unknown routes do not fall back to the homepage. Verify
+with npm run check, npm test and npm run build.

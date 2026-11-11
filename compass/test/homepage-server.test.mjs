@@ -27,7 +27,7 @@ test('homepage-only delivery retires old pages even if stale files exist', async
   for (const path of ['/app', '/app.html', '/office', '/office?workspaceInvite=old', '/login', '/login.html', '/demo/workspace', '/demo/remaster/app', '/presentation', '/presentation/finale', '/protect', '/horizon', '/studio', '/vision', '/acquisition', '/voice-demo', '/film.html']) {
     assert.equal((await fetch(origin + path)).status, 410, path);
   }
-  for (const path of ['/api', '/api/auth/get-session', '/api/workspaces', '/api/acquisition/state', '/api/remaster/state', '/.env', '/unknown.html', '/unknown']) assert.equal((await fetch(origin + path)).status, 404, path);
+  for (const path of ['/api', '/api/auth/get-session', '/api/workspaces', '/api/acquisition/state', '/api/remaster/state', '/api/waitlist', '/.env', '/unknown.html', '/unknown']) assert.equal((await fetch(origin + path)).status, 404, path);
   assert.equal((await fetch(origin + '/login', { method: 'POST' })).status, 405);
   const health = await fetch(origin + '/healthz');
   assert.equal(health.headers.get('cache-control'), 'no-store');

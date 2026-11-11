@@ -1,4 +1,5 @@
-// COMPASS homepage: menu, word reveals, cinematic motion, film slot, waitlist note.
+// COMPASS homepage: menu, word reveals, cinematic motion, optional film, early access.
+import { team, visibleTeam } from './team.mjs'
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
 const bar = document.querySelector('.bar')
 const burger = document.querySelector('.burger')
@@ -39,6 +40,40 @@ const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(fra
 addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll, { passive: true })
 frame()
 
+const people = visibleTeam(team)
+const teamWrap = document.querySelector('#team .wrap')
+if (teamWrap && people.length) {
+  const list = document.createElement('ul')
+  list.className = 'team-bios'
+  for (const person of people) {
+    const item = document.createElement('li')
+    if (person.logo) {
+      const img = document.createElement('img')
+      img.src = person.logo
+      img.alt = ''
+      img.width = 48
+      img.height = 48
+      item.append(img)
+    }
+    const name = document.createElement('h3')
+    name.textContent = person.name
+    item.append(name)
+    if (person.role) {
+      const role = document.createElement('p')
+      role.className = 'role'
+      role.textContent = person.role
+      item.append(role)
+    }
+    if (person.bio) {
+      const bio = document.createElement('p')
+      bio.textContent = person.bio
+      item.append(bio)
+    }
+    list.append(item)
+  }
+  teamWrap.append(list)
+}
+
 const player = document.querySelector('#watch-player')
 function embedUrl(raw) {
   let url
@@ -59,26 +94,50 @@ function embedUrl(raw) {
   }
   return url.toString()
 }
+function mountEmbed(host, src) {
+  const file = /\.(mp4|webm|ogv)(?:$|\?)/i.test(src)
+  const frame = document.createElement(file ? 'video' : 'iframe')
+  frame.title = 'COMPASS demo video'
+  if (file) {
+    frame.controls = true
+    frame.playsInline = true
+    frame.preload = 'metadata'
+    frame.poster = '/assets/hero/compass-hero.jpg'
+    frame.src = src
+  } else {
+    frame.src = src
+    frame.allow = 'fullscreen; picture-in-picture'
+    frame.referrerPolicy = 'no-referrer'
+    frame.setAttribute('allowfullscreen', '')
+  }
+  host.dataset.state = 'ready'
+  host.replaceChildren(frame)
+}
+player?.addEventListener('click', event => {
+  const play = event.target.closest('[data-embed]')
+  if (!play || !player) return
+  event.preventDefault()
+  const src = play.getAttribute('data-embed')
+  if (src) mountEmbed(player, src)
+})
 function mountFilm(raw) {
   const src = embedUrl(raw)
   if (!player || !src) return
+  if (/\.(mp4|webm|ogv)(?:$|\?)/i.test(src)) { mountEmbed(player, src); return }
   player.dataset.state = 'ready'
   player.replaceChildren()
-  const play = document.createElement('button')
-  play.type = 'button'
+  const poster = document.createElement('img')
+  poster.className = 'poster'
+  poster.src = '/assets/hero/compass-hero.jpg'
+  poster.alt = ''
+  const play = document.createElement('a')
   play.className = 'play'
+  play.href = raw
+  play.dataset.embed = src
   play.textContent = 'Play the demo'
-  play.addEventListener('click', () => {
-    const file = /\.(mp4|webm|ogv)(?:$|\?)/i.test(src)
-    const frame = document.createElement(file ? 'video' : 'iframe')
-    frame.title = 'COMPASS demo video'
-    if (file) { frame.controls = true; frame.playsInline = true; frame.src = src }
-    else { frame.src = src; frame.allow = 'fullscreen; picture-in-picture'; frame.referrerPolicy = 'no-referrer'; frame.setAttribute('allowfullscreen', '') }
-    player.replaceChildren(frame)
-  })
-  player.append(play)
+  player.append(poster, play)
 }
-if (player) {
+if (player && !player.querySelector('video, iframe, [data-embed]')) {
   const stop = AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined
   fetch('/api/config', { headers: { accept: 'application/json' }, signal: stop })
     .then(res => res.ok ? res.json() : null)
@@ -86,10 +145,71 @@ if (player) {
     .catch(() => {})
 }
 
-const form = document.querySelector('#waitlist')
-form?.addEventListener('submit', event => {
+const form = document.querySelector('#early-access')
+const status = document.querySelector('#early-access-status')
+function setStatus(message, isError) {
+  if (!status) return
+  status.textContent = message
+  status.classList.toggle('is-error', Boolean(isError))
+}
+function mailtoFallback(email) {
+  return 'mailto:info@aimedia.global?subject=' + encodeURIComponent('COMPASS early access') + '&body=' + encodeURIComponent('Email: ' + email)
+}
+const emailInput = form?.querySelector('input[name="email"]')
+emailInput?.addEventListener('invalid', event => {
   event.preventDefault()
-  const status = document.querySelector('#waitlist-status')
-  if (!form.reportValidity()) return
-  if (status) status.textContent = 'Not sent. TODO: connect a waitlist destination before this form can store an email.'
+  emailInput.setAttribute('aria-invalid', 'true')
+  setStatus('Enter a valid email address.', true)
+})
+emailInput?.addEventListener('input', () => {
+  if (emailInput.validity.valid) emailInput.removeAttribute('aria-invalid')
+})
+form?.addEventListener('submit', async event => {
+  event.preventDefault()
+  if (!form.reportValidity()) {
+    emailInput?.setAttribute('aria-invalid', 'true')
+    setStatus('Enter a valid email address.', true)
+    return
+  }
+  const email = emailInput?.value?.trim() || ''
+  const honey = form.querySelector('input[name="hp"]')?.value || ''
+  const submit = form.querySelector('button[type="submit"]')
+  if (submit) submit.disabled = true
+  setStatus('Sending your request.', false)
+  try {
+    const res = await fetch('/api/early-access', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ email, hp: honey }),
+    })
+    const data = await res.json().catch(() => null)
+    if (res.status === 429) {
+      setStatus('Too many requests from this network. Wait a moment and try again.', true)
+      return
+    }
+    if (data?.stored) {
+      emailInput?.removeAttribute('aria-invalid')
+      setStatus('Request received.', false)
+      form.reset()
+      return
+    }
+    if (data?.delivery === 'mailto' && typeof data.mailto === 'string' && data.mailto.startsWith('mailto:info@aimedia.global?')) {
+      emailInput?.removeAttribute('aria-invalid')
+      setStatus('Your email app will open so you can send this request to info@aimedia.global.', Boolean(data.error))
+      location.href = data.mailto
+      return
+    }
+    if (data?.ok && data.stored === false) {
+      setStatus('Thanks.', false)
+      return
+    }
+    emailInput?.setAttribute('aria-invalid', 'true')
+    setStatus('Enter a valid email address.', true)
+    emailInput?.focus()
+  } catch {
+    setStatus('Your email app will open so you can send this request to info@aimedia.global.', true)
+    location.href = mailtoFallback(email)
+  } finally {
+    if (submit) submit.disabled = false
+  }
 })

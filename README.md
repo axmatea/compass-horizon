@@ -36,9 +36,14 @@ The build produces the homepage and /demo. The Node delivery server uses
 built-in modules only: no runtime dependencies, database, login or sessions.
 /demo returns 200 and works with a prepared example when no model key is set.
 An optional server-side model call uses the key names in compass/.env.example.
-DEMO_VIDEO_URL is read on each request. Other retired page URLs return 410.
-Unknown API URLs return 404. Do not reintroduce office, auth or voice as
-incidental cleanup.
+DEMO_VIDEO_URL is read on each request. When it is unset, the homepage omits
+the video block and the secondary hero link is “See how it works”. When it is
+an https URL, the homepage renders that player and a “Watch the video” link.
+POST /api/early-access accepts one email. When WAITLIST_WEBHOOK_URL is an
+https URL, the server posts `{email, timestamp}` there. When it is unset, the
+form falls back to mailto:info@aimedia.global and the page does not claim the
+email was stored. Other retired page URLs return 410. Unknown API URLs return
+404. Do not reintroduce office, auth or voice as incidental cleanup.
 
 ## Deploy and recover
 
@@ -46,7 +51,7 @@ Production is the existing Railway compass-nayl-vincent / compass-web service,
 serving mycompass.world. Source: this repository main, root directory /compass.
 Use compass/Dockerfile; Railway supplies PORT; healthcheck is /healthz.
 The response records mode=public-demo and the deployed Git revision.
-/demo returns 200. A missing DEMO_VIDEO_URL shows Request access.
+/demo returns 200. A missing DEMO_VIDEO_URL omits the video block.
 
 GitHub stores the source and lockfile needed to rebuild on another computer.
 Verify a fresh clone, npm run product:install, npm test and npm run build before

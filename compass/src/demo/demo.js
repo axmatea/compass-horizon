@@ -195,7 +195,7 @@ function tone(meta) {
   const text = String(meta || '').toLowerCase()
   if (text.includes('full')) return 'full'
   if (text.includes('open') || text.includes('spot')) return 'open'
-  if (text.includes('not sent') || text.includes('preview') || text.includes('not connected')) return 'quiet'
+  if (text.includes('not sent') || text.includes('preview')) return 'quiet'
   if (text.includes('scheduled') || text.includes('checked') || text.includes('staged')) return 'hold'
   return ''
 }

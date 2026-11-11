@@ -1,9 +1,11 @@
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve, sep, extname } from 'node:path';
 import { clarifyDemo, planDemo, demoVideoUrl, llmStatus, fallbackRun, MAX_INTENT } from './demo-api.mjs';
+import { submitEarlyAccess } from './early-access.mjs';
+import { applyHomepage } from './homepage.mjs';
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -12,7 +14,7 @@ const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
   '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
 const retired = /^\/(?:app|office|login|demo|voice-demo|presentation|present|story|protect|studio|horizon|vision|acquisition|live|film)(?:\/|\.|$)/;
-const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; frame-src https:";
+const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action mailto:; frame-ancestors 'none'; frame-src https:";
 
 function clientAddress(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -74,8 +76,14 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
           revision: env.RAILWAY_GIT_COMMIT_SHA || env.COMPASS_REVISION || 'local' }); return;
       }
       if (pathname === '/api/config' && req.method === 'GET') { json(200, { demoVideoUrl: demoVideoUrl(env) }); return; }
-      if (pathname === '/api/waitlist' && req.method === 'POST') {
-        json(501, { error: 'not_configured', todo: 'Waitlist destination is not connected. Nothing was stored.' }); return;
+      if (pathname === '/api/early-access') {
+        if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); text(405, 'Method not allowed'); return; }
+        const gate = hit(clientAddress(req));
+        if (gate.limited) { json(429, { ok: false, stored: false, error: 'rate_limited' }, { 'Retry-After': String(gate.retryAfter) }); return; }
+        const body = await readJson(req);
+        if (body.error) { json(400, { ok: false, stored: false, error: body.error }); return; }
+        const result = await submitEarlyAccess(body.value, { env, fetchImpl });
+        json(result.status, result.body); return;
       }
       if (pathname === '/api/demo/clarify' || pathname === '/api/demo/plan') {
         if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); text(405, 'Method not allowed'); return; }
@@ -95,16 +103,29 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
       if (normalized === '/demo') { await serveFile(req, res, root, '/demo.html', text); return; }
       if (retired.test(normalized)) { text(410, 'This section has been retired. Visit the COMPASS homepage at /.'); return; }
       const page = normalized === '/' || normalized === '/index.html';
-      if (!page && (pathname.endsWith('.html') || pathname.split('/').some(part => part.startsWith('.')) || !types[extname(pathname)])) {
+      if (page) { await serveHtml(req, res, root, '/index.html', env, text); return; }
+      if (pathname.endsWith('.html') || pathname.split('/').some(part => part.startsWith('.')) || !types[extname(pathname)]) {
         text(404, 'Not found'); return;
       }
-      await serveFile(req, res, root, page ? '/index.html' : pathname, text);
+      await serveFile(req, res, root, pathname, text);
     } catch { if (!res.headersSent) text(404, 'Not found'); else res.destroy(); }
   });
   return { server, async close() {
     const stopped = server.listening ? new Promise(resolve => server.close(resolve)) : Promise.resolve();
     server.closeIdleConnections(); await stopped;
   } };
+}
+
+async function serveHtml(req, res, root, pathname, env, text) {
+  const file = resolve(root, '.' + pathname);
+  if (!file.startsWith(root + sep) && file !== root) { text(403, 'Forbidden'); return; }
+  let html;
+  try { html = await readFile(file, 'utf8'); }
+  catch { text(404, 'Not found'); return; }
+  if (pathname === '/index.html') html = applyHomepage(html, env);
+  const body = Buffer.from(html);
+  res.writeHead(200, { 'Content-Type': types['.html'], 'Cache-Control': 'public, max-age=0, must-revalidate', 'Content-Length': body.length });
+  res.end(req.method === 'HEAD' ? undefined : body);
 }
 
 async function serveFile(req, res, root, pathname, text) {
