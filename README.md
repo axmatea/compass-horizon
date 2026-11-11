@@ -2,9 +2,10 @@
 
 Canonical source: [axmatea/compass-horizon](https://github.com/axmatea/compass-horizon).
 
-This repository contains the public COMPASS homepage and the /demo preview.
-Workspace, login, registration, voice, presentations and disconnected research
-are retired. Historical code is recoverable from Git history; no history
+This repository contains the public COMPASS homepage, the /demo site builder,
+and the /plan product-plan preview. Workspace, login, registration,
+presentations and disconnected research are retired. The demo uses browser
+speech only. Historical code is recoverable from Git history; no history
 rewrite is needed.
 
 ## Run
@@ -32,10 +33,11 @@ npm run build
 npm audit --prefix compass
 ```
 
-The build produces the homepage and /demo. The Node delivery server uses
-built-in modules only: no runtime dependencies, database, login or sessions.
-/demo returns 200 and works with a prepared example when no model key is set.
-An optional server-side model call uses the key names in compass/.env.example.
+The build produces the homepage, /demo, and /plan. The Node delivery server uses
+built-in modules only: no runtime dependencies, database, or login. The builder
+keeps its session in memory. /demo returns 200 and still shows a prepared build
+when no model key is set. An optional server-side model call uses the key names
+in compass/.env.example. Anthropic is first when ANTHROPIC_API_KEY is set.
 DEMO_VIDEO_URL is read on each request. When it is unset, the homepage omits
 the video block and the secondary hero link is “See how it works”. When it is
 an https URL, the homepage renders that player and a “Watch the video” link.
@@ -43,7 +45,7 @@ POST /api/early-access accepts one email. When WAITLIST_WEBHOOK_URL is an
 https URL, the server posts `{email, timestamp}` there. When it is unset, the
 form falls back to mailto:info@aimedia.global and the page does not claim the
 email was stored. Other retired page URLs return 410. Unknown API URLs return
-404. Do not reintroduce office, auth or voice as incidental cleanup.
+404. Do not reintroduce office, auth, or a server voice bridge as incidental cleanup.
 
 ## Deploy and recover
 

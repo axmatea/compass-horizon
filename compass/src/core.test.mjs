@@ -10,10 +10,11 @@ const read = path => readFile(new URL(path, root), 'utf8');
 test('homepage offers the demo and does not call the product unavailable', async () => {
   const html = await read('index.html');
   const demo = await read('demo.html');
+  const plan = await read('plan.html');
   const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro', 'https://docs.lovable.dev/introduction/welcome', 'https://docs.lovable.dev/introduction/faq', 'https://bolt.new/', 'https://replit.com/', 'https://v0.app/']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
     if (external.has(href)) continue;
-    assert(href.startsWith('#') || href === '/demo', href);
+    assert(href.startsWith('#') || href === '/demo' || href === '/plan', href);
     if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
   }
   assert.match(html, /Describe it\./);
@@ -24,8 +25,13 @@ test('homepage offers the demo and does not call the product unavailable', async
   assert.match(html, /class="voice-loop"/);
   assert.match(html, /aria-hidden="true"/);
   assert.match(demo, /id="mic"/);
-  assert.match(demo, /Speak your idea/);
+  assert.match(demo, /Speak/);
   assert.match(demo, /Skip to the demo/);
+  assert.match(demo, /Watch the build/);
+  assert.match(demo, /Build me a premium website for an AI company/);
+  assert.match(plan, /id="mic"/);
+  assert.match(plan, /Speak your idea/);
+  assert.match(plan, /Skip to the demo/);
   const voice = await read('src/demo/voice.mjs');
   const demoJs = await read('src/demo/demo.js');
   assert.match(voice, /webkitSpeechRecognition/);
@@ -37,7 +43,7 @@ test('homepage offers the demo and does not call the product unavailable', async
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /name="hp"/);
   assert.match(html, /AX Media Global builds software for business clients/);
-  assert.doesNotMatch(html + demo, /TODO|not connected|not on this page yet|coming soon|lorem ipsum|\bconcept\b|Watch the video/i);
+  assert.doesNotMatch(html + demo + plan, /TODO|not connected|not on this page yet|coming soon|lorem ipsum|\bconcept\b|Watch the video/i);
   assert.match(html, /id="team"/);
   assert.match(html, /id="compare"/);
   assert.match(html, /id="how"/);
@@ -45,9 +51,12 @@ test('homepage offers the demo and does not call the product unavailable', async
   assert.match(html, /og:image:width" content="1200"/);
   assert.match(html, /og:image:height" content="630"/);
   await access(new URL('public/assets/og.jpg', root));
-  assert.doesNotMatch(html + demo, /not an available app|concept, not|Try it live|page-pricing|id="film"/i);
+  assert.doesNotMatch(html + demo + plan, /not an available app|concept, not|Try it live|page-pricing|id="film"/i);
+  assert.doesNotMatch(html + demo + plan, /vincent/i);
+  assert.match(html, /NAŸL · AX Media Global/);
+  assert.match(plan, /NAŸL · AX Media Global/);
   assert.doesNotMatch(html, /action="https?:/);
-  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['demo.html', 'index.html']);
+  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['demo.html', 'index.html', 'plan.html']);
   const landing = await read('src/site/landing.js');
   assert.match(landing, /fetch\('\/api\/config'/);
   assert.match(landing, /\/api\/early-access/);
@@ -62,7 +71,7 @@ test('homepage offers the demo and does not call the product unavailable', async
   assert.equal(sample[0].name, 'Example Person');
   assert.equal(sample[0].logo, '');
   assert.equal(sample[1].logo, '/assets/logo.svg');
-  for (const example of EXAMPLES) assert.ok(demo.includes(example.intent), example.id);
+  for (const example of EXAMPLES) assert.ok(plan.includes(example.intent), example.id);
 });
 
 test('only referenced homepage assets and font licence are retained', async () => {
@@ -76,6 +85,7 @@ test('only referenced homepage assets and font licence are retained', async () =
   assert.match(await read('public/licenses/sora-OFL.txt'), /SIL OPEN FONT LICENSE/);
   const sitemap = await read('public/sitemap.xml');
   assert.match(sitemap, /https:\/\/mycompass\.world\/demo</);
+  assert.match(sitemap, /https:\/\/mycompass\.world\/plan</);
   assert.doesNotMatch(sitemap, /\/(?:app|office|login|presentation)</);
 });
 
@@ -86,6 +96,7 @@ test('runtime, build and CI have no retired database or React dependencies', asy
   const vite = await read('vite.config.ts');
   assert.match(vite, /index\.html/);
   assert.match(vite, /demo\.html/);
+  assert.match(vite, /plan\.html/);
   for (const path of ['scripts', 'app.html', 'login.html', 'src/auth', 'src/workspace']) await assert.rejects(access(new URL(path, root)));
   assert.doesNotMatch(await read('server.mjs'), /import.+(?:pg|auth|workspace|react)/i);
   assert.doesNotMatch(await read('llm.mjs') + await read('demo-api.mjs') + await read('early-access.mjs') + await read('homepage.mjs'), /GENERAL_COMPUTE_API_KEY\s*=\s*['"][^'"]+['"]|WAITLIST_WEBHOOK_URL\s*=\s*['"]https/);

@@ -8,8 +8,12 @@ names, values never committed: DEMO_VIDEO_URL, WAITLIST_WEBHOOK_URL, LLM_PROVIDE
 GENERAL_COMPUTE_API_KEY, GENERALCOMPUTE_API_KEY, GENERAL_COMPUTE_MODEL,
 GENERALCOMPUTE_MODEL, GENERAL_COMPUTE_BASE_URL, GENERALCOMPUTE_BASE_URL,
 GENERALCOMPUTE_TIMEOUT_MS, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_MODEL,
-NEBIUS_THINKING, NEBIUS_TIMEOUT_MS, DEMO_RATE_LIMIT, DEMO_RATE_WINDOW_MS.
-Unset model keys keep /demo on the prepared examples.
+NEBIUS_THINKING, NEBIUS_TIMEOUT_MS, ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
+ANTHROPIC_BASE_URL, ANTHROPIC_TIMEOUT_MS, DEMO_RATE_LIMIT, DEMO_RATE_WINDOW_MS.
+When ANTHROPIC_API_KEY is set it is tried first. The default model is
+claude-haiku-5-5. The same 8 second cap applies, then General Compute, then
+Nebius. Unset model keys keep /demo on the prepared build. /plan is the
+secondary product-plan preview.
 
 Run check, tests, build and audit before merge. After deployment, require the
 expected Git revision and mode=public-demo in /healthz, successful homepage

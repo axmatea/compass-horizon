@@ -24,7 +24,9 @@ test('homepage-only delivery retires old pages even if stale files exist', async
   assert.equal(home.headers.get('x-content-type-options'), 'nosniff');
   assert.equal((await fetch(origin + '/demo')).status, 200);
   assert.equal(await (await fetch(origin + '/demo')).text(), '<h1>demo</h1>');
-  for (const path of ['/app', '/app.html', '/office', '/office?workspaceInvite=old', '/login', '/login.html', '/demo/workspace', '/demo/remaster/app', '/presentation', '/presentation/finale', '/protect', '/horizon', '/studio', '/vision', '/acquisition', '/voice-demo', '/film.html']) {
+  assert.equal((await fetch(origin + '/voice-demo')).status, 200);
+  assert.equal(await (await fetch(origin + '/voice-demo')).text(), '<h1>demo</h1>');
+  for (const path of ['/app', '/app.html', '/office', '/office?workspaceInvite=old', '/login', '/login.html', '/demo/workspace', '/demo/remaster/app', '/presentation', '/presentation/finale', '/protect', '/horizon', '/studio', '/vision', '/acquisition', '/film.html']) {
     assert.equal((await fetch(origin + path)).status, 410, path);
   }
   for (const path of ['/api', '/api/auth/get-session', '/api/workspaces', '/api/acquisition/state', '/api/remaster/state', '/api/waitlist', '/.env', '/unknown.html', '/unknown']) assert.equal((await fetch(origin + path)).status, 404, path);

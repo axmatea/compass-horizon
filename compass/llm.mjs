@@ -115,9 +115,20 @@ export function loadLlm(env = process.env, fetchImpl = fetch) {
     timeoutMs: Math.min(Number(env.GENERALCOMPUTE_TIMEOUT_MS || env.GENERAL_COMPUTE_TIMEOUT_MS || env.NEBIUS_TIMEOUT_MS || 8000) || 8000, 12000),
     thinking: false,
   };
-  const forced = env.LLM_PROVIDER === 'nebius' ? 'nebius' : /^general[_-]?compute$/i.test(env.LLM_PROVIDER || '') ? 'generalcompute' : null;
-  const order = forced ? [forced] : ['generalcompute', 'nebius'];
-  const configs = order.map(name => (name === 'nebius' ? nebius : generalcompute)).filter(item => item.apiKey);
+  const anthropic = {
+    provider: 'anthropic',
+    apiKey: env.ANTHROPIC_API_KEY || '',
+    baseUrl: (env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1/').replace(/\/?$/, '/'),
+    model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+    timeoutMs: Math.min(Number(env.ANTHROPIC_TIMEOUT_MS || 8000) || 8000, 12000),
+    thinking: false,
+  };
+  const forced = env.LLM_PROVIDER === 'nebius' ? 'nebius'
+    : /^general[_-]?compute$/i.test(env.LLM_PROVIDER || '') ? 'generalcompute'
+      : /^anthropic$/i.test(env.LLM_PROVIDER || '') ? 'anthropic' : null;
+  const order = forced ? [forced] : ['anthropic', 'generalcompute', 'nebius'];
+  const catalog = { anthropic, generalcompute, nebius };
+  const configs = order.map(name => catalog[name]).filter(item => item && item.apiKey);
   const clients = configs.map(item => createClient({ ...item, fetchImpl }));
   const timeoutMs = clients.length ? Math.min(12000, Math.max(...clients.map(item => item.timeoutMs))) : 0;
   return {
@@ -201,6 +212,7 @@ export function createClient({ apiKey, baseUrl, model, backupModel = '', provide
     const limit = Math.min(timeoutMs, Math.max(1, Number(timeoutOverride) || timeoutMs));
     const timeout = AbortSignal.timeout(limit);
     const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    if (provider === 'anthropic') return anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, fetchImpl });
     const attempt = modelId => send(modelId, messages, temperature, maxTokens, combined, timeout, providerCaps);
     try {
       return await attempt(model);
@@ -224,6 +236,40 @@ export function createClient({ apiKey, baseUrl, model, backupModel = '', provide
     }
   }
   return { chat, provider, model, timeoutMs };
+}
+
+async function anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, fetchImpl }) {
+  const system = messages.filter(item => item.role === 'system').map(item => contentToString(item.content)).filter(Boolean).join('\n\n');
+  const dialogue = messages.filter(item => item.role !== 'system').map(item => ({
+    role: item.role === 'assistant' ? 'assistant' : 'user',
+    content: contentToString(item.content),
+  }));
+  const body = { model, max_tokens: maxTokens, temperature, messages: dialogue.length ? dialogue : [{ role: 'user', content: 'Respond with one JSON object.' }] };
+  if (system) body.system = system;
+  let res;
+  try {
+    res = await fetchImpl(new URL('messages', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify(body),
+      signal: combined,
+    });
+  } catch (err) {
+    if (signal?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err });
+    if (timeout.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err });
+    throw new LlmError('LLM network error', { code: 'network', cause: err });
+  }
+  if (!res.ok) {
+    const text = (await res.text().catch(() => '')).slice(0, 180);
+    throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', providerCode: readProviderCode(text, apiKey), model });
+  }
+  let json;
+  try { json = await res.json(); }
+  catch (err) { throw new LlmError('LLM response was not JSON', { code: 'parse', cause: err }); }
+  const blocks = Array.isArray(json?.content) ? json.content : [];
+  const text = blocks.filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n');
+  const thinking = blocks.filter(block => block?.type === 'thinking' && typeof block.thinking === 'string').map(block => block.thinking).join('\n');
+  return { message: { content: text, reasoning_content: thinking }, provider: 'anthropic', model, finishReason: typeof json?.stop_reason === 'string' ? json.stop_reason : '' };
 }
 
 export function createChain(clients, budgetMs = 8000) {
