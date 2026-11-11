@@ -109,15 +109,16 @@ function label(value) {
 
 function reportFallback(failures, route, log) {
   for (const item of failures) {
-    const line = `compass demo llm fallback route=${label(route)} provider=${label(item.provider)} model=${label(item.model)} code=${label(item.code)} status=${item.status === '' || item.status == null ? '-' : label(item.status)} category=${label(item.category)}`;
+    const error = item.providerCode ? label(item.providerCode).slice(0, 60) : '-';
+    const line = `compass demo llm fallback route=${label(route)} provider=${label(item.provider)} model=${label(item.model)} code=${label(item.code)} status=${item.status === '' || item.status == null ? '-' : label(item.status)} category=${label(item.category)} error=${error}`;
     try { log(line); } catch { /* a log failure must not change the preview */ }
   }
 }
 
-async function ask(env, fetchImpl, messages, maxTokens, accept) {
+async function ask(env, fetchImpl, messages, maxTokens, accept, providerCaps) {
   const loaded = loadLlm(env, fetchImpl);
   if (!loaded.clients.length) return { json: null, failures: [] };
-  return completeJson({ clients: loaded.clients, messages, maxTokens, accept });
+  return completeJson({ clients: loaded.clients, messages, maxTokens, accept, providerCaps });
 }
 
 const system = 'You plan software for COMPASS. Return one JSON object and nothing else. Close any thinking block before that JSON. Do not include prices, revenue, customer counts, or real people.';
@@ -128,7 +129,7 @@ export async function clarifyDemo({ intent, exampleId, env, fetchImpl = fetch, l
   const result = await ask(env, fetchImpl, [
     { role: 'system', content: system },
     { role: 'user', content: `Intent: ${local.intent}\nReturn {"questions":[{"prompt":"string","options":["string","string"]}]} with 1 to 3 questions and 2 to 4 short options each.` },
-  ], CLARIFY_MAX_TOKENS, json => Boolean(questionsFromModel(json)));
+  ], CLARIFY_MAX_TOKENS, json => Boolean(questionsFromModel(json)), { nebius: 512 });
   const questions = result.json && questionsFromModel(result.json);
   if (!questions) {
     reportFallback(result.failures, 'clarify', log);
