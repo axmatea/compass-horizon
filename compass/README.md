@@ -2,7 +2,8 @@
 
 Public pages: index.html, demo.html, and plan.html.
 No workspace, login, presentation, or database is supported.
-/demo is the site builder (voice or text, brief, build, page preview).
+The homepage hero runs the site builder inline (voice or text, brief, build,
+page preview on web and phone). /demo is the full-screen builder.
 /voice-demo serves that same builder. /plan is the product-plan preview.
 Other old pages return 410.
 /api/config, /api/demo, /api/site/turn, and /api/early-access are the application APIs.

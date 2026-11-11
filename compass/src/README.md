@@ -1,8 +1,21 @@
 # Homepage frontend
 
-index.html, demo.html, and plan.html are built. src/site/ is the cinematic homepage.
+index.html, demo.html, and plan.html are built. src/site/ is the homepage.
 src/builder/ is the /demo site builder. src/demo/ is the /plan preview and its
-prepared examples. Font terms ship in public/licenses/sora-OFL.txt.
+prepared examples. Font terms ship in public/licenses/ (Inter for the homepage,
+Sora for /plan).
+
+The homepage hero is the same builder as /demo: landing.js posts to
+/api/site/turn and reads the stream with the rules in studio.mjs, then shows
+the brief, the build log and the page in a web frame and a phone frame.
+home.css styles it. modes.mjs holds the four picker modes and frames.mjs
+renders their example layouts. index.html carries that output for the default
+mode and the product cards, and test/home.test.mjs fails when they drift.
+A reply is labelled "Live model" only when the model wrote the copy.
+
+Founder slots stay hidden until confirmed content exists. Search index.html
+for "FOUNDER SLOT": video (DEMO_VIDEO_URL), traction, team (team.mjs) and
+pricing.
 
 No React, workspace, auth, or presentation modules remain. The microphones
 use the browser Speech Recognition API. Audio is not uploaded. The builder
