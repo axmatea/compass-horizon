@@ -2,7 +2,7 @@
 import { team, visibleTeam } from './team.mjs'
 import { modeById, REVISIONS } from './modes.mjs'
 import { webMock, phoneMock, briefMock, ideasMock } from './frames.mjs'
-import { createStudio, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
+import { createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
 import { createDictation } from '../demo/voice.mjs'
 
 const $ = selector => document.querySelector(selector)
@@ -203,9 +203,7 @@ async function submit(raw) {
   reviseInput.value = ''
   hint.textContent = HINT
   setNotice('')
-  state.turns += 1
-  state.open += 1
-  state.phase = 'thinking'
+  beginTurn(state)
   paint()
   const box = stage.getBoundingClientRect()
   if (box.top > innerHeight * 0.45 || box.top < 0) stage.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
@@ -286,7 +284,12 @@ function setSound(on) {
 }
 
 if (stage && composer) {
-  changes.innerHTML = REVISIONS.map(text => `<button type="button" class="idea" data-idea="${text}">${text}</button>`).join('')
+  changes.replaceChildren(...REVISIONS.map(([label, text]) => {
+    const chip = el('button', 'idea', label)
+    chip.type = 'button'
+    chip.dataset.idea = text
+    return chip
+  }))
   composer.addEventListener('submit', event => { event.preventDefault(); submit(intent.value) })
   composer.addEventListener('change', event => {
     if (event.target.name !== 'mode') return

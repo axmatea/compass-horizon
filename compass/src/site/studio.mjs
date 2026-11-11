@@ -34,6 +34,16 @@ export function settle(state) {
   return state.render ? 'done' : 'idle'
 }
 
+// A new turn with nothing in flight starts a fresh build log. A turn sent while
+// another is running keeps the running step so the interruption stays visible.
+export function beginTurn(state) {
+  if (state.open === 0) state.actions = []
+  state.turns += 1
+  state.open += 1
+  state.phase = 'thinking'
+  return state
+}
+
 export function closeTurn(state) {
   state.open = Math.max(0, state.open - 1)
   if (state.open === 0) {

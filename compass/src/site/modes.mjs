@@ -38,7 +38,7 @@ export const MODES = [
     title: 'Websites',
     blurb: 'For the first thing people see: a launch page, a storefront, a portfolio.',
     placeholder: 'A website for my bakery with a menu and an order button…',
-    ideas: ['A website for my neighbourhood bakery', 'A launch page for an AI company, dark and cinematic', 'A portfolio for a wedding photographer'],
+    ideas: ['A website for my neighbourhood bakery', 'A dark, cinematic page for an AI company', 'A portfolio for a wedding photographer'],
     brief: [['What', 'Bakery website'], ['For', 'The neighbourhood'], ['Tone', 'Warm'], ['Sections', 'Hero · Menu · Visit']],
     sample: {
       name: 'Bakery website',
@@ -70,4 +70,8 @@ export function modeById(id) {
 }
 
 // Lines offered once a page exists. Each is a change the builder understands.
-export const REVISIONS = ['Make it darker and more cinematic', 'Add a pricing section', 'Make the hero more ambitious']
+export const REVISIONS = [
+  ['Darker, more cinematic', 'Make it darker and more cinematic.'],
+  ['Add pricing', 'Add a pricing section.'],
+  ['Bolder hero', 'Make the hero more ambitious.'],
+]
