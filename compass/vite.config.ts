@@ -3,9 +3,12 @@ import { fileURLToPath } from "node:url";
 
 function demoRoute() {
   const rewrite = (req: { url?: string }) => {
-    if (req.url && /^\/demo\/?(?:\?|$)/.test(req.url)) {
+    if (req.url && /^\/(?:demo|voice-demo)\/?(?:\?|$)/.test(req.url)) {
       const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
       req.url = "/demo.html" + query;
+    } else if (req.url && /^\/plan\/?(?:\?|$)/.test(req.url)) {
+      const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+      req.url = "/plan.html" + query;
     }
   };
   return {
@@ -28,6 +31,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
         demo: fileURLToPath(new URL("./demo.html", import.meta.url)),
+        plan: fileURLToPath(new URL("./plan.html", import.meta.url)),
       },
     },
   },

@@ -1,99 +1,94 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#03060c">
-<title>COMPASS demo · Describe it. COMPASS builds it.</title>
-<meta name="description" content="Early access demo. Speak or type a product, answer a few questions, and preview it on web and mobile.">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#070b10">
+<title>COMPASS demo · Say it. Watch it build.</title>
+<meta name="description" content="Say or type a website. COMPASS keeps the brief, shows the build, and renders a page for this session. Nothing is published.">
 <link rel="canonical" href="https://mycompass.world/demo">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="COMPASS">
-<meta property="og:title" content="COMPASS demo · Describe it. COMPASS builds it.">
-<meta property="og:description" content="Early access demo. Speak or type a product, answer a few questions, and preview it on web and mobile.">
+<meta property="og:title" content="COMPASS demo · Say it. Watch it build.">
+<meta property="og:description" content="Say or type a website. COMPASS keeps the brief, shows the build, and renders a page for this session. Nothing is published.">
 <meta property="og:url" content="https://mycompass.world/demo">
 <meta property="og:image" content="https://mycompass.world/assets/og.jpg">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="COMPASS. Describe it. COMPASS builds it. A web preview and a phone preview.">
+<meta property="og:image:alt" content="COMPASS demo. A brief, a build log, and a page preview.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="COMPASS demo">
-<meta name="twitter:description" content="Early access demo. Speak or type a product, answer a few questions, and preview it on web and mobile.">
+<meta name="twitter:title" content="COMPASS demo · Say it. Watch it build.">
+<meta name="twitter:description" content="Say or type a website. COMPASS keeps the brief, shows the build, and renders a page for this session.">
 <meta name="twitter:image" content="https://mycompass.world/assets/og.jpg">
-<meta name="twitter:image:alt" content="COMPASS. Describe it. COMPASS builds it. A web preview and a phone preview.">
+<meta name="twitter:image:alt" content="COMPASS demo. A brief, a build log, and a page preview.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/src/site/landing.css">
-<link rel="stylesheet" href="/src/demo/demo.css">
-<script type="module" src="/src/demo/demo.js"></script>
+<link rel="stylesheet" href="/src/builder/builder.css">
+<script type="module" src="/src/builder/builder.js"></script>
 </head>
-<body class="warm demo-body">
-<a class="skip" href="#stage-intent">Skip to the demo</a>
+<body>
+<a class="skip" href="#sd-input">Skip to the demo</a>
 <header class="bar">
-<a class="brand" href="/" aria-label="COMPASS homepage"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg><span>COMPASS</span></a>
-<nav class="menu" id="primary-menu" aria-label="Primary"><a href="/">Home</a><a href="/#how">How it works</a><a href="/demo" aria-current="page">Demo</a></nav>
-<a class="pill" href="/#access">Request access</a>
-<button class="burger" type="button" aria-label="Menu" aria-controls="primary-menu" aria-expanded="false"><i></i><i></i></button>
+<a class="brand" href="/" aria-label="COMPASS homepage"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</a>
+<nav aria-label="Site"><a href="/">Home</a><a href="/plan">Plan preview</a><a href="/#access">Request access</a></nav>
 </header>
-<main class="demo" id="demo">
-<p class="eyebrow">Early access</p>
-<ol class="progress" aria-label="Demo progress">
-<li data-step="intent" aria-current="step">Describe</li>
-<li data-step="questions">Questions</li>
-<li data-step="preview">Preview</li>
-</ol>
-<p id="demo-status" class="sr" role="status"></p>
-<section id="stage-intent" class="stage is-on" aria-labelledby="intent-title">
-<h1 id="intent-title" tabindex="-1">Describe it.</h1>
-<p class="lede">Speak it, or type it. COMPASS builds a plan, then a web preview and a phone preview. One to three questions. Voice can skip them. Nothing is published.</p>
-<form id="intent-form">
-<div class="composer" id="composer">
-<button class="mic" id="mic" type="button" aria-pressed="false" aria-describedby="mic-hint">
-<span class="mic-orb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5M9 20.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
-<span class="mic-text"><span class="mic-kicker" aria-hidden="true">Voice</span><span class="mic-label">Speak your idea</span></span>
-<span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-</button>
-<p id="voice-fallback" class="voice-fallback" hidden>Voice input is unavailable here. Type the idea below.</p>
-<div class="composer-field">
-<label for="intent">What should it do?</label>
-<textarea id="intent" name="intent" maxlength="500" rows="3" required placeholder="Speak or type the software you need"></textarea>
-<div class="composer-meta"><p id="voice-note" class="voice-note"></p><p class="count"><span id="intent-count">0</span> / 500</p></div>
+<main class="page">
+<h1>Say it. Watch the build.</h1>
+<p class="lede">Describe a website out loud or in writing. COMPASS keeps the brief, shows each build step, and renders the page for this session. Change your mind while it is working. Nothing is published.</p>
+<div class="sd" id="demo" data-state="idle">
+<div class="sd-shell">
+<aside class="sd-side">
+<div class="sd-top">
+<div class="orb-wrap">
+<div class="orb" id="orb" data-state="idle" aria-hidden="true"><i class="halo"></i><i class="core"></i><i class="ring"></i></div>
+<p class="orb-label" id="orb-label" aria-live="polite">Ready</p>
+</div>
+<div class="corner">
+<button type="button" class="icon" id="sound" aria-pressed="true">Sound on</button>
+<button type="button" class="icon" id="reset">Start over</button>
 </div>
 </div>
-<p id="mic-hint" class="sr">Speech stays in this browser. A pause submits the text in the field. Nothing is recorded on this server.</p>
-<p id="intent-error" role="alert"></p>
-<div class="actions left"><button class="cta" type="submit">Continue</button></div>
+<p class="hint" id="hint">Say what you want to build.</p>
+<p class="interim" id="interim" hidden></p>
+<div class="controls">
+<button type="button" class="mic" id="mic" aria-pressed="false">Speak</button>
+<button type="button" class="stop" id="stop" hidden>Interrupt</button>
+</div>
+<p class="voice-fallback" id="voice-fallback" hidden>Voice input is unavailable here. Type the idea below.</p>
+<p class="script-label" id="script-label">Try saying</p>
+<button type="button" class="line" id="sample"><span id="sample-text">Build me a premium website for an AI company. Make it minimal, dark and cinematic.</span></button>
+<form id="composer">
+<label class="sr" for="sd-input">Type to COMPASS</label>
+<input id="sd-input" name="text" maxlength="500" autocomplete="off" placeholder="Or type…">
+<button type="submit" id="send">Send</button>
 </form>
-<div class="examples" role="group" aria-label="Example intents">
-<button type="button" data-example="barber">a booking app for my barbershop with SMS reminders</button>
-<button type="button" data-example="jobs">a job tracker for my plumbing crew with on-the-way texts</button>
-<button type="button" data-example="classes">a class schedule for my yoga studio with a full-class waitlist</button>
+<p class="count"><span id="count">0</span> / 500</p>
+<section class="card" id="build-card" hidden>
+<header><span>Build</span></header>
+<ol class="build" id="build" aria-label="Build"></ol>
+</section>
+<section class="card" id="brief-card" hidden aria-live="polite">
+<header><span>The brief</span><span id="brief-version"></span></header>
+<ul class="brief" id="brief"></ul>
+</section>
+<ol class="log" id="log" aria-label="Transcript"></ol>
+<p class="notice" id="notice" role="status"></p>
+</aside>
+<section class="stage" id="stage" aria-label="Page preview">
+<div class="chrome">
+<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+<span class="url" id="url">untitled · Preview</span>
+<a class="pill" id="open" hidden target="_blank" rel="noreferrer">Open page</a>
 </div>
+<div class="empty" id="empty">
+<div class="wire" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></div>
+<p>Say what you want to build.</p>
+<small>Then change your mind. COMPASS keeps what holds and adapts the next step.</small>
+</div>
+<iframe class="frame" id="frame" title="Generated page preview" sandbox="" hidden></iframe>
 </section>
-<section id="stage-building" class="stage" hidden aria-labelledby="building-title">
-<p class="eyebrow">Building</p>
-<h2 id="building-title" tabindex="-1">Reading what you described</h2>
-<p class="lede" id="building-detail">This stays on this page. Nothing is published.</p>
-<div class="meter" aria-hidden="true"><span></span></div>
-</section>
-<section id="stage-questions" class="stage" hidden aria-labelledby="questions-title">
-<h2 id="questions-title" tabindex="-1">A few questions</h2>
-<p class="lede" id="questions-intent"></p>
-<p class="hint" id="questions-hint"></p>
-<form id="questions-form"></form>
-</section>
-<section id="stage-preview" class="stage" hidden aria-labelledby="preview-title">
-<h2 id="preview-title" tabindex="-1">Your preview</h2>
-<p class="lede" id="preview-summary"></p>
-<p class="notice" id="preview-notice"></p>
-<div id="preview-root"></div>
-<div class="actions left"><button class="ghost" type="button" id="start-over">Start over</button><a class="cta" href="/#access">Request access</a></div>
-</section>
-<noscript><p class="notice">This demo needs JavaScript to build the preview. The three example intents are on the page above.</p></noscript>
+</div>
+<p class="disclosure"><i></i>Proof of COMPASS: change your intent while the page is being built. The page is only the visible example. Rendered for this session, nothing is published. <a href="/plan">Product plan preview</a></p>
+</div>
 </main>
-<footer class="foot">
-<span class="brand"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</span>
-<span class="tag">AX Media Global</span>
-<nav aria-label="Footer"><a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a><a href="/">Home</a><a href="/#access">Request access</a></nav>
-<span class="credit">NAŸL × VINCENT</span>
-</footer>
-</body></html>
+</body>
+</html>

@@ -285,3 +285,25 @@ test('one provider that returns truncated JSON logs a truncated fallback and kee
   assert.match(lines[0], /category=truncated/);
   assert.equal(lines[0].includes('Which beans'), false);
 });
+
+test('anthropic is first when its key is set, then the chain continues', async () => {
+  const anthropicKey = 'anthropic-test-key';
+  const { calls, fetchImpl } = recorder((call) => {
+    assert.equal(JSON.stringify(call.body).includes(anthropicKey), false);
+    if (call.url.includes('anthropic.com')) return new Response('unavailable', { status: 503 });
+    return completion(beans);
+  });
+  const out = await clarifyDemo({
+    intent,
+    env: { ANTHROPIC_API_KEY: anthropicKey, GENERALCOMPUTE_API_KEY: gcKey, NEBIUS_API_KEY: nebiusKey },
+    fetchImpl,
+    log() { throw new Error('should not log'); },
+  });
+  assert.equal(out.source, 'model');
+  assert.equal(out.questions[0].options[0], 'Espresso');
+  assert.match(calls[0].url, /api\.anthropic\.com\/v1\/messages$/);
+  assert.equal(calls[0].body.model, 'claude-haiku-5-5');
+  assert.equal(calls[0].body.max_tokens, 1200);
+  assert.match(calls[1].url, /generalcompute\.com/);
+  assert.equal(JSON.stringify(calls).includes(anthropicKey), false);
+});

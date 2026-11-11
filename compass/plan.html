@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#03060c">
+<title>COMPASS plan preview · Describe it. COMPASS builds it.</title>
+<meta name="description" content="Secondary preview. Speak or type a product, answer a few questions, and see a web and phone plan. Nothing is published.">
+<link rel="canonical" href="https://mycompass.world/plan">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="COMPASS">
+<meta property="og:title" content="COMPASS plan preview">
+<meta property="og:description" content="Secondary preview. Speak or type a product, answer a few questions, and see a web and phone plan. Nothing is published.">
+<meta property="og:url" content="https://mycompass.world/plan">
+<meta property="og:image" content="https://mycompass.world/assets/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="COMPASS. Describe it. COMPASS builds it. A web preview and a phone preview.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="COMPASS plan preview">
+<meta name="twitter:description" content="Secondary preview. Speak or type a product, answer a few questions, and see a web and phone plan. Nothing is published.">
+<meta name="twitter:image" content="https://mycompass.world/assets/og.jpg">
+<meta name="twitter:image:alt" content="COMPASS. Describe it. COMPASS builds it. A web preview and a phone preview.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/src/site/landing.css">
+<link rel="stylesheet" href="/src/demo/demo.css">
+<script type="module" src="/src/demo/demo.js"></script>
+</head>
+<body class="warm demo-body">
+<a class="skip" href="#stage-intent">Skip to the demo</a>
+<header class="bar">
+<a class="brand" href="/" aria-label="COMPASS homepage"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg><span>COMPASS</span></a>
+<nav class="menu" id="primary-menu" aria-label="Primary"><a href="/">Home</a><a href="/demo">Demo</a><a href="/plan" aria-current="page">Plan</a></nav>
+<a class="pill" href="/#access">Request access</a>
+<button class="burger" type="button" aria-label="Menu" aria-controls="primary-menu" aria-expanded="false"><i></i><i></i></button>
+</header>
+<main class="demo" id="demo">
+<p class="eyebrow">Early access</p>
+<ol class="progress" aria-label="Demo progress">
+<li data-step="intent" aria-current="step">Describe</li>
+<li data-step="questions">Questions</li>
+<li data-step="preview">Preview</li>
+</ol>
+<p id="demo-status" class="sr" role="status"></p>
+<section id="stage-intent" class="stage is-on" aria-labelledby="intent-title">
+<h1 id="intent-title" tabindex="-1">Describe it.</h1>
+<p class="lede">This is the secondary plan preview. Speak it, or type it. COMPASS builds a plan, then a web preview and a phone preview. One to three questions. Voice can skip them. Nothing is published. The live builder is on <a href="/demo">the demo</a>.</p>
+<form id="intent-form">
+<div class="composer" id="composer">
+<button class="mic" id="mic" type="button" aria-pressed="false" aria-describedby="mic-hint">
+<span class="mic-orb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5M9 20.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+<span class="mic-text"><span class="mic-kicker" aria-hidden="true">Voice</span><span class="mic-label">Speak your idea</span></span>
+<span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+</button>
+<p id="voice-fallback" class="voice-fallback" hidden>Voice input is unavailable here. Type the idea below.</p>
+<div class="composer-field">
+<label for="intent">What should it do?</label>
+<textarea id="intent" name="intent" maxlength="500" rows="3" required placeholder="Speak or type the software you need"></textarea>
+<div class="composer-meta"><p id="voice-note" class="voice-note"></p><p class="count"><span id="intent-count">0</span> / 500</p></div>
+</div>
+</div>
+<p id="mic-hint" class="sr">Speech stays in this browser. A pause submits the text in the field. Nothing is recorded on this server.</p>
+<p id="intent-error" role="alert"></p>
+<div class="actions left"><button class="cta" type="submit">Continue</button></div>
+</form>
+<div class="examples" role="group" aria-label="Example intents">
+<button type="button" data-example="barber">a booking app for my barbershop with SMS reminders</button>
+<button type="button" data-example="jobs">a job tracker for my plumbing crew with on-the-way texts</button>
+<button type="button" data-example="classes">a class schedule for my yoga studio with a full-class waitlist</button>
+</div>
+</section>
+<section id="stage-building" class="stage" hidden aria-labelledby="building-title">
+<p class="eyebrow">Building</p>
+<h2 id="building-title" tabindex="-1">Reading what you described</h2>
+<p class="lede" id="building-detail">This stays on this page. Nothing is published.</p>
+<div class="meter" aria-hidden="true"><span></span></div>
+</section>
+<section id="stage-questions" class="stage" hidden aria-labelledby="questions-title">
+<h2 id="questions-title" tabindex="-1">A few questions</h2>
+<p class="lede" id="questions-intent"></p>
+<p class="hint" id="questions-hint"></p>
+<form id="questions-form"></form>
+</section>
+<section id="stage-preview" class="stage" hidden aria-labelledby="preview-title">
+<h2 id="preview-title" tabindex="-1">Your preview</h2>
+<p class="lede" id="preview-summary"></p>
+<p class="notice" id="preview-notice"></p>
+<div id="preview-root"></div>
+<div class="actions left"><button class="ghost" type="button" id="start-over">Start over</button><a class="cta" href="/#access">Request access</a></div>
+</section>
+<noscript><p class="notice">This demo needs JavaScript to build the preview. The three example intents are on the page above.</p></noscript>
+</main>
+<footer class="foot">
+<span class="brand"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</span>
+<span class="tag">AX Media Global</span>
+<nav aria-label="Footer"><a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a><a href="/">Home</a><a href="/#access">Request access</a></nav>
+<span class="credit">NAŸL · AX Media Global</span>
+</footer>
+</body></html>
