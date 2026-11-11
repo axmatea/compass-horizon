@@ -7,7 +7,7 @@ import { MODES, DEFAULT_MODE, REVISIONS, modeById } from '../src/site/modes.mjs'
 import { webMock, phoneMock, briefMock, ideasMock, esc } from '../src/site/frames.mjs';
 import {
   MAX_TEXT, createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps,
-  sourceLabel, previewName, parseSse, cleanText, turnError,
+  sourceLabel, previewName, previewDoc, parseSse, cleanText, turnError,
 } from '../src/site/studio.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -167,6 +167,8 @@ test('builder client never dead-ends: rate limit, JSON reply and a model-written
     frames: [{ event: 'say', data: { type: 'say', text: 'Hi' } }], rest: 'event: done\ndata: {"ty',
   });
   assert.deepEqual(parseSse('event: x\ndata: not json\n\n'), { frames: [], rest: '' });
+  assert.equal(previewDoc('<head><title>x</title></head><body></body>'), '<head><title>x</title><style>html{scrollbar-width:none}</style></head><body></body>');
+  assert.equal(previewDoc('<p>x</p>'), '<p>x</p><style>html{scrollbar-width:none}</style>');
   assert.equal(cleanText('  a\n\tb  '), 'a b');
   assert.equal(cleanText('x'.repeat(MAX_TEXT + 50)).length, MAX_TEXT);
   assert.match(turnError(400, 'text_too_long'), /500/);

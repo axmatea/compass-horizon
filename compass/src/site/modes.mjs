@@ -38,7 +38,7 @@ export const MODES = [
     title: 'Websites',
     blurb: 'For the first thing people see: a launch page, a storefront, a portfolio.',
     placeholder: 'A website for my bakery with a menu and an order button…',
-    ideas: ['A website for my neighbourhood bakery', 'A dark, cinematic page for an AI company', 'A portfolio for a wedding photographer'],
+    ideas: ['A website for my bakery', 'A dark, cinematic page for an AI company', 'A wedding photographer portfolio'],
     brief: [['What', 'Bakery website'], ['For', 'The neighbourhood'], ['Tone', 'Warm'], ['Sections', 'Hero · Menu · Visit']],
     sample: {
       name: 'Bakery website',
@@ -52,7 +52,7 @@ export const MODES = [
     title: 'Internal tools',
     blurb: 'For the work behind the business: approvals, trackers, admin screens.',
     placeholder: 'An invoice approval tool for my finance team…',
-    ideas: ['An invoice approval tool for my finance team', 'An inventory tracker for a small warehouse', 'A hiring pipeline for my team'],
+    ideas: ['An invoice approval tool', 'An inventory tracker for a warehouse', 'A hiring pipeline for my team'],
     brief: [['What', 'Approval tool'], ['For', 'A finance team'], ['Tone', 'Calm'], ['Screens', 'Queue · Approved · History']],
     sample: {
       name: 'Invoice approvals',

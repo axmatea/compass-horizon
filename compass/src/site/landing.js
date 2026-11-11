@@ -2,7 +2,7 @@
 import { team, visibleTeam } from './team.mjs'
 import { modeById, REVISIONS } from './modes.mjs'
 import { webMock, phoneMock, briefMock, ideasMock } from './frames.mjs'
-import { createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
+import { createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, previewDoc, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
 import { createDictation } from '../demo/voice.mjs'
 
 const $ = selector => document.querySelector(selector)
@@ -130,7 +130,7 @@ function paintFrames() {
     if (!live) { item.frame.removeAttribute('srcdoc'); delete item.frame.dataset.key; continue }
     if (item.frame.dataset.key === String(state.render.key)) continue
     item.frame.dataset.key = String(state.render.key)
-    item.frame.srcdoc = state.render.html
+    item.frame.srcdoc = previewDoc(state.render.html)
     item.screen.classList.remove('is-fresh')
     void item.screen.offsetWidth
     item.screen.classList.add('is-fresh')

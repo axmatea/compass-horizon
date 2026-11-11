@@ -168,6 +168,14 @@ export function previewName(plan) {
   return slug || 'untitled'
 }
 
+// The device frames are small, so the built page scrolls without a scrollbar.
+// Only the homepage preview gets this; the page served for "Open page" is untouched.
+export function previewDoc(html) {
+  const style = '<style>html{scrollbar-width:none}</style>'
+  const doc = String(html ?? '')
+  return doc.includes('</head>') ? doc.replace('</head>', style + '</head>') : doc + style
+}
+
 // Splits an SSE buffer into complete frames and the unfinished tail.
 export function parseSse(buffer) {
   const parts = String(buffer).split('\n\n')
