@@ -152,9 +152,12 @@ const genericQuestions = [
 
 function packFor(intent) {
   const text = intent.toLowerCase();
-  if (/\b(barber|haircut|salon|beard)\b|\bbooking app\b|\bsms reminder/.test(text)) return barber;
-  if (/\b(plumb|crew|dispatch|job tracker)\b|\bon the way\b/.test(text)) return jobs;
+  // Domain packs win before any generic booking wording. "A booking app for a
+  // small yoga studio" is a studio, and a barbershop is a barbershop. A bare
+  // "booking app" stays on the generic questions.
   if (/\b(yoga|studio|class schedule|waitlist)\b/.test(text)) return classes;
+  if (/\b(plumb|crew|dispatch|job tracker)\b|\bon the way\b/.test(text)) return jobs;
+  if (/\b(?:barbers?|barbershops?|haircuts?|salons?|beards?)\b/.test(text)) return barber;
   return null;
 }
 

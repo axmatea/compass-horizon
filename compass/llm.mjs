@@ -1,29 +1,108 @@
 // Server-side model client. Keys stay in the environment.
-// Nothing here is logged or sent to the browser.
+// A fallback line and a one-time model line may be logged. Neither includes
+// keys, headers, prompts, or provider message text. Nothing is sent to the browser.
 //
 // MiniMax M2.7 (General Compute default) cannot turn reasoning off. With no
 // reasoning_split flag its answer is often `<think>…</think>` plus JSON, or the
 // JSON lands in reasoning_content. GLM-5.3 (Nebius default) always reasons;
 // reasoning_effort=low is the supported light setting. enable_thinking=false
-// is not sent: GLM-5.3 rejects a disabled thinking mode.
+// is not sent: GLM-5.3 rejects a disabled thinking mode. The fast flavor is
+// the same id with `-fast` appended, which Token Factory documents as the
+// lower-latency serving path. A General Compute chat 404 loads GET /v1/models
+// once and retries a single active id.
+
+const MODEL_CACHE_MS = 10 * 60 * 1000;
+const GC_PREFERENCE = ['gpt-oss-120b', 'minimax-m2.7', 'deepseek-v3.2', 'deepseek-v3.1'];
+const modelLists = new Map();
+const notedModels = new Set();
+const modelNotices = [];
+
+export function llmModelNotices() {
+  return modelNotices.slice();
+}
 
 export class LlmError extends Error {
-  constructor(message, { status, code, cause, finishReason } = {}) {
+  constructor(message, { status, code, cause, finishReason, providerCode, model } = {}) {
     super(message);
     this.name = 'LlmError';
     this.status = status;
     this.code = code;
     this.finishReason = finishReason || '';
+    this.providerCode = providerCode || '';
+    this.model = model || '';
     if (cause) this.cause = cause;
   }
 }
 
+function safeToken(value, max = 96) {
+  const clean = String(value ?? '').replace(/[^A-Za-z0-9_./:+-]/g, '').slice(0, max);
+  return clean || '-';
+}
+
+function noteModel(provider, model) {
+  const key = provider + '\0' + model;
+  if (notedModels.has(key)) return;
+  notedModels.add(key);
+  const line = `compass demo llm model provider=${safeToken(provider)} model=${safeToken(model)}`;
+  modelNotices.push(line);
+  try { console.error(line); } catch { /* a log failure must not change the preview */ }
+}
+
+export function chooseNebius(env) {
+  const pinned = String(env.NEBIUS_MODEL || '').trim();
+  const fallback = String(env.NEBIUS_FALLBACK_MODEL || '').trim();
+  const base = pinned || 'zai-org/GLM-5.3';
+  if (pinned && !fallback) return { model: pinned, backupModel: '' };
+  if (pinned && fallback !== pinned) return { model: pinned, backupModel: fallback };
+  const fast = fallback || (base.endsWith('-fast') ? base : `${base}-fast`);
+  return { model: fast, backupModel: fast === base ? '' : base };
+}
+
+function readProviderCode(text, secret) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { return ''; }
+  const node = parsed?.error;
+  if (typeof node === 'string') return '';
+  const bag = node && typeof node === 'object' ? node : parsed;
+  if (!bag || typeof bag !== 'object' || Array.isArray(bag)) return '';
+  const raw = bag.code ?? bag.type;
+  if ((typeof raw !== 'string' && typeof raw !== 'number') || (secret && String(raw).includes(secret))) return '';
+  return String(raw).replace(/[^A-Za-z0-9_.:-]/g, '').slice(0, 60);
+}
+
+function isMissingModel(err) {
+  if (err?.status === 404) return true;
+  const code = String(err?.providerCode || '').toLowerCase().replace(/-/g, '_');
+  return code === 'model_not_found' || code === 'unknown_model' || code === 'model_not_available' || code.includes('model_not_found');
+}
+
+function modelIds(json) {
+  const data = Array.isArray(json?.data) ? json.data : Array.isArray(json?.models) ? json.models : [];
+  const ids = [];
+  for (const item of data) {
+    const id = typeof item === 'string' ? item : item?.id;
+    if (typeof id !== 'string') continue;
+    const clean = id.trim();
+    if (!clean || clean.length > 120 || /\s/.test(clean)) continue;
+    ids.push(clean);
+  }
+  return ids;
+}
+
+function preferModel(ids, failed) {
+  const available = ids.filter(id => id !== failed);
+  for (const id of GC_PREFERENCE) if (available.includes(id)) return id;
+  return available[0] || '';
+}
+
 export function loadLlm(env = process.env, fetchImpl = fetch) {
+  const nebiusChoice = chooseNebius(env);
   const nebius = {
     provider: 'nebius',
     apiKey: env.NEBIUS_API_KEY || '',
     baseUrl: (env.NEBIUS_BASE_URL || 'https://api.tokenfactory.us-north1.nebius.com/v1/').replace(/\/?$/, '/'),
-    model: env.NEBIUS_MODEL || 'zai-org/GLM-5.3',
+    model: nebiusChoice.model,
+    backupModel: nebiusChoice.backupModel,
     timeoutMs: Math.min(Number(env.NEBIUS_TIMEOUT_MS || 8000) || 8000, 12000),
     thinking: env.NEBIUS_THINKING === 'on',
   };
@@ -32,6 +111,7 @@ export function loadLlm(env = process.env, fetchImpl = fetch) {
     apiKey: env.GENERALCOMPUTE_API_KEY || env.GENERAL_COMPUTE_API_KEY || '',
     baseUrl: (env.GENERALCOMPUTE_BASE_URL || env.GENERAL_COMPUTE_BASE_URL || 'https://api.generalcompute.com/v1/').replace(/\/?$/, '/'),
     model: env.GENERALCOMPUTE_MODEL || env.GENERAL_COMPUTE_MODEL || 'minimax-m2.7',
+    backupModel: '',
     timeoutMs: Math.min(Number(env.GENERALCOMPUTE_TIMEOUT_MS || env.GENERAL_COMPUTE_TIMEOUT_MS || env.NEBIUS_TIMEOUT_MS || 8000) || 8000, 12000),
     thinking: false,
   };
@@ -61,37 +141,99 @@ export function loadLlm(env = process.env, fetchImpl = fetch) {
   };
 }
 
-export function createClient({ apiKey, baseUrl, model, provider, timeoutMs = 8000, thinking = false, fetchImpl = fetch }) {
-  async function chat({ messages, temperature = 0.3, maxTokens = 900, signal, timeoutMs: timeoutOverride }) {
-    const limit = Math.min(timeoutMs, Math.max(1, Number(timeoutOverride) || timeoutMs));
-    const timeout = AbortSignal.timeout(limit);
-    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
-    if (provider === 'anthropic') return anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, fetchImpl });
-    const body = { model, messages, temperature, max_tokens: maxTokens };
-    if (provider === 'nebius' && !thinking) body.reasoning_effort = 'low';
+export function createClient({ apiKey, baseUrl, model, backupModel = '', provider, timeoutMs = 8000, thinking = false, fetchImpl = fetch }) {
+  async function send(modelId, messages, temperature, maxTokens, signal, timeout, providerCaps) {
+    const body = { model: modelId, messages, temperature, max_tokens: maxTokens };
+    if (provider === 'nebius') {
+      const cap = Math.min(maxTokens, Number(providerCaps?.nebius) || maxTokens);
+      body.max_tokens = cap;
+      // max_completion_tokens counts reasoning tokens. Without it, GLM can
+      // think until the shared deadline even when max_tokens is small.
+      body.max_completion_tokens = cap;
+      if (!thinking) body.reasoning_effort = 'low';
+    }
     let res;
     try {
       res = await fetchImpl(new URL('chat/completions', baseUrl), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify(body),
-        signal: combined,
+        signal,
       });
     } catch (err) {
-      if (signal?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err });
-      if (timeout.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err });
-      throw new LlmError('LLM network error', { code: 'network', cause: err });
+      if (signal?.aborted && !timeout?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err, model: modelId });
+      if (timeout?.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err, model: modelId });
+      throw new LlmError('LLM network error', { code: 'network', cause: err, model: modelId });
     }
     if (!res.ok) {
-      const text = (await res.text().catch(() => '')).slice(0, 180);
-      throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', cause: text });
+      const text = (await res.text().catch(() => '')).slice(0, 2000);
+      throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', providerCode: readProviderCode(text, apiKey), model: modelId });
     }
     let json;
     try { json = await res.json(); }
-    catch (err) { throw new LlmError('LLM response was not JSON', { code: 'parse', cause: err }); }
+    catch (err) { throw new LlmError('LLM response was not JSON', { code: 'parse', cause: err, model: modelId }); }
     const choice = json?.choices?.[0] ?? {};
     const finishReason = typeof choice.finish_reason === 'string' ? choice.finish_reason : '';
-    return { message: choice.message ?? {}, provider, model, finishReason };
+    noteModel(provider, modelId);
+    return { message: choice.message ?? {}, provider, model: modelId, finishReason };
+  }
+
+  async function activeModels(signal) {
+    const now = Date.now();
+    const hit = modelLists.get(baseUrl);
+    if (hit && !hit.pending && hit.expires > now) return hit.ids;
+    if (hit?.pending) return hit.pending;
+    const pending = (async () => {
+      const res = await fetchImpl(new URL('models', baseUrl), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal,
+      });
+      if (!res.ok) return null;
+      const json = await res.json().catch(() => null);
+      return json ? modelIds(json) : null;
+    })().then(ids => {
+      if (ids) modelLists.set(baseUrl, { ids, expires: Date.now() + MODEL_CACHE_MS });
+      else {
+        const current = modelLists.get(baseUrl);
+        if (current?.pending) modelLists.delete(baseUrl);
+      }
+      return ids;
+    }).catch(err => {
+      const current = modelLists.get(baseUrl);
+      if (current?.pending) modelLists.delete(baseUrl);
+      throw err;
+    });
+    modelLists.set(baseUrl, { pending });
+    return pending;
+  }
+
+  async function chat({ messages, temperature = 0.3, maxTokens = 900, signal, timeoutMs: timeoutOverride, providerCaps }) {
+    const limit = Math.min(timeoutMs, Math.max(1, Number(timeoutOverride) || timeoutMs));
+    const timeout = AbortSignal.timeout(limit);
+    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    if (provider === 'anthropic') return anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, fetchImpl });
+    const attempt = modelId => send(modelId, messages, temperature, maxTokens, combined, timeout, providerCaps);
+    try {
+      return await attempt(model);
+    } catch (err) {
+      if (signal?.aborted || err?.code === 'aborted' || timeout.aborted || err?.code === 'timeout') throw err;
+      if (!isMissingModel(err)) throw err;
+      if (provider === 'generalcompute') {
+        let ids = null;
+        try { ids = await activeModels(combined); }
+        catch (listErr) {
+          if (timeout.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: listErr, model });
+          if (signal?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: listErr, model });
+          throw err;
+        }
+        const next = Array.isArray(ids) ? preferModel(ids, model) : '';
+        if (!next) throw err;
+        return await attempt(next);
+      }
+      if (provider === 'nebius' && backupModel && backupModel !== model) return await attempt(backupModel);
+      throw err;
+    }
   }
   return { chat, provider, model, timeoutMs };
 }
@@ -119,7 +261,7 @@ async function anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal
   }
   if (!res.ok) {
     const text = (await res.text().catch(() => '')).slice(0, 180);
-    throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', cause: text });
+    throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', providerCode: readProviderCode(text, apiKey), model });
   }
   let json;
   try { json = await res.json(); }
@@ -276,13 +418,15 @@ function describeFailure(err, client) {
   const status = Number.isInteger(err?.status) ? err.status : '';
   let category = code === 'http' ? `http ${status || 'error'}` : code;
   if (code === 'parse' && err?.finishReason === 'length') category = 'truncated';
-  return { provider: client.provider, model: client.model, code, status, category };
+  const model = typeof err?.model === 'string' && err.model ? err.model : client.model;
+  const providerCode = typeof err?.providerCode === 'string' ? err.providerCode.slice(0, 60) : '';
+  return { provider: client.provider, model, code, status, category, providerCode };
 }
 
 // One shared deadline for every configured provider. A fast failure (4xx,
 // unparseable JSON, rejected shape) still tries the next provider. A call
 // that uses the whole timeout does not start another one past the cap.
-export async function completeJson({ clients, messages, maxTokens, accept, signal }) {
+export async function completeJson({ clients, messages, maxTokens, accept, signal, providerCaps }) {
   if (!clients?.length) return { json: null, failures: [] };
   const budgetMs = Math.min(12000, Math.max(...clients.map(item => item.timeoutMs || 8000)));
   const started = Date.now();
@@ -297,6 +441,7 @@ export async function completeJson({ clients, messages, maxTokens, accept, signa
         messages,
         maxTokens,
         signal,
+        providerCaps,
         timeoutMs: Math.min(client.timeoutMs || budgetMs, Math.max(1, remaining)),
       });
       const candidates = jsonCandidates(out.message);

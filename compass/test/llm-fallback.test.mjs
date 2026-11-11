@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { clarifyDemo, planDemo } from '../demo-api.mjs';
 import { clarifyLocal, planLocal } from '../src/demo/catalog.mjs';
-import { parseJsonLoose } from '../llm.mjs';
+import { parseJsonLoose, loadLlm, llmModelNotices } from '../llm.mjs';
 
 const intent = 'an inventory tracker for my coffee roastery with low-stock alerts';
 const gcKey = 'gc-test-key';
@@ -173,7 +173,7 @@ test('an HTTP 400 on the first provider tries the second and logs neither the ke
   assert.deepEqual(both.questions, local.questions);
   assert.equal(failed.length, 2);
   assert.match(failed[0], /route=clarify provider=generalcompute model=minimax-m2\.7 code=http status=400 category=http 400/);
-  assert.match(failed[1], /route=clarify provider=nebius model=zai-org\/GLM-5\.3 code=http status=500 category=http 500/);
+  assert.match(failed[1], /route=clarify provider=nebius model=zai-org\/GLM-5\.3-fast code=http status=500 category=http 500 error=-/);
   const blob = failed.join('\n');
   assert.equal(blob.includes(gcKey), false);
   assert.equal(blob.includes(nebiusKey), false);
@@ -270,6 +270,198 @@ test('a plan survives think tags, shape variants, and drops prices and customer 
   assert.equal(out.summary, 'Tracks beans and alerts.');
   assert.equal(out.integrations[0].purpose, 'Reads the hopper.');
   assert.match(JSON.stringify(out.preview), /Espresso/);
+});
+
+test('generalcompute 404 discovers active models, retries once, and caches the list', async () => {
+  const base = 'https://gc-discover.example/v1/';
+  const calls = [];
+  const fetchImpl = async (url, opts) => {
+    const target = String(url);
+    const body = opts.body ? JSON.parse(opts.body) : null;
+    calls.push({ url: target, method: opts.method, body, auth: opts.headers.Authorization });
+    if (opts.method === 'GET') {
+      return new Response(JSON.stringify({
+        object: 'list',
+        data: [
+          { id: 'deepseek-v3.2', object: 'model' },
+          { id: 'gpt-oss-120b', object: 'model' },
+          { id: 'minimax-m2.7', object: 'model' },
+        ],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (body.model === 'minimax-m2.7' || body.model === 'retired-model') {
+      return new Response(JSON.stringify({
+        error: { message: 'not active ' + gcKey, type: 'invalid_request_error', code: 'model_not_found' },
+      }), { status: 404 });
+    }
+    return completion(beans);
+  };
+  const env = { GENERALCOMPUTE_API_KEY: gcKey, GENERALCOMPUTE_BASE_URL: base };
+  const before = llmModelNotices().filter(line => line.includes('model=gpt-oss-120b')).length;
+  const first = await clarifyDemo({ intent, env, fetchImpl, log() { throw new Error('success must not fallback-log'); } });
+  assert.equal(first.source, 'model');
+  assert.notEqual(first.source, 'fallback');
+  assert.equal(first.questions[0].options[0], 'Espresso');
+  assert.equal(calls[0].method, 'POST');
+  assert.equal(calls[0].body.model, 'minimax-m2.7');
+  assert.equal(calls[1].method, 'GET');
+  assert.match(calls[1].url, /\/v1\/models$/);
+  assert.equal(calls[1].auth, 'Bearer ' + gcKey);
+  assert.equal(calls[2].body.model, 'gpt-oss-120b');
+  const gets = () => calls.filter(call => call.method === 'GET').length;
+  assert.equal(gets(), 1);
+
+  const second = await clarifyDemo({ intent, env, fetchImpl, log() { throw new Error('success must not fallback-log'); } });
+  assert.equal(second.source, 'model');
+  assert.equal(gets(), 1, 'cached discovery is not fetched again');
+  assert.equal(calls.at(-1).body.model, 'gpt-oss-120b');
+  const notes = llmModelNotices().filter(line => line.includes('model=gpt-oss-120b'));
+  assert.equal(notes.length - before, 1);
+  assert.match(notes.at(-1), /^compass demo llm model provider=generalcompute model=gpt-oss-120b$/);
+  assert.equal(notes.at(-1).includes(gcKey), false);
+
+  const explicit = [];
+  await clarifyDemo({
+    intent,
+    env: { ...env, GENERALCOMPUTE_BASE_URL: 'https://gc-explicit.example/v1/', GENERALCOMPUTE_MODEL: 'retired-model' },
+    fetchImpl: async (url, opts) => {
+      const body = opts.body ? JSON.parse(opts.body) : null;
+      explicit.push({ method: opts.method, model: body?.model });
+      if (opts.method === 'GET') {
+        return new Response(JSON.stringify({ data: [{ id: 'gemma-4-31B-it' }, { id: 'retired-model' }] }), { status: 200 });
+      }
+      if (body.model === 'retired-model') return new Response(JSON.stringify({ error: { code: 'model_not_found', type: 'invalid_request_error', message: 'gone' } }), { status: 404 });
+      return completion(beans);
+    },
+    log() { throw new Error('success must not fallback-log'); },
+  });
+  assert.deepEqual(explicit.map(call => call.model ?? call.method), ['retired-model', 'GET', 'gemma-4-31B-it']);
+});
+
+test('a provider error code is logged without message text or secrets', async () => {
+  const lines = [];
+  const secretMessage = `The model does not exist ${gcKey} and the prompt must stay out of the log`;
+  const out = await clarifyDemo({
+    intent,
+    env: { GENERALCOMPUTE_API_KEY: gcKey, GENERALCOMPUTE_BASE_URL: 'https://gc-error.example/v1/' },
+    fetchImpl: async (_url, opts) => {
+      if (opts.method === 'GET') return new Response(JSON.stringify({ error: { message: secretMessage, code: 'server_error' } }), { status: 500 });
+      return new Response(JSON.stringify({
+        error: { message: secretMessage, type: 'invalid_request_error', code: 'model_not_found', param: null },
+      }), { status: 404, headers: { 'content-type': 'application/json' } });
+    },
+    log: line => lines.push(line),
+  });
+  const local = clarifyLocal(intent);
+  assert.equal(out.source, 'fallback');
+  assert.deepEqual(out.questions, local.questions);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /route=clarify provider=generalcompute model=minimax-m2\.7 code=http status=404 category=http 404 error=model_not_found$/);
+  assert.equal(lines[0].includes(gcKey), false);
+  assert.equal(lines[0].includes('does not exist'), false);
+  assert.equal(lines[0].includes('prompt must stay'), false);
+  assert.equal(lines[0].includes(secretMessage), false);
+  assert.equal(JSON.stringify(out).includes(gcKey), false);
+});
+
+test('nebius clarify uses the fast flavor and finishes inside the timeout', async () => {
+  const calls = [];
+  const started = Date.now();
+  const out = await clarifyDemo({
+    intent: 'A booking app for a small yoga studio',
+    env: { NEBIUS_API_KEY: nebiusKey, LLM_PROVIDER: 'nebius', NEBIUS_TIMEOUT_MS: '1000' },
+    fetchImpl: async (_url, opts) => {
+      const body = JSON.parse(opts.body);
+      calls.push(body);
+      if (body.model === 'zai-org/GLM-5.3') {
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(resolve, 5000);
+          const abort = () => { clearTimeout(timer); reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' })); };
+          if (opts.signal?.aborted) abort();
+          else opts.signal?.addEventListener('abort', abort, { once: true });
+        });
+      }
+      return completion('{"questions":[{"prompt":"How do students book a class?","options":["Drop-in","Membership"]}]}');
+    },
+  });
+  assert.equal(out.source, 'model');
+  assert.equal(out.questions[0].prompt, 'How do students book a class?');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].model, 'zai-org/GLM-5.3-fast');
+  assert.equal(calls[0].reasoning_effort, 'low');
+  assert.equal(calls[0].max_tokens, 512);
+  assert.equal(calls[0].max_completion_tokens, 512);
+  assert.equal(calls[0].chat_template_kwargs, undefined);
+  assert.ok(Date.now() - started < 1000);
+
+  const pinned = [];
+  await clarifyDemo({
+    intent,
+    env: { NEBIUS_API_KEY: nebiusKey, LLM_PROVIDER: 'nebius', NEBIUS_MODEL: 'zai-org/GLM-5.3' },
+    fetchImpl: async (_url, opts) => {
+      pinned.push(JSON.parse(opts.body));
+      return completion(beans);
+    },
+  });
+  assert.equal(pinned[0].model, 'zai-org/GLM-5.3');
+  assert.equal(pinned[0].max_tokens, 512);
+  assert.equal(pinned[0].reasoning_effort, 'low');
+
+  const chosen = [];
+  await clarifyDemo({
+    intent,
+    env: { NEBIUS_API_KEY: nebiusKey, LLM_PROVIDER: 'nebius', NEBIUS_FALLBACK_MODEL: 'openai/gpt-oss-120b' },
+    fetchImpl: async (_url, opts) => {
+      chosen.push(JSON.parse(opts.body).model);
+      return completion(beans);
+    },
+  });
+  assert.deepEqual(chosen, ['openai/gpt-oss-120b']);
+
+  const recovered = [];
+  const recoveredOut = await clarifyDemo({
+    intent,
+    env: { NEBIUS_API_KEY: nebiusKey, LLM_PROVIDER: 'nebius', NEBIUS_TIMEOUT_MS: '1000' },
+    fetchImpl: async (_url, opts) => {
+      const body = JSON.parse(opts.body);
+      recovered.push(body.model);
+      if (body.model.endsWith('-fast')) {
+        return new Response(JSON.stringify({ error: { message: 'missing ' + nebiusKey, type: 'invalid_request_error', code: 'model_not_found' } }), { status: 404 });
+      }
+      return completion(beans);
+    },
+  });
+  assert.deepEqual(recovered, ['zai-org/GLM-5.3-fast', 'zai-org/GLM-5.3']);
+  assert.equal(recoveredOut.source, 'model');
+  assert.equal(JSON.stringify(recoveredOut).includes(nebiusKey), false);
+
+  const loaded = loadLlm({ NEBIUS_API_KEY: nebiusKey, NEBIUS_TIMEOUT_MS: '30000', LLM_PROVIDER: 'nebius' }, async () => { throw new Error('no network'); });
+  assert.equal(loaded.clients[0].timeoutMs, 12000);
+  assert.equal(loaded.timeoutMs, 12000);
+  assert.equal(loaded.model, 'zai-org/GLM-5.3-fast');
+});
+
+test('no-key fallback stays local and a non-barber booking intent is not a barbershop', async () => {
+  const yoga = 'A booking app for a small yoga studio';
+  let called = false;
+  const out = await clarifyDemo({
+    intent: yoga,
+    env: {},
+    fetchImpl: async () => { called = true; throw new Error('no key'); },
+  });
+  const local = clarifyLocal(yoga);
+  assert.equal(called, false);
+  assert.equal(out.source, 'fallback');
+  assert.equal(out.intent, yoga);
+  assert.deepEqual(out.questions, local.questions);
+  const blob = JSON.stringify(out.questions);
+  assert.doesNotMatch(blob, /barber|haircut|beard/i);
+  assert.match(blob, /Waitlist|class/i);
+  const shop = clarifyLocal('a booking app for my barbershop with SMS reminders');
+  assert.match(JSON.stringify(shop.questions), /Haircut/);
+  const reading = clarifyLocal(intent);
+  assert.equal(reading.questions[0].prompt, 'Who is it for?');
+  assert.doesNotMatch(JSON.stringify(reading.questions), /barber|Haircut|Beard/);
 });
 
 test('one provider that returns truncated JSON logs a truncated fallback and keeps the local questions', async () => {

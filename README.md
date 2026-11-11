@@ -49,7 +49,7 @@ email was stored. Other retired page URLs return 410. Unknown API URLs return
 
 ## Deploy and recover
 
-Production is the existing Railway compass-nayl-vincent / compass-web service,
+Production is the existing COMPASS Railway project (compass-web service),
 serving mycompass.world. Source: this repository main, root directory /compass.
 Use compass/Dockerfile; Railway supplies PORT; healthcheck is /healthz.
 The response records mode=public-demo and the deployed Git revision.
