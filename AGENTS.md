@@ -13,7 +13,9 @@ Vite builds all three. A dependency-free Node server serves dist, /healthz,
 /plan returns 200. Other retired sections return 410. Unknown /api routes
 return 404. Never silently serve index.html for unknown app routes. The
 builder must keep working when no model key is set: it shows a prepared build.
-Model order is Anthropic, then General Compute, then Nebius, and only for
+Public demos default to COMPASS_DEMO_MODE=examples even with configured keys.
+Only an explicitly approved COMPASS_DEMO_MODE=live setting enables model calls.
+Model order in live mode is Anthropic, then General Compute, then Nebius, and only for
 providers whose keys are set. ANTHROPIC_MODEL defaults to claude-haiku-5-5.
 
 Root commands forward to compass/. Use product:install, check, test, build,
