@@ -1,80 +1,356 @@
-// COMPASS homepage: menu, word reveals, cinematic motion, optional film, early access.
+// COMPASS homepage: menu, the builder stage, quiet reveals, optional video, early access.
 import { team, visibleTeam } from './team.mjs'
+import { modeById, REVISIONS } from './modes.mjs'
+import { webMock, phoneMock, briefMock, ideasMock } from './frames.mjs'
+import { createStudio, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
+import { createDictation } from '../demo/voice.mjs'
+
+const $ = selector => document.querySelector(selector)
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
-const bar = document.querySelector('.bar')
-const burger = document.querySelector('.burger')
+
+// Header
+const bar = $('.bar')
+const burger = $('.burger')
 const closeMenu = () => { bar?.classList.remove('open'); burger?.setAttribute('aria-expanded', 'false') }
 burger?.addEventListener('click', () => { const open = bar?.classList.toggle('open'); burger.setAttribute('aria-expanded', String(Boolean(open))) })
 bar?.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu))
 addEventListener('keydown', e => { if (e.key === 'Escape' && bar?.classList.contains('open')) { closeMenu(); burger?.focus() } })
+const onScroll = () => bar?.classList.toggle('is-stuck', scrollY > 8)
+addEventListener('scroll', onScroll, { passive: true })
+onScroll()
 
-let wi = 0
-const split = node => {
-  for (const child of [...node.childNodes]) {
-    if (child.nodeType === 3) {
-      const frag = document.createDocumentFragment()
-      child.textContent.split(/(\s+)/).forEach(part => {
-        if (!part) return
-        if (/^\s+$/.test(part)) return frag.append(part)
-        const w = document.createElement('span'); w.className = 'w'; w.style.setProperty('--i', wi++); w.textContent = part; frag.append(w)
-      })
-      child.replaceWith(frag)
-    } else if (child.nodeType === 1 && child.tagName !== 'BR') split(child)
+// Reveals
+if (!reduce && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver(entries => entries.forEach(entry => {
+    if (!entry.isIntersecting) return
+    entry.target.classList.add('in')
+    io.unobserve(entry.target)
+  }), { rootMargin: '0px 0px -8% 0px' })
+  document.documentElement.classList.add('motion')
+  document.querySelectorAll('main > section:not(.hero)').forEach(section => {
+    section.querySelectorAll('.eyebrow, h2, .kind, .how-steps > li, .pillars > li, .differ-lede, .studio-body, .access-lede, #early-access, .qa, .aside').forEach((el, index) => {
+      el.classList.add('rise')
+      el.style.transitionDelay = Math.min(index, 5) * 60 + 'ms'
+      io.observe(el)
+    })
+  })
+}
+
+// Builder stage
+const stage = $('#studio')
+const composer = $('#composer')
+const intent = $('#intent')
+const hint = $('#box-hint')
+const ideas = $('#ideas')
+const revise = $('#revise')
+const reviseInput = $('#revise-input')
+const changes = $('#changes')
+const statusEl = $('#st-status')
+const sourceEl = $('#st-source')
+const briefEl = $('#brief')
+const briefTag = $('#brief-tag')
+const stepsEl = $('#steps')
+const replyEl = $('#reply')
+const noticeEl = $('#notice')
+const canvasTag = $('#canvas-tag')
+const webUrl = $('#web-url')
+const sound = $('#sound')
+const resetBtn = $('#reset')
+const openLink = $('#open')
+const screens = [
+  { screen: $('#web-screen'), frame: $('#web-frame'), base: 1200, mock: webMock },
+  { screen: $('#phone-screen'), frame: $('#phone-frame'), base: 390, mock: phoneMock },
+]
+const HINT = hint?.textContent || ''
+const PENDING = stepsEl?.innerHTML || ''
+
+let state = createStudio()
+let epoch = 0
+let mode = composer?.elements.mode?.value || 'web'
+let soundOn = false
+let soundChosen = false
+let listening = null
+
+function el(tag, className, text) {
+  const node = document.createElement(tag)
+  if (className) node.className = className
+  if (text != null) node.textContent = text
+  return node
+}
+function slug(value) {
+  return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+function setNotice(message) {
+  if (noticeEl) noticeEl.textContent = message || ''
+}
+
+function speak(text) {
+  if (!text || !soundOn || !window.speechSynthesis) return
+  try {
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text))
+  } catch { /* speech is optional */ }
+}
+
+function paintBrief() {
+  if (!state.plan) {
+    briefTag.textContent = 'Example'
+    briefEl.innerHTML = briefMock(mode)
+    return
+  }
+  briefTag.textContent = 'v' + state.plan.version
+  briefEl.replaceChildren(...briefRows(state.plan).map(row => {
+    const li = el('li', row.from || row.chips?.some(chip => chip.state) ? 'is-new' : '')
+    li.append(el('span', '', row.label))
+    if (row.chips) {
+      const chips = el('span', 'chips')
+      for (const chip of row.chips) chips.append(el('em', chip.state ? 'is-' + chip.state : '', chip.text))
+      li.append(chips)
+    } else {
+      const value = el('b')
+      if (row.from) value.append(el('s', '', row.from))
+      value.append(row.value)
+      li.append(value)
+    }
+    return li
+  }))
+}
+
+function paintSteps() {
+  const steps = buildSteps(state)
+  if (!steps.length) { stepsEl.innerHTML = PENDING; return }
+  stepsEl.replaceChildren(...steps.map(step => el('li', 'is-' + step.status, step.text)))
+}
+
+function paintFrames() {
+  const live = Boolean(state.render?.html)
+  stage.dataset.live = String(live)
+  for (const item of screens) {
+    item.frame.hidden = !live
+    if (!live) { item.frame.removeAttribute('srcdoc'); delete item.frame.dataset.key; continue }
+    if (item.frame.dataset.key === String(state.render.key)) continue
+    item.frame.dataset.key = String(state.render.key)
+    item.frame.srcdoc = state.render.html
+    item.screen.classList.remove('is-fresh')
+    void item.screen.offsetWidth
+    item.screen.classList.add('is-fresh')
+  }
+  canvasTag.textContent = live ? 'Your page · v' + state.render.version : 'Example layout'
+  webUrl.textContent = (live || state.plan ? previewName(state.plan) : slug(modeById(mode).sample.name)) + ' · Preview'
+  const canOpen = live && Boolean(state.sessionId)
+  openLink.hidden = !canOpen
+  if (canOpen) openLink.href = '/api/site/session/' + encodeURIComponent(state.sessionId) + '/page'
+  else openLink.removeAttribute('href')
+}
+
+function paint() {
+  const phase = listening ? 'listening' : state.phase
+  stage.dataset.phase = phase
+  statusEl.textContent = PHASE_LABELS[phase] || PHASE_LABELS.idle
+  const source = sourceLabel(state)
+  sourceEl.hidden = !source
+  sourceEl.textContent = source
+  sourceEl.dataset.source = source === 'Live model' ? 'model' : 'prepared'
+  paintBrief()
+  paintSteps()
+  paintFrames()
+  replyEl.hidden = !state.reply
+  replyEl.textContent = state.reply
+  const started = state.turns > 0
+  revise.hidden = !started
+  changes.hidden = !started
+  resetBtn.hidden = !started
+}
+
+function paintMode() {
+  const current = modeById(mode)
+  intent.placeholder = current.placeholder
+  ideas.innerHTML = ideasMock(mode)
+  if (state.render) return
+  for (const item of screens) {
+    const mock = item.screen.querySelector('.ui')
+    if (mock) mock.outerHTML = item.mock(mode)
+  }
+  paint()
+}
+
+async function readStream(response, mine) {
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    const parsed = parseSse(buffer + decoder.decode(value, { stream: true }))
+    buffer = parsed.rest
+    if (mine !== epoch) continue
+    for (const frame of parsed.frames) {
+      if (frame.event === 'result') applyResult(state, frame.data)
+      else {
+        applyEvent(state, frame.data)
+        if (frame.data?.type === 'say') speak(frame.data.text)
+      }
+    }
+    paint()
   }
 }
-if (!reduce && 'IntersectionObserver' in window) {
-  document.querySelectorAll('.reveal').forEach(el => { wi = 0; split(el) })
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } }), { rootMargin: '0px 0px -12% 0px' })
-  document.documentElement.classList.add('motion-ready')
-  document.querySelectorAll('section:not(.hero) .wrap, .reveal').forEach(el => io.observe(el))
+
+async function submit(raw) {
+  const text = cleanText(raw)
+  if (!text) { setNotice(turnError(400, 'text_required')); hint.textContent = turnError(400, 'text_required'); intent.focus(); return }
+  const mine = epoch
+  intent.value = ''
+  reviseInput.value = ''
+  hint.textContent = HINT
+  setNotice('')
+  state.turns += 1
+  state.open += 1
+  state.phase = 'thinking'
+  paint()
+  const box = stage.getBoundingClientRect()
+  if (box.top > innerHeight * 0.45 || box.top < 0) stage.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  try {
+    const response = await fetch('/api/site/turn', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+      body: JSON.stringify({ sessionId: state.sessionId || undefined, text }),
+      signal: AbortSignal.timeout ? AbortSignal.timeout(90000) : undefined,
+    })
+    if (mine !== epoch) return
+    if (response.status === 429) {
+      const data = await response.json().catch(() => null)
+      if (data?.fallback) applyResult(state, data.fallback, { replay: true })
+      setNotice('The live builder is busy right now, so this turn used the prepared build.')
+      return
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setNotice(turnError(response.status, data.error))
+      return
+    }
+    const type = response.headers.get('content-type') || ''
+    if (type.includes('text/event-stream') && response.body) await readStream(response, mine)
+    else {
+      const data = await response.json()
+      if (mine === epoch) { applyResult(state, data, { replay: true }); speak(data.reply) }
+    }
+  } catch {
+    if (mine === epoch) setNotice(turnError(0))
+  } finally {
+    if (mine === epoch) { closeTurn(state); paint() }
+  }
 }
 
-const hero = document.querySelector('.hero')
-let queued = false
-function frame() {
-  queued = false
-  const y = window.scrollY, vh = innerHeight
-  if (hero && !reduce) hero.style.setProperty('--hf', (Math.min(1, Math.max(0, y / vh)) * 1.4).toFixed(3))
+// Voice: the browser turns speech into text, and only the text is sent.
+function stopListening() {
+  if (!listening) return
+  listening.button.setAttribute('aria-pressed', 'false')
+  composer.classList.remove('is-listening')
+  if (listening.field === intent && hint.textContent === 'Listening. Pause when you are done.') hint.textContent = HINT
+  listening = null
+  paint()
 }
-const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(frame) } }
-addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll, { passive: true })
-frame()
+const dictation = createDictation(window, {
+  onTranscript: text => { if (listening) listening.field.value = text },
+  onSubmit: text => { stopListening(); submit(text) },
+  onError: message => { stopListening(); hint.textContent = message; setNotice(message) },
+  onEnd: () => stopListening(),
+  onState: () => {},
+}, { max: 500, pauseMs: 1200 })
 
+function toggleVoice(button, field) {
+  if (!dictation) {
+    const message = 'Voice input is not available in this browser. Type it instead.'
+    hint.textContent = message
+    setNotice(message)
+    field.focus()
+    return
+  }
+  if (dictation.active) { dictation.stop(); stopListening(); return }
+  if (!dictation.start()) {
+    hint.textContent = 'Voice input did not start. Type it instead.'
+    field.focus()
+    return
+  }
+  listening = { button, field }
+  button.setAttribute('aria-pressed', 'true')
+  if (field === intent) { composer.classList.add('is-listening'); hint.textContent = 'Listening. Pause when you are done.' }
+  if (!soundChosen) setSound(true)
+  paint()
+}
+function setSound(on) {
+  soundOn = on
+  sound.setAttribute('aria-pressed', String(on))
+  sound.textContent = on ? 'Sound on' : 'Sound off'
+  if (!on && window.speechSynthesis) window.speechSynthesis.cancel()
+}
+
+if (stage && composer) {
+  changes.innerHTML = REVISIONS.map(text => `<button type="button" class="idea" data-idea="${text}">${text}</button>`).join('')
+  composer.addEventListener('submit', event => { event.preventDefault(); submit(intent.value) })
+  composer.addEventListener('change', event => {
+    if (event.target.name !== 'mode') return
+    mode = event.target.value
+    paintMode()
+  })
+  intent.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); submit(intent.value) }
+  })
+  revise.addEventListener('submit', event => { event.preventDefault(); submit(reviseInput.value) })
+  for (const group of [ideas, changes]) group.addEventListener('click', event => {
+    const idea = event.target.closest('[data-idea]')
+    if (idea) submit(idea.dataset.idea)
+  })
+  $('#mic').addEventListener('click', event => toggleVoice(event.currentTarget, intent))
+  $('#revise-mic').addEventListener('click', event => toggleVoice(event.currentTarget, reviseInput))
+  sound.addEventListener('click', () => { soundChosen = true; setSound(!soundOn) })
+  resetBtn.addEventListener('click', () => {
+    epoch += 1
+    if (dictation?.active) dictation.stop()
+    stopListening()
+    if (window.speechSynthesis) window.speechSynthesis.cancel()
+    state = createStudio()
+    setNotice('')
+    paintMode()
+    paint()
+    intent.focus()
+  })
+  if ('ResizeObserver' in window) {
+    const fit = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const item = screens.find(candidate => candidate.screen === entry.target)
+        if (item) item.screen.style.setProperty('--s', String(entry.contentRect.width / item.base))
+      }
+    })
+    for (const item of screens) fit.observe(item.screen)
+  }
+  if (mode !== 'web') paintMode()
+}
+
+// Team: bios render only once the founder adds confirmed entries to team.mjs.
 const people = visibleTeam(team)
-const teamWrap = document.querySelector('#team .wrap')
-if (teamWrap && people.length) {
-  const list = document.createElement('ul')
-  list.className = 'team-bios'
+const bios = $('#team-bios')
+if (bios && people.length) {
   for (const person of people) {
-    const item = document.createElement('li')
+    const item = el('li')
     if (person.logo) {
-      const img = document.createElement('img')
+      const img = el('img')
       img.src = person.logo
       img.alt = ''
       img.width = 48
       img.height = 48
       item.append(img)
     }
-    const name = document.createElement('h3')
-    name.textContent = person.name
-    item.append(name)
-    if (person.role) {
-      const role = document.createElement('p')
-      role.className = 'role'
-      role.textContent = person.role
-      item.append(role)
-    }
-    if (person.bio) {
-      const bio = document.createElement('p')
-      bio.textContent = person.bio
-      item.append(bio)
-    }
-    list.append(item)
+    item.append(el('h3', '', person.name))
+    if (person.role) item.append(el('p', 'role', person.role))
+    if (person.bio) item.append(el('p', '', person.bio))
+    bios.append(item)
   }
-  teamWrap.append(list)
+  bios.hidden = false
 }
 
-const player = document.querySelector('#watch-player')
+// Video: the server renders the player when DEMO_VIDEO_URL is set.
+const player = $('#watch-player')
 function embedUrl(raw) {
   let url
   try { url = new URL(raw) } catch { return null }
@@ -126,15 +402,12 @@ function mountFilm(raw) {
   if (/\.(mp4|webm|ogv)(?:$|\?)/i.test(src)) { mountEmbed(player, src); return }
   player.dataset.state = 'ready'
   player.replaceChildren()
-  const poster = document.createElement('img')
-  poster.className = 'poster'
+  const poster = el('img', 'poster')
   poster.src = '/assets/hero/compass-hero.jpg'
   poster.alt = ''
-  const play = document.createElement('a')
-  play.className = 'play'
+  const play = el('a', 'play', 'Play the demo')
   play.href = raw
   play.dataset.embed = src
-  play.textContent = 'Play the demo'
   player.append(poster, play)
 }
 if (player && !player.querySelector('video, iframe, [data-embed]')) {
@@ -145,8 +418,9 @@ if (player && !player.querySelector('video, iframe, [data-embed]')) {
     .catch(() => {})
 }
 
-const form = document.querySelector('#early-access')
-const status = document.querySelector('#early-access-status')
+// Early access
+const form = $('#early-access')
+const status = $('#early-access-status')
 function setStatus(message, isError) {
   if (!status) return
   status.textContent = message
@@ -173,8 +447,8 @@ form?.addEventListener('submit', async event => {
   }
   const email = emailInput?.value?.trim() || ''
   const honey = form.querySelector('input[name="hp"]')?.value || ''
-  const submit = form.querySelector('button[type="submit"]')
-  if (submit) submit.disabled = true
+  const submitButton = form.querySelector('button[type="submit"]')
+  if (submitButton) submitButton.disabled = true
   setStatus('Sending your request.', false)
   try {
     const res = await fetch('/api/early-access', {
@@ -210,6 +484,6 @@ form?.addEventListener('submit', async event => {
     setStatus('Your email app will open so you can send this request to info@aimedia.global.', true)
     location.href = mailtoFallback(email)
   } finally {
-    if (submit) submit.disabled = false
+    if (submitButton) submitButton.disabled = false
   }
 })

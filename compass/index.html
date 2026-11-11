@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#03060c"><meta name="compass-design" content="homepage">
-<title>COMPASS · Describe it. COMPASS builds it.</title>
-<meta name="description" content="Early access. Describe the software you need and COMPASS shows a working web and mobile preview.">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#fafaf9"><meta name="color-scheme" content="light"><meta name="compass-design" content="homepage">
+<title>COMPASS · Describe it. COMPASS builds it: web, mobile, real software.</title>
+<meta name="description" content="Describe the software you need, by voice or text. COMPASS builds web apps, mobile apps, websites and internal tools. Early access from AX Media Global.">
 <link rel="canonical" href="https://mycompass.world/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="COMPASS">
 <meta property="og:title" content="COMPASS · Describe it. COMPASS builds it.">
-<meta property="og:description" content="Early access. Describe the software you need and COMPASS shows a working web and mobile preview.">
+<meta property="og:description" content="Describe the software you need, by voice or text. COMPASS builds web apps, mobile apps, websites and internal tools.">
 <meta property="og:url" content="https://mycompass.world/">
 <meta property="og:image" content="https://mycompass.world/assets/og.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -17,163 +17,194 @@
 <meta property="og:image:alt" content="COMPASS. Describe it. COMPASS builds it. A web preview and a phone preview.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="COMPASS · Describe it. COMPASS builds it.">
-<meta name="twitter:description" content="Early access. Describe the software you need and COMPASS shows a working web and mobile preview.">
+<meta name="twitter:description" content="Describe the software you need, by voice or text. COMPASS builds web apps, mobile apps, websites and internal tools.">
 <meta name="twitter:image" content="https://mycompass.world/assets/og.jpg">
 <meta name="twitter:image:alt" content="COMPASS. Describe it. COMPASS builds it. A web preview and a phone preview.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/src/site/landing.css">
-<link rel="preload" as="image" href="/assets/hero/compass-hero.jpg">
+<link rel="preload" as="font" type="font/woff2" href="/src/site/fonts/inter-var-latin.woff2" crossorigin>
+<link rel="stylesheet" href="/src/site/home.css">
 <script type="module" src="/src/site/landing.js"></script>
 </head>
-<body class="warm">
-<a class="skip" href="#how">Skip to content</a>
+<body>
+<a class="skip" href="#intent">Skip to the builder</a>
 
 <header class="bar">
 <a class="brand" href="#top" aria-label="COMPASS homepage"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg><span>COMPASS</span></a>
-<nav class="menu" id="primary-menu" aria-label="Primary"><a href="#top">Home</a><a href="#how">How it works</a><a href="#team">Team</a><a href="#compare">Compare</a><a href="/demo">Demo</a></nav>
-<a class="pill" href="/demo">Try the demo</a>
+<nav class="menu" id="primary-menu" aria-label="Primary"><a href="#build">Product</a><a href="#how">How it works</a><a href="#compare">Why COMPASS</a><a href="#team">Studio</a><a href="#faq">FAQ</a></nav>
+<div class="bar-cta"><a class="bar-link" href="/demo">Try the demo</a><a class="btn btn-ink btn-sm" href="#access">Request access</a></div>
 <button class="burger" type="button" aria-label="Menu" aria-controls="primary-menu" aria-expanded="false"><i></i><i></i></button>
 </header>
 
 <main>
 <section class="hero" id="top" aria-labelledby="hero-title">
-<img class="hero-art" src="/assets/hero/compass-hero.jpg" alt="" width="1536" height="1024" fetchpriority="high" decoding="async">
-<div class="hero-veil"></div><div class="grain" aria-hidden="true"></div>
-<div class="hero-copy">
+<div class="wrap">
+<p class="kicker"><i aria-hidden="true"></i>Early access · From AX Media Global</p>
+<h1 id="hero-title">Describe it.<br><em>COMPASS builds it.</em></h1>
+<p class="lede">Say what you need, out loud or in writing. COMPASS turns intent into real software: web apps, mobile apps, websites and internal tools.</p>
+
+<form class="composer" id="composer" novalidate>
+<fieldset class="picker">
+<legend>What are you building?</legend>
+<label><input type="radio" name="mode" value="web" checked><span>Web app</span></label>
+<label><input type="radio" name="mode" value="mobile"><span>Mobile app</span></label>
+<label><input type="radio" name="mode" value="site"><span>Website</span></label>
+<label><input type="radio" name="mode" value="tool"><span>Internal tool</span></label>
+</fieldset>
+<div class="box">
+<label class="sr" for="intent">Describe what you want to build</label>
+<textarea id="intent" name="text" rows="2" maxlength="500" autocomplete="off" placeholder="A booking app for my barbershop, warm and friendly…"></textarea>
+<div class="box-row">
+<button type="button" class="mic" id="mic" aria-pressed="false" aria-label="Speak your idea"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg></button>
+<span class="voice-loop" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+<span class="box-hint" id="box-hint">Speak or type, then build.</span>
+<button type="submit" class="btn btn-ink" id="build-btn">Build<svg viewBox="0 0 16 11" aria-hidden="true"><path d="M0 5.5H14.6M10.3 1.2 14.9 5.5 10.3 9.8"/></svg></button>
+</div>
+</div>
+<div class="ideas" id="ideas" role="group" aria-label="Example ideas"><button type="button" class="idea" data-idea="A booking app for my barbershop">A booking app for my barbershop</button><button type="button" class="idea" data-idea="A client portal for a design studio">A client portal for a design studio</button><button type="button" class="idea" data-idea="A class schedule for a yoga studio">A class schedule for a yoga studio</button></div>
+</form>
+<p class="hero-links"><a class="ghost" id="hero-secondary" href="#how">See how it works</a><a class="ghost" href="/demo">Open full demo</a></p>
+
+<div class="stage" id="studio" data-phase="idle" data-live="false" role="region" aria-label="COMPASS builder">
+<div class="rail">
+<div class="rail-top"><i class="orb" aria-hidden="true"></i><p id="st-status" role="status" aria-live="polite">Ready</p><span class="badge" id="st-source" hidden></span></div>
+<div class="panel">
+<p class="panel-h"><span>The brief</span><span id="brief-tag">Example</span></p>
+<ul class="brief" id="brief"><li><span>What</span><b>Booking app</b></li><li><span>For</span><b>A barbershop</b></li><li><span>Tone</span><b>Warm</b></li><li><span>Screens</span><b>Today · Calendar · Services</b></li></ul>
+</div>
+<div class="panel">
+<p class="panel-h"><span>Build</span></p>
+<ol class="steps" id="steps"><li>Understand the request</li><li>Write the page</li><li>Render for web and phone</li></ol>
+</div>
+<p class="reply" id="reply" hidden></p>
+<form class="revise" id="revise" hidden novalidate>
+<label class="sr" for="revise-input">Describe a change</label>
+<button type="button" class="mic mic-sm" id="revise-mic" aria-pressed="false" aria-label="Speak a change"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg></button>
+<input id="revise-input" name="text" maxlength="500" autocomplete="off" placeholder="Change it: make it warmer…">
+<button type="submit" class="send" aria-label="Send the change"><svg viewBox="0 0 16 11" aria-hidden="true"><path d="M0 5.5H14.6M10.3 1.2 14.9 5.5 10.3 9.8"/></svg></button>
+</form>
+<div class="ideas ideas-sm" id="changes" role="group" aria-label="Example changes" hidden></div>
+<p class="notice" id="notice" role="status"></p>
+</div>
+<div class="canvas">
+<div class="canvas-bar">
+<span class="tag" id="canvas-tag">Example layout</span>
+<span class="canvas-tools"><button type="button" id="sound" aria-pressed="false">Sound off</button><button type="button" id="reset" hidden>Start over</button><a id="open" target="_blank" rel="noopener" hidden>Open page</a></span>
+</div>
+<div class="devices">
+<div class="dev dev-web"><div class="dev-chrome" aria-hidden="true"><i></i><i></i><i></i><span id="web-url">barbershop-booking · Preview</span></div><div class="screen" id="web-screen"><div class="ui ui-app"><div class="ui-side"><strong>Barbershop</strong><span class="on">Today</span><span>Calendar</span><span>Services</span><span>Clients</span></div><div class="ui-main"><div class="ui-head"><b>Today</b><em>New booking</em></div><ul class="ui-rows"><li><small>9:00</small><b>Haircut</b><i class="p p-ok">Confirmed</i></li><li><small>9:30</small><b>Beard trim</b><i class="p p-ok">Confirmed</i></li><li><small>10:15</small><b>Cut and shave</b><i class="p p-warn">Waiting</i></li><li><small>11:00</small><b>Kids cut</b><i class="p p-mute">Open</i></li></ul></div></div><iframe id="web-frame" title="Your page in a browser" sandbox="" hidden></iframe></div></div>
+<div class="dev dev-phone"><div class="screen" id="phone-screen"><div class="ui ui-list"><div class="ui-head"><b>Book a visit</b></div><ul class="ui-rows"><li><b>Haircut</b><small>Classic cut</small></li><li><b>Beard trim</b><small>Shape and line</small></li><li><b>Cut and shave</b><small>The full visit</small></li></ul><div class="ui-cta"><em>Choose a time</em></div></div><iframe id="phone-frame" title="Your page on a phone" sandbox="" hidden></iframe></div></div>
+</div>
+</div>
+</div>
+<p class="stage-note">The builder on this page writes and renders a first page for your idea. It stays in this session and nothing is published.</p>
+</div>
+</section>
+
+<!-- FOUNDER SLOT: video. Set DEMO_VIDEO_URL (https) on the server. The element below then becomes the "Watch the demo" player and the hero link points at it. Nothing renders while it is unset. -->
+<div id="compass-video" data-founder-slot="video" hidden></div>
+
+<section class="band" id="build" aria-labelledby="build-title">
+<div class="wrap">
+<p class="eyebrow">What you can build</p>
+<h2 id="build-title">One conversation.<br><em>Four kinds of software.</em></h2>
+<div class="kinds">
+<article class="kind"><div class="kind-art"><span class="tag">Example layout</span><div class="dev dev-web"><div class="screen"><div class="ui ui-app"><div class="ui-side"><strong>Barbershop</strong><span class="on">Today</span><span>Calendar</span><span>Services</span><span>Clients</span></div><div class="ui-main"><div class="ui-head"><b>Today</b><em>New booking</em></div><ul class="ui-rows"><li><small>9:00</small><b>Haircut</b><i class="p p-ok">Confirmed</i></li><li><small>9:30</small><b>Beard trim</b><i class="p p-ok">Confirmed</i></li><li><small>10:15</small><b>Cut and shave</b><i class="p p-warn">Waiting</i></li><li><small>11:00</small><b>Kids cut</b><i class="p p-mute">Open</i></li></ul></div></div></div></div></div><h3>Web apps</h3><p>For the product people log in to: bookings, dashboards, client portals.</p></article>
+<article class="kind"><div class="kind-art"><span class="tag">Example layout</span><div class="dev dev-phone"><div class="screen"><div class="ui ui-list"><div class="ui-head"><b>Jobs</b></div><ul class="ui-rows"><li><b>Kitchen refit</b><small>Today</small><i class="p p-ok">In progress</i></li><li><b>Roof repair</b><small>Tomorrow</small><i class="p p-mute">Scheduled</i></li><li><b>Deck stain</b><small>This week</small><i class="p p-warn">Needs parts</i></li></ul><div class="ui-tabs"><span class="on">Jobs</span><span>Map</span><span>Photos</span></div></div></div></div></div><h3>Mobile apps</h3><p>For the work that happens away from a desk: field crews, members, deliveries.</p></article>
+<article class="kind"><div class="kind-art"><span class="tag">Example layout</span><div class="dev dev-web"><div class="screen"><div class="ui ui-site"><div class="ui-nav"><strong>Bakery</strong><span>Menu</span><span>Visit</span><span>Order</span></div><div class="ui-hero"><small>Open every morning</small><b>Fresh bread, baked before you wake.</b><em>Order ahead</em></div><ul class="ui-tiles"><li><i></i><b>Sourdough</b></li><li><i></i><b>Pastries</b></li><li><i></i><b>Cakes</b></li></ul></div></div></div></div><h3>Websites</h3><p>For the first thing people see: a launch page, a storefront, a portfolio.</p></article>
+<article class="kind"><div class="kind-art"><span class="tag">Example layout</span><div class="dev dev-web"><div class="screen"><div class="ui ui-app"><div class="ui-side"><strong>Approvals</strong><span class="on">Queue</span><span>Approved</span><span>History</span><span>Rules</span></div><div class="ui-main"><div class="ui-head"><b>Invoice queue</b><em>Add invoice</em></div><ul class="ui-rows"><li><small>Today</small><b>Office supplies</b><i class="p p-warn">Awaiting approval</i></li><li><small>Today</small><b>Software licence</b><i class="p p-ok">Approved</i></li><li><small>Mon</small><b>Courier</b><i class="p p-bad">Needs info</i></li><li><small>Mon</small><b>Cleaning</b><i class="p p-ok">Approved</i></li></ul></div></div></div></div></div><h3>Internal tools</h3><p>For the work behind the business: approvals, trackers, admin screens.</p></article>
+</div>
+</div>
+</section>
+
+<section class="band band-soft" id="how" aria-labelledby="how-title">
+<div class="wrap">
+<p class="eyebrow">How it works</p>
+<h2 id="how-title">Three steps.<br><em>No code.</em></h2>
+<ol class="how-steps">
+<li><span>01</span><h3>Say it</h3><p>Speak or type what you need, in your own words.</p></li>
+<li><span>02</span><h3>Shape it</h3><p>COMPASS asks what it needs to know and keeps a brief you can read.</p></li>
+<li><span>03</span><h3>Change it</h3><p>Watch it build, then change your mind out loud. What still fits stays.</p></li>
+</ol>
+<p class="aside"><a href="/plan">See the questions and the plan preview</a></p>
+</div>
+</section>
+
+<section class="differ" id="compare" aria-labelledby="compare-title">
+<div class="wrap">
+<p class="eyebrow">Why COMPASS</p>
+<h2 id="compare-title">Others start with a prompt.<br><em>COMPASS starts with a conversation.</em></h2>
+<p class="differ-lede">Lovable, Bolt, Replit and v0 begin with a typed prompt. COMPASS begins with what you mean: you say it, it asks what is missing, and you watch web and phone take shape.</p>
+<ul class="pillars">
+<li><b>Voice first</b><span>Say it the way you would tell a person.</span></li>
+<li><b>Clarifying questions</b><span>It asks before it assumes.</span></li>
+<li><b>Web and phone preview</b><span>See both while you can still change your mind.</span></li>
+</ul>
+</div>
+</section>
+
+<section class="band" id="team" aria-labelledby="team-title">
+<div class="wrap studio">
+<div>
+<p class="eyebrow">The studio</p>
+<h2 id="team-title">Built by<br><em>AX Media Global.</em></h2>
+</div>
+<div class="studio-body">
+<p>AX Media Global builds software for business clients. It is an established B2B SaaS studio with products for CPAs, developers and fintech teams, and recurring revenue.</p>
+<p>COMPASS is its new product for everyone else, and its founder's full-time focus.</p>
+<ul class="markets" aria-label="Who the studio builds for"><li>CPAs</li><li>Developers</li><li>Fintech</li></ul>
+<p class="studio-links"><a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a><a href="https://jarrarcpa.pro" rel="noopener noreferrer">jarrarcpa.pro</a></p>
+<!-- FOUNDER SLOT: traction. Add confirmed figures as <li><b>figure</b><span>label</span></li> items and remove the hidden attribute. Leave it hidden until every figure is confirmed. -->
+<ul class="traction" data-founder-slot="traction" hidden></ul>
+<!-- FOUNDER SLOT: team. Add confirmed people to src/site/team.mjs. The page fills this list and shows it only when an entry has a name. -->
+<ul class="team-bios" id="team-bios" data-founder-slot="team" hidden></ul>
+</div>
+</div>
+</section>
+
+<section class="band band-soft access" id="access" aria-labelledby="access-title">
+<div class="wrap">
 <p class="eyebrow">Early access</p>
-<h1 class="reveal" id="hero-title">Describe it.<br>COMPASS builds it: <em>web, mobile, real software.</em></h1>
-<p class="sub">Say it or type it. COMPASS keeps a brief, shows the build, and renders the page in this session. Nothing is published.</p>
-<div class="hero-row">
-<div class="actions"><a class="cta" href="/demo">Try the demo<svg viewBox="0 0 16 11" aria-hidden="true"><path d="M0 5.5H14.6M10.3 1.2 14.9 5.5 10.3 9.8"/></svg></a><a class="ghost" id="hero-secondary" href="#how">See how it works</a></div>
-<div class="voice-loop" aria-hidden="true">
-<div class="vl-top">
-<span class="vl-orb"><span class="vl-bars"><i></i><i></i><i></i><i></i><i></i></span></span>
-<span class="vl-caption"><span class="vl-caret">a booking app for my barbershop</span></span>
-</div>
-<div class="vl-phone">
-<span class="vl-chrome"><b>Today</b><span>Preview</span></span>
-<span class="vl-row"></span>
-<span class="vl-row"></span>
-<span class="vl-row"></span>
-</div>
-</div>
-</div>
-<ul class="feats" aria-label="What the demo shows"><li>Voice</li><li>Build</li><li>Preview</li></ul>
-</div>
-</section>
-
-<div id="compass-video" hidden></div>
-
-<section class="how" id="how" aria-labelledby="how-title">
-<div class="wrap">
-<p class="eyebrow center">How it works</p>
-<h2 class="center reveal" id="how-title">Three steps.<br><em>Then a page.</em></h2>
-<ol class="steps">
-<li><span>01</span><b>Describe it</b><small>Say the website you want, out loud or in writing.</small></li>
-<li><span>02</span><b>Watch the build</b><small>The brief and the build log update while the page is written.</small></li>
-<li><span>03</span><b>Change your mind</b><small>Ask for a different tone or a new section. What still fits stays.</small></li>
-</ol>
-<p class="center sub"><a href="/plan">Prefer a product plan and a phone frame?</a></p>
-<div class="actions"><a class="cta" href="/demo">Try the demo<svg viewBox="0 0 16 11" aria-hidden="true"><path d="M0 5.5H14.6M10.3 1.2 14.9 5.5 10.3 9.8"/></svg></a></div>
-</div>
-</section>
-
-<section class="team" id="team" aria-labelledby="team-title">
-<div class="wrap">
-<p class="eyebrow center">Built by a team that ships</p>
-<h2 class="center reveal" id="team-title">AX Media Global</h2>
-<p class="center sub">AX Media Global builds software for business clients.</p>
-<div class="team-links">
-<a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a>
-<a href="https://jarrarcpa.pro" rel="noopener noreferrer">jarrarcpa.pro</a>
-</div>
-</div>
-</section>
-
-<!--
-Comparison sources, checked 2026-11-10. Wording below is a paraphrase, not a ranking.
-Lovable: https://docs.lovable.dev/introduction/welcome — natural language to a web application with interface, backend, database, authentication, and integrations; publish to a URL.
-Lovable FAQ: https://docs.lovable.dev/introduction/faq — web applications, not native iOS/Android or React Native projects.
-Bolt: https://bolt.new/ — "Create stunning apps & websites by chatting with AI." Bolt Cloud lists hosting, databases, and user management and authentication.
-Replit: https://replit.com/ — "Turn ideas into apps in minutes" and "Describe it. Publish it." Built-in authentication, database, and hosting.
-v0: https://v0.app/ — prompt to build UI and backend logic; "Deploy with one click" on Vercel.
-The COMPASS card describes only this demo.
--->
-<section class="compare" id="compare" aria-labelledby="compare-title">
-<div class="wrap">
-<p class="eyebrow center">In public</p>
-<h2 class="center reveal" id="compare-title">What each builder says</h2>
-<p class="center sub">The COMPASS card is only what this demo does. The others are short paraphrases of each company's own page, linked below.</p>
-<div class="compare-grid">
-<article class="is-demo">
-<h3>COMPASS demo</h3>
-<dl>
-<dt>You describe</dt><dd>A website, then changes while it is being built.</dd>
-<dt>What you get</dt><dd>A brief, a visible build, and a page preview for this session. A separate plan preview adds a phone frame.</dd>
-<dt>Published</dt><dd>Nothing. The page is not deployed.</dd>
-</dl>
-</article>
-<article>
-<h3>Lovable</h3>
-<dl>
-<dt>You describe</dt><dd>What you want, in plain language.</dd>
-<dt>What you get</dt><dd>Their docs say a web application with an interface, backend, database, authentication, and integrations, which can be published to a URL.</dd>
-<dt>Phone</dt><dd>Their FAQ says web applications, not a native iOS or Android project.</dd>
-</dl>
-</article>
-<article>
-<h3>Bolt</h3>
-<dl>
-<dt>You describe</dt><dd>An app or a website, in chat.</dd>
-<dt>What you get</dt><dd>bolt.new says Bolt Cloud includes hosting, databases, and user management and authentication.</dd>
-</dl>
-</article>
-<article>
-<h3>Replit</h3>
-<dl>
-<dt>You describe</dt><dd>An idea, then publish.</dd>
-<dt>What you get</dt><dd>replit.com says Replit writes code you can publish, with authentication, a database, and hosting.</dd>
-</dl>
-</article>
-<article>
-<h3>v0</h3>
-<dl>
-<dt>You describe</dt><dd>A prompt.</dd>
-<dt>What you get</dt><dd>v0.app says UI and backend logic, with one-click deploy on Vercel.</dd>
-</dl>
-</article>
-</div>
-<ol class="sources" id="sources">
-<li><a href="https://docs.lovable.dev/introduction/welcome" rel="noopener noreferrer">Lovable docs</a> and <a href="https://docs.lovable.dev/introduction/faq" rel="noopener noreferrer">Lovable FAQ</a></li>
-<li><a href="https://bolt.new/" rel="noopener noreferrer">bolt.new</a></li>
-<li><a href="https://replit.com/" rel="noopener noreferrer">replit.com</a></li>
-<li><a href="https://v0.app/" rel="noopener noreferrer">v0.app</a></li>
-</ol>
-</div>
-</section>
-
-<section class="access" id="access" aria-labelledby="access-title">
-<div class="wrap">
-<p class="eyebrow center">Early access</p>
-<h2 class="center reveal" id="access-title">Request access</h2>
-<p class="center sub">Email only.</p>
+<h2 id="access-title">Be first to build<br><em>with COMPASS.</em></h2>
+<p class="access-lede">Leave your email and we will be in touch.</p>
 <form id="early-access" method="post" action="mailto:info@aimedia.global?subject=COMPASS%20early%20access" enctype="text/plain">
-<label for="email">Email</label>
+<label class="sr" for="email">Email</label>
 <input id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="200" placeholder="you@example.com" aria-describedby="early-access-note early-access-status">
 <div class="hp" inert><label for="hp">Leave blank</label><input id="hp" name="hp" type="text" autocomplete="off" value=""></div>
-<button class="cta" type="submit">Request access</button>
+<button class="btn btn-ink" type="submit">Request access</button>
 <p id="early-access-note">If this page cannot store it, your email app sends the request to info@aimedia.global.</p>
 <p id="early-access-status" class="form-status" role="status" aria-live="polite"></p>
 </form>
+<!-- FOUNDER SLOT: pricing. Add confirmed plans as <li><b>plan</b><span>price and what it includes</span></li> items and remove the hidden attribute. Leave it hidden until prices are confirmed. -->
+<ul class="plans" data-founder-slot="pricing" hidden></ul>
+</div>
+</section>
+
+<section class="band" id="faq" aria-labelledby="faq-title">
+<div class="wrap faq">
+<div>
+<p class="eyebrow">Questions</p>
+<h2 id="faq-title">Asked<br><em>and answered.</em></h2>
+</div>
+<div class="qa">
+<details open><summary>What is COMPASS?</summary><p>COMPASS turns intent into real software. You describe what you need, by voice or text, and it builds web apps, mobile apps, websites and internal tools.</p></details>
+<details><summary>What does the builder on this page do?</summary><p>It takes what you say or type, keeps a brief, writes a first page with a live AI model and renders it for web and phone. If the model cannot be reached it places prepared copy and says so. The page lives in your session and nothing is published.</p></details>
+<details><summary>Do I need to know how to code?</summary><p>No. You describe the outcome in plain language and answer the questions COMPASS asks.</p></details>
+<details><summary>How is it different from Lovable, Bolt, Replit or v0?</summary><p>Those begin with a typed prompt. COMPASS begins with a conversation: voice first, clarifying questions, and a web and phone preview you can change by talking.</p></details>
+<details><summary>Is my voice recorded?</summary><p>Voice input uses your browser's speech recognition. COMPASS receives only the text, and you can always type instead.</p></details>
+<details><summary>Who is building it?</summary><p>AX Media Global, a B2B SaaS studio with products for CPAs, developers and fintech teams.</p></details>
+<details><summary>How do I get access?</summary><p>COMPASS is in early access. Leave your email above and try the full demo in the meantime.</p></details>
+</div>
 </div>
 </section>
 </main>
 
 <footer class="foot">
-<span class="brand"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</span>
-<span class="tag">AX Media Global</span>
-<nav aria-label="Footer"><a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a><a href="/demo">Demo</a><a href="#team">Team</a><a href="#access">Request access</a></nav>
-<span class="credit">NAŸL · AX Media Global</span>
+<div class="wrap">
+<span class="brand"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg><span>COMPASS</span></span>
+<nav aria-label="Footer"><a href="#build">Product</a><a href="#how">How it works</a><a href="/demo">Demo</a><a href="#access">Request access</a><a href="https://aimedia.global" rel="noopener noreferrer">aimedia.global</a></nav>
+<p class="legal"><span>© 2026 AX Media Global</span><span class="credit">NAŸL · AX Media Global</span></p>
+</div>
 </footer>
-</body></html>
+</body>
+</html>
