@@ -307,7 +307,10 @@ h3{font-size:1.3rem;line-height:1.2;letter-spacing:-.025em;font-weight:620;color
 .foot nav a:hover{color:var(--ink)}
 .legal{grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px;padding-top:24px;border-top:1px solid var(--line);font-size:13px}
 
-/* Motion: one quiet rise per block, only when the page script is running */
+/* Motion: the stage settles in once, then one quiet rise per block while the page script runs */
+.stage{animation:settle .9s var(--ease) .1s both}
+@keyframes settle{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
 .motion .rise{opacity:0;transform:translateY(18px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
 .motion .rise.in{opacity:1;transform:none}
 
