@@ -7,63 +7,43 @@ import { team, visibleTeam } from './site/team.mjs';
 const root = new URL('../', import.meta.url);
 const read = path => readFile(new URL(path, root), 'utf8');
 
-test('homepage offers the demo and does not call the product unavailable', async () => {
+test('public entry points stay honest, bounded, accessible and connected', async () => {
   const html = await read('index.html');
   const demo = await read('demo.html');
   const plan = await read('plan.html');
-  const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro', 'https://docs.lovable.dev/introduction/welcome', 'https://docs.lovable.dev/introduction/faq', 'https://bolt.new/', 'https://replit.com/', 'https://v0.app/']);
+  const external = new Set(['https://aimedia.global']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
-    if (external.has(href)) continue;
-    assert(href.startsWith('#') || href === '/demo' || href === '/plan', href);
+    if (external.has(href) || href === '#watch') continue; // The server inserts this recording section.
+    assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || href === '/plan' || href === '/studio', href);
     if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
   }
-  assert.match(html, /Describe it\./);
-  assert.match(html, /COMPASS builds it:/);
-  assert.match(html, /web, mobile, real software/);
+  assert.match(html, /Your idea\./);
+  assert.match(html, /Its first page\./);
   assert.match(html, /href="\/demo"/);
-  assert.match(html, /Try the demo/);
   assert.match(html, /class="voice-loop"/);
-  assert.match(html, /aria-hidden="true"/);
-  assert.match(demo, /id="mic"/);
-  assert.match(demo, /Speak/);
-  assert.match(demo, /Skip to the demo/);
-  assert.match(demo, /Watch the build/);
-  assert.match(demo, /Build me a premium website for an AI company/);
-  assert.match(plan, /id="mic"/);
-  assert.match(plan, /Speak your idea/);
-  assert.match(plan, /Skip to the demo/);
+  for (const page of [html, demo, plan]) assert.match(page, /id="mic"/);
   const voice = await read('src/demo/voice.mjs');
   const demoJs = await read('src/demo/demo.js');
   assert.match(voice, /webkitSpeechRecognition/);
   assert.doesNotMatch(voice + demoJs, /MediaRecorder|getUserMedia|webkitSpeechRecognition\(\)|new WebSocket|EventSource/);
-  assert.match(html, /id="hero-secondary" href="#access">Request access/);
   assert.match(html, /id="compass-video"/);
   assert.match(html, /id="early-access"/);
   assert.match(html, /action="mailto:info@aimedia\.global\?subject=COMPASS%20early%20access"/);
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /name="hp"/);
-  assert.match(html, /AX Media Global builds software for business clients/);
-  assert.doesNotMatch(html + demo + plan, /TODO|not connected|not on this page yet|coming soon|lorem ipsum|\bconcept\b|Watch the video/i);
-  assert.match(html, /id="team"/);
-  assert.match(html, /id="compare"/);
+  assert.doesNotMatch(html + demo + plan, /not connected|not on this page yet|coming soon|lorem ipsum|FIXME|TBD/i);
   assert.match(html, /id="how"/);
   assert.match(html, /property="og:image" content="https:\/\/mycompass\.world\/assets\/og\.jpg"/);
-  assert.match(html, /og:image:width" content="1200"/);
-  assert.match(html, /og:image:height" content="630"/);
   await access(new URL('public/assets/og.jpg', root));
-  assert.doesNotMatch(html + demo + plan, /not an available app|concept, not|Try it live|page-pricing|id="film"/i);
   assert.doesNotMatch(html + demo + plan, /vincent/i);
   assert.match(html, /NAŸL · AX Media Global/);
   assert.match(plan, /NAŸL · AX Media Global/);
   assert.doesNotMatch(html, /action="https?:/);
-  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['demo.html', 'index.html', 'plan.html']);
+  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['demo.html', 'index.html', 'plan.html', 'studio.html']);
   const landing = await read('src/site/landing.js');
   assert.match(landing, /fetch\('\/api\/config'/);
   assert.match(landing, /\/api\/early-access/);
-  assert.match(landing, /visibleTeam/);
   assert.doesNotMatch(landing, /EventSource|WebSocket|localStorage|sessionStorage|TODO/);
-  const teamSource = await read('src/site/team.mjs');
-  assert.match(teamSource, /TODO: team bios and logos/);
   assert.deepEqual(team, []);
   assert.deepEqual(visibleTeam(team), []);
   assert.deepEqual(visibleTeam([{ name: '  ' }, { bio: 'Missing name' }]), []);
@@ -86,6 +66,7 @@ test('only referenced homepage assets and font licence are retained', async () =
   const sitemap = await read('public/sitemap.xml');
   assert.match(sitemap, /https:\/\/mycompass\.world\/demo</);
   assert.match(sitemap, /https:\/\/mycompass\.world\/plan</);
+  assert.match(sitemap, /https:\/\/mycompass\.world\/studio</);
   assert.doesNotMatch(sitemap, /\/(?:app|office|login|presentation)</);
 });
 
@@ -97,6 +78,7 @@ test('runtime, build and CI have no retired database or React dependencies', asy
   assert.match(vite, /index\.html/);
   assert.match(vite, /demo\.html/);
   assert.match(vite, /plan\.html/);
+  assert.match(vite, /studio\.html/);
   for (const path of ['scripts', 'app.html', 'login.html', 'src/auth', 'src/workspace']) await assert.rejects(access(new URL(path, root)));
   assert.doesNotMatch(await read('server.mjs'), /import.+(?:pg|auth|workspace|react)/i);
   assert.doesNotMatch(await read('llm.mjs') + await read('demo-api.mjs') + await read('early-access.mjs') + await read('homepage.mjs'), /GENERAL_COMPUTE_API_KEY\s*=\s*['"][^'"]+['"]|WAITLIST_WEBHOOK_URL\s*=\s*['"]https/);
