@@ -28,7 +28,8 @@ test('public entry points stay honest, bounded, accessible and connected', async
   assert.doesNotMatch(voice + demoJs, /MediaRecorder|getUserMedia|webkitSpeechRecognition\(\)|new WebSocket|EventSource/);
   assert.match(html, /id="compass-video"/);
   assert.match(html, /id="early-access"/);
-  assert.match(html, /action="mailto:info@aimedia\.global\?subject=COMPASS%20early%20access"/);
+  assert.match(html, /id="early-access"[^>]*action="#access"/);
+  assert.doesNotMatch(html, /action="mailto:/);
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /name="hp"/);
   assert.doesNotMatch(html + demo + plan, /not connected|not on this page yet|coming soon|lorem ipsum|FIXME|TBD/i);
