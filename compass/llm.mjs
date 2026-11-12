@@ -96,6 +96,9 @@ function preferModel(ids, failed) {
 }
 
 export function loadLlm(env = process.env, fetchImpl = fetch) {
+  if (env.COMPASS_DEMO_MODE === 'examples') {
+    return { configured: false, client: null, clients: [], provider: null, model: null, timeoutMs: 0 };
+  }
   const nebiusChoice = chooseNebius(env);
   const nebius = {
     provider: 'nebius',

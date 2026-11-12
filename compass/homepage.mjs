@@ -2,7 +2,7 @@ import { demoVideoUrl } from './demo-api.mjs';
 
 const POSTER = '/assets/hero/compass-hero.jpg';
 const MARKER = /<div\s+id="compass-video"[^>]*>\s*<\/div>/;
-const SECONDARY = '<a class="ghost" id="hero-secondary" href="#how">See how it works</a>';
+const SECONDARY = '<a class="ghost" id="hero-secondary" href="#access">Request access</a>';
 
 function esc(value) {
   return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');

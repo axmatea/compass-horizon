@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#070b10">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f8fbfc"><meta name="color-scheme" content="light">
 <title>COMPASS demo · Say it. Watch it build.</title>
 <meta name="description" content="Say or type a website. COMPASS keeps the brief, shows the build, and renders a page for this session. Nothing is published.">
 <link rel="canonical" href="https://mycompass.world/demo">
@@ -33,7 +33,7 @@
 </header>
 <main class="page">
 <h1>Say it. Watch the build.</h1>
-<p class="lede">Describe a website out loud or in writing. COMPASS keeps the brief, shows each build step, and renders the page for this session. Change your mind while it is working. Nothing is published.</p>
+<p class="lede">Describe a website out loud or in writing. Shape the brief, compare desktop and mobile, and download the HTML preview. This demo uses prepared examples while the AI provider is being confirmed. Nothing is published.</p>
 <div class="sd" id="demo" data-state="idle">
 <div class="sd-shell">
 <aside class="sd-side">
@@ -51,7 +51,6 @@
 <p class="interim" id="interim" hidden></p>
 <div class="controls">
 <button type="button" class="mic" id="mic" aria-pressed="false">Speak</button>
-<button type="button" class="stop" id="stop" hidden>Interrupt</button>
 </div>
 <p class="voice-fallback" id="voice-fallback" hidden>Voice input is unavailable here. Type the idea below.</p>
 <p class="script-label" id="script-label">Try saying</p>
@@ -62,6 +61,7 @@
 <button type="submit" id="send">Send</button>
 </form>
 <p class="count"><span id="count">0</span> / 500</p>
+<p class="shortcut-hint">⌘ / Ctrl + Enter to send · Esc stops voice</p>
 <section class="card" id="build-card" hidden>
 <header><span>Build</span></header>
 <ol class="build" id="build" aria-label="Build"></ol>
@@ -73,18 +73,29 @@
 <ol class="log" id="log" aria-label="Transcript"></ol>
 <p class="notice" id="notice" role="status"></p>
 </aside>
-<section class="stage" id="stage" aria-label="Page preview">
+<section class="stage" id="stage" data-preview-view="both" aria-label="Page preview">
 <div class="chrome">
 <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
 <span class="url" id="url">untitled · Preview</span>
 <a class="pill" id="open" hidden target="_blank" rel="noreferrer">Open page</a>
+</div>
+<div class="preview-tools" data-preview-tools>
+<div class="viewport-tabs" role="group" aria-label="Preview size">
+<button type="button" data-preview-view-button="web" aria-pressed="false">Desktop</button><button type="button" data-preview-view-button="phone" aria-pressed="false">Mobile</button><button type="button" data-preview-view-button="both" aria-pressed="true">Both</button>
+</div>
+<div class="preview-actions"><button type="button" data-preview-copy disabled>Copy brief</button><button type="button" data-preview-download disabled>Download HTML</button></div>
+<span class="preview-source" id="preview-source" hidden></span>
+<p class="preview-status" data-preview-status role="status" aria-live="polite"></p>
 </div>
 <div class="empty" id="empty">
 <div class="wire" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></div>
 <p>Say what you want to build.</p>
 <small>Then change your mind. COMPASS keeps what holds and adapts the next step.</small>
 </div>
-<iframe class="frame" id="frame" title="Generated page preview" sandbox="" hidden></iframe>
+<div class="preview-devices" id="preview-devices" hidden>
+<div class="preview-web"><iframe class="frame" id="frame" title="Generated page preview" sandbox="" hidden></iframe></div>
+<div class="preview-phone"><iframe class="frame" id="phone-frame" title="Generated page on a phone" sandbox="" hidden></iframe></div>
+</div>
 </section>
 </div>
 <p class="disclosure"><i></i>Proof of COMPASS: change your intent while the page is being built. The page is only the visible example. Rendered for this session, nothing is published. <a href="/plan">Product plan preview</a></p>
