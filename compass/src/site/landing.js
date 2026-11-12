@@ -1,6 +1,6 @@
 // COMPASS homepage: menu, the builder stage, quiet reveals, recorded film, early access.
 import { modeById, REVISIONS } from './modes.mjs'
-import { webMock, phoneMock, briefMock, ideasMock } from './frames.mjs'
+import { briefMock, ideasMock } from './frames.mjs'
 import { createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, previewDoc, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
 import { createDictation } from '../demo/voice.mjs'
 import { createPreviewTools } from './preview-tools.mjs'
@@ -28,7 +28,7 @@ if (!reduce && 'IntersectionObserver' in window) {
   }), { rootMargin: '0px 0px -8% 0px' })
   document.documentElement.classList.add('motion')
   document.querySelectorAll('main > section:not(.hero)').forEach(section => {
-    section.querySelectorAll('.eyebrow, h2, .watch-note, .player, .showcase-item, .how-steps > li, .access-form').forEach((el, index) => {
+    section.querySelectorAll('h2, .watch-note, .player, .how-steps > li, .access-form').forEach((el, index) => {
       el.classList.add('rise')
       el.style.transitionDelay = Math.min(index, 5) * 60 + 'ms'
       io.observe(el)
@@ -59,8 +59,8 @@ const resetBtn = $('#reset')
 const buildButton = $('#build-btn')
 const openLink = $('#open')
 const screens = [
-  { screen: $('#web-screen'), frame: $('#web-frame'), base: 1200, mock: webMock },
-  { screen: $('#phone-screen'), frame: $('#phone-frame'), base: 390, mock: phoneMock },
+  { screen: $('#web-screen'), frame: $('#web-frame'), base: 1200 },
+  { screen: $('#phone-screen'), frame: $('#phone-frame'), base: 390 },
 ]
 const HINT = hint?.textContent || ''
 const PENDING = stepsEl?.innerHTML || ''
@@ -72,6 +72,7 @@ let epoch = 0
 let mode = composer?.elements.mode?.value || 'site'
 let soundOn = false
 let listening = null
+let remotePreviewCurrent = false
 const previewTools = createPreviewTools({
   root: stage?.querySelector('[data-preview-tools]'),
   surface: stage?.querySelector('.canvas'),
@@ -135,6 +136,8 @@ function paintFrames() {
   const live = Boolean(state.render?.html)
   stage.dataset.live = String(live)
   for (const item of screens) {
+    const placeholder = item.screen.querySelector('.preview-placeholder')
+    if (placeholder) placeholder.hidden = live
     item.frame.hidden = !live
     if (!live) { item.frame.removeAttribute('srcdoc'); delete item.frame.dataset.key; continue }
     if (item.frame.dataset.key === String(state.render.key)) continue
@@ -144,15 +147,16 @@ function paintFrames() {
     void item.screen.offsetWidth
     item.screen.classList.add('is-fresh')
   }
-  canvasTag.textContent = live ? 'Your page · v' + state.render.version : 'Example'
+  canvasTag.textContent = live ? 'Your page · v' + state.render.version : 'Your page'
   webUrl.textContent = (live || state.plan ? previewName(state.plan) : slug(modeById(mode).sample.name)) + ' · Preview'
-  const canOpen = live && Boolean(state.sessionId)
+  const canOpen = live && Boolean(state.sessionId) && state.open === 0 && remotePreviewCurrent
   openLink.hidden = !canOpen
   if (canOpen) openLink.href = '/api/site/session/' + encodeURIComponent(state.sessionId) + '/page'
   else openLink.removeAttribute('href')
 }
 
 function paint() {
+  stage.hidden = !(state.turns > 0 || state.open > 0 || noticeEl?.textContent)
   const phase = listening ? listening.phase || 'starting' : state.phase
   stage.dataset.phase = phase
   statusEl.textContent = phase === 'starting' ? 'Waiting for microphone' : PHASE_LABELS[phase] || PHASE_LABELS.idle
@@ -179,10 +183,6 @@ function paintMode() {
   ideas.innerHTML = ideasMock(mode)
   compactIdeas()
   if (state.render) return
-  for (const item of screens) {
-    const mock = item.screen.querySelector('.ui')
-    if (mock) mock.outerHTML = item.mock(mode)
-  }
   paint()
 }
 
@@ -190,6 +190,7 @@ async function readStream(response, mine) {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let complete = false
   for (;;) {
     const { value, done } = await reader.read()
     if (done) break
@@ -197,7 +198,10 @@ async function readStream(response, mine) {
     buffer = parsed.rest
     if (mine !== epoch) continue
     for (const frame of parsed.frames) {
-      if (frame.event === 'result') applyResult(state, frame.data)
+      if (frame.event === 'result' && typeof frame.data?.html === 'string' && frame.data.html.trim()) {
+        applyResult(state, frame.data)
+        complete = true
+      }
       else {
         applyEvent(state, frame.data)
         if (frame.data?.type === 'say') speak(frame.data.text)
@@ -205,6 +209,7 @@ async function readStream(response, mine) {
     }
     paint()
   }
+  return complete
 }
 
 async function submit(raw) {
@@ -213,6 +218,9 @@ async function submit(raw) {
   const text = cleanText(raw)
   if (!text) { setNotice(turnError(400, 'text_required')); hint.textContent = turnError(400, 'text_required'); intent.focus(); return }
   const mine = epoch
+  const previous = { ...state }
+  let complete = false
+  remotePreviewCurrent = false
   intent.value = ''
   reviseInput.value = ''
   hint.textContent = HINT
@@ -231,25 +239,47 @@ async function submit(raw) {
     if (mine !== epoch) return
     if (response.status === 429) {
       const data = await response.json().catch(() => null)
-      if (data?.fallback) applyResult(state, data.fallback, { replay: true })
-      setNotice('The live builder is busy right now, so this turn used the prepared build.')
+      if (mine !== epoch) return
+      if (typeof data?.fallback?.html === 'string' && data.fallback.html.trim()) {
+        applyResult(state, data.fallback, { replay: true })
+        complete = true
+      }
+      setNotice(complete ? 'Prepared example. Live generation is busy.' : 'Please wait a moment, then try again.')
       return
     }
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
+      if (mine !== epoch) return
       setNotice(turnError(response.status, data.error))
       return
     }
     const type = response.headers.get('content-type') || ''
-    if (type.includes('text/event-stream') && response.body) await readStream(response, mine)
+    if (type.includes('text/event-stream') && response.body) complete = await readStream(response, mine)
     else {
       const data = await response.json()
-      if (mine === epoch) { applyResult(state, data, { replay: true }); speak(data.reply) }
+      if (mine === epoch && typeof data?.html === 'string' && data.html.trim()) {
+        applyResult(state, data, { replay: true })
+        complete = true
+        speak(data.reply)
+      }
     }
+    if (!complete && mine === epoch) setNotice('Build interrupted. Try your instruction again.')
   } catch {
     if (mine === epoch) setNotice(turnError(0))
   } finally {
-    if (mine === epoch) { closeTurn(state); paint() }
+    if (mine === epoch) {
+      remotePreviewCurrent = complete
+      if (!complete) {
+        state = previous
+        if (!intent.value && !reviseInput.value) {
+          const field = previous.render ? reviseInput : intent
+          field.value = text
+          field.focus()
+        }
+      }
+      closeTurn(state)
+      paint()
+    }
   }
 }
 
@@ -361,6 +391,7 @@ if (stage && composer) {
   sound.addEventListener('click', () => setSound(!soundOn))
   resetBtn.addEventListener('click', () => {
     epoch += 1
+    remotePreviewCurrent = false
     if (dictation?.active) dictation.stop()
     stopListening()
     if (window.speechSynthesis) window.speechSynthesis.cancel()
@@ -383,7 +414,7 @@ if (stage && composer) {
   compactIdeas()
 }
 
-// Video: the server renders the bundled walkthrough, or DEMO_VIDEO_URL when that https URL is set.
+// Video: the server renders the approved founder film, or DEMO_VIDEO_URL when that https URL is set.
 // Metadata stays unloaded until the player is near the viewport.
 const player = $('#watch-player')
 function embedUrl(raw) {
@@ -408,12 +439,12 @@ function embedUrl(raw) {
 function mountEmbed(host, src) {
   const file = /\.(mp4|webm|ogv)(?:$|\?)/i.test(src)
   const frame = document.createElement(file ? 'video' : 'iframe')
-  frame.title = 'COMPASS demo video'
+  frame.title = 'COMPASS product film'
   if (file) {
     frame.controls = true
     frame.playsInline = true
     frame.preload = 'metadata'
-    frame.poster = '/assets/hero/compass-hero.jpg'
+    frame.poster = '/assets/promo/compass-promo.jpg'
     frame.src = src
   } else {
     frame.src = src
@@ -438,9 +469,9 @@ function mountFilm(raw) {
   player.dataset.state = 'ready'
   player.replaceChildren()
   const poster = el('img', 'poster')
-  poster.src = '/assets/hero/compass-hero.jpg'
+  poster.src = '/assets/promo/compass-promo.jpg'
   poster.alt = ''
-  const play = el('a', 'play', 'Play the demo')
+  const play = el('a', 'play', 'Play the film')
   play.href = raw
   play.dataset.embed = src
   player.append(poster, play)

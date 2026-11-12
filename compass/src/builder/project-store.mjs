@@ -5,8 +5,8 @@ export const MAX_REVISIONS = 8
 export const MAX_HTML = 160000
 export const MAX_STORAGE_CHARS = 1250000
 const MAX_PROJECT_CHARS = 400000
-const FIELDS = ['business','kind','audience','tone','theme','accent','font','hero','sections','headline','subhead','cta','lang']
-const ENUMS = { theme:['light','dark'], accent:['gold','emerald','coral','sky','violet','rose','amber','slate'], font:['serif','sans','display'], hero:['centered','split','poster'] }
+const FIELDS = ['business','kind','audience','tone','theme','accent','font','hero','density','mobile','sections','headline','subhead','cta','lang']
+const ENUMS = { theme:['light','dark'], accent:['gold','emerald','coral','sky','violet','rose','amber','slate'], font:['serif','sans','display'], hero:['centered','split','poster'], density:['balanced','airy','compact'], mobile:['standard','comfortable'] }
 const SECTIONS = ['features','products','gallery','testimonials','pricing','faq','contact','signup']
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
 const clean = (value, max) => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max) : ''

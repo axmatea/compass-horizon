@@ -98,3 +98,18 @@ test('saved state accepts only bounded structured intent and inert self-containe
     '<!doctype html><meta http-equiv="refresh" content="0;url=https://example.com">',
   ]) assert.equal(safeSavedHtml(html),null);
 });
+
+test('saved projects preserve optional layout refinements without changing older briefs', () => {
+  const original = state();
+  assert.equal('density' in normalizeSavedIntent(original.plan.intent),false);
+  assert.equal('mobile' in normalizeSavedIntent(original.plan.intent),false);
+  const intent = {...original.plan.intent,density:'airy',mobile:'comfortable'};
+  const refined = {...original,plan:{intent,version:1},render:{html:renderSite({spec:intent,version:1}),version:1,pending:[]}};
+  const store = createProjectStore({storage:memory(),now:()=>stamp,id:()=> 'p_layout'});
+  const saved = store.save({name:'Comfortable layout',revisions:[completedRevision(refined,'Improve the mobile layout',{now:()=>stamp,id:()=> 'r_layout'})]});
+  assert.equal(saved.ok,true);
+  const restored = restoredProject(saved.project);
+  assert.equal(restored.resumeIntent.density,'airy');
+  assert.equal(restored.resumeIntent.mobile,'comfortable');
+  for(const bad of [{density:'fullscreen'},{mobile:'javascript'},{density:{html:'bad'}}]) assert.equal(normalizeSavedIntent({...intent,...bad}),null);
+});

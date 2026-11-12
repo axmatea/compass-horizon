@@ -4,7 +4,7 @@ import { createState, applyUpdate, hasSite } from './spec.mjs';
 import { renderSite } from './render.mjs';
 import { copyPlan } from './copy.mjs';
 
-const CLAIM = /\b(published|deployed|deploying|launched|went live|is live|now live)\b/i;
+const CLAIM = /\b(published|deployed|deploying|launched|went live|is live|now live|booked|reserved|paid|booking confirmed|appointment confirmed|payment received|message sent|email sent|request sent)\b/i;
 const shortId = (prefix) => `${prefix}_${randomUUID().slice(0, 8)}`;
 
 function describe(patch) {
@@ -158,7 +158,10 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
       release();
     }
 
-    let source = fromModel ? 'model' : 'prepared';
+    const retainedCopy = [...session.state.actions].reverse().find(action => action.tool === 'write_copy' && action.result)?.result;
+    // A local style edit keeps the provenance of the words already on screen.
+    // It must not relabel model copy as a prepared example (or the reverse).
+    let source = retainedCopy ? (retainedCopy.fallback ? 'prepared' : 'model') : fromModel ? 'model' : 'prepared';
     if (planned) {
       const outcome = await planned.promise;
       const action = session.state.actions.find((item) => item.id === planned.id);

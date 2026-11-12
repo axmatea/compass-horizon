@@ -28,8 +28,9 @@ preserved production demoMode=live in /healthz. Verify `/`, `/demo`, `/plan` and
 office and login stay 410; unknown APIs stay 404. In-browser smoke tests cover
 describe/refine, device views, export, explicit device saving, reopen and a
 subsequent refinement. Loading a saved project must make no model request.
-Check mobile layout, console/network failures and video controls. The retained
-film is an older prepared-example recording, not proof of the current live flow.
+Check mobile layout, console/network failures and video controls. The approved
+promo is an earlier product vision, not a recording of this release. Verify its
+H.264/AAC playback, seven caption cues and no autoplay; see the media audit.
 
 Physical microphone capture/transcription is a founder-run live follow-up:
 grant access in a supported browser, verify Waiting → Listening, dictate,

@@ -7,15 +7,18 @@
 // State shape (state.intent is the spec; action/history/version fields are shared with the runtime):
 //   intent: { business, kind, audience, tone, theme, accent, font, hero, sections, headline, subhead, cta, lang }
 
-export const SITE_FIELDS = Object.freeze(['business', 'kind', 'audience', 'tone', 'theme', 'accent', 'font', 'hero', 'sections', 'headline', 'subhead', 'cta', 'lang']);
+import { profileFor } from './design.mjs';
+
+export const SITE_FIELDS = Object.freeze(['business', 'kind', 'audience', 'tone', 'theme', 'accent', 'font', 'hero', 'density', 'mobile', 'sections', 'headline', 'subhead', 'cta', 'lang']);
 export const SECTIONS = Object.freeze(['features', 'products', 'gallery', 'testimonials', 'pricing', 'faq', 'contact', 'signup']);
 export const THEMES = Object.freeze(['light', 'dark']);
 export const ACCENTS = Object.freeze(['gold', 'emerald', 'coral', 'sky', 'violet', 'rose', 'amber', 'slate']);
 export const FONTS = Object.freeze(['serif', 'sans', 'display']);
 export const HEROES = Object.freeze(['centered', 'split', 'poster']);
+export const DENSITIES = Object.freeze(['balanced', 'airy', 'compact']);
+export const MOBILE_LAYOUTS = Object.freeze(['standard', 'comfortable']);
 /** Design fields that get a default the moment a site exists (so the brief shows them and later changes read as updates). */
-const DESIGN_DEFAULTS = Object.freeze({ theme: 'light', accent: 'gold', font: 'sans', hero: 'centered', tone: 'clear and confident' });
-const DEFAULT_SECTIONS = Object.freeze(['features', 'signup']);
+const DESIGN_DEFAULTS = Object.freeze({ theme: 'light', tone: 'clear and confident', density: 'balanced', mobile: 'standard' });
 const MAX_LEN = 140;
 
 export function createState(sessionId) {
@@ -65,6 +68,7 @@ const FONT_WORDS = [['serif', /serif|editorial|classic|elegant|book|times|georgi
 export function normalizeFont(raw) {
   const s = lower(raw);
   if (!s) return null;
+  if (/\bsans(?:[\s-]+serif)?\b/.test(s)) return 'sans';
   if (FONTS.includes(s)) return s;
   for (const [k, re] of FONT_WORDS) if (re.test(s)) return k;
   return null;
@@ -116,10 +120,12 @@ export function normalizeField(field, raw) {
     case 'accent': return normalizeAccent(raw);
     case 'font': return normalizeFont(raw);
     case 'hero': return normalizeHero(raw);
+    case 'density': return DENSITIES.includes(lower(raw)) ? lower(raw) : null;
+    case 'mobile': return MOBILE_LAYOUTS.includes(lower(raw)) ? lower(raw) : null;
     case 'sections': return normalizeSections(raw);
     case 'lang': return normalizeLang(raw);
-    case 'business': case 'headline': case 'subhead': case 'cta': return clean(raw);
-    case 'kind': case 'audience': case 'tone': return lower(raw);
+    case 'business': case 'headline': case 'subhead': case 'cta': return typeof raw === 'string' ? clean(raw) : null;
+    case 'kind': case 'audience': case 'tone': return typeof raw === 'string' ? lower(raw) : null;
     default: return undefined;
   }
 }
@@ -170,8 +176,10 @@ export function applyUpdate(state, { set = {}, unset = [], add_sections = [], re
 
   // A site now exists: materialize the design defaults it will be rendered with.
   if (next.intent.kind || next.intent.business) {
+    const profile = profileFor(next.intent);
+    for (const field of ['accent', 'font', 'hero']) if (next.intent[field] == null) { next.intent[field] = profile[field]; changed.push(field); }
     for (const [f, v] of Object.entries(DESIGN_DEFAULTS)) if (next.intent[f] == null) { next.intent[f] = v; changed.push(f); }
-    if (next.intent.sections == null) { next.intent.sections = [...DEFAULT_SECTIONS]; changed.push('sections'); }
+    if (next.intent.sections == null) { next.intent.sections = profile.sections; changed.push('sections'); }
     if (next.intent.lang == null) { next.intent.lang = meta.lang || 'en'; changed.push('lang'); }
   }
 

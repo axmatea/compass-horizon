@@ -121,7 +121,7 @@ test('a configured https webhook receives the email and timestamp, and a failure
   }
 });
 
-test('homepage plays the bundled walkthrough unless DEMO_VIDEO_URL overrides it', async () => {
+test('homepage plays the approved founder film unless DEMO_VIDEO_URL overrides it', async () => {
   const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const demo = await readFile(new URL('../demo.html', import.meta.url), 'utf8');
   const plain = await listen({}, async () => new Response(''), { 'index.html': index, 'demo.html': demo });
@@ -131,13 +131,15 @@ test('homepage plays the bundled walkthrough unless DEMO_VIDEO_URL overrides it'
     assert.equal((await fetch(plain.origin + '/')).status, 200);
     assert.equal((await fetch(plain.origin + '/demo')).status, 200);
     assert.match(home, /id="hero-secondary">Request access/);
-    assert.match(home, /href="#watch">Watch the demo/);
+    assert.match(home, /href="#watch">Watch the film/);
     assert.match(home, /id="watch-player"/);
-    assert.match(home, /<video[^>]*\bmuted\b[^>]*preload="none"/);
+    assert.match(home, /<video[^>]*preload="none"/);
     assert.match(home, /playsinline/);
-    assert.match(home, /poster="\/assets\/demo\/compass-walkthrough\.jpg"/);
-    assert.match(home, /<source src="\/assets\/demo\/compass-walkthrough\.mp4" type="video\/mp4">/);
-    assert.match(home, /<track kind="captions" src="\/assets\/demo\/compass-walkthrough\.vtt"/);
+    assert.doesNotMatch(home, /<video[^>]*\bautoplay\b/);
+    assert.match(home, /Product film · Earlier vision/);
+    assert.match(home, /poster="\/assets\/promo\/compass-promo\.jpg"/);
+    assert.match(home, /<source src="\/assets\/promo\/compass-promo\.mp4" type="video\/mp4">/);
+    assert.match(home, /<track kind="captions" src="\/assets\/promo\/compass-promo\.en\.vtt"/);
     assert.match(home, /id="watch-note"/);
     assert.match(home, /aria-describedby="watch-note"/);
     assert.doesNotMatch(home, /id="compass-video"|Watch the video|not on this page yet/);
@@ -154,12 +156,12 @@ test('homepage plays the bundled walkthrough unless DEMO_VIDEO_URL overrides it'
   try {
     const home = await (await fetch(film.origin + '/')).text();
     assert.match(home, /id="hero-secondary">Request access/);
-    assert.match(home, /href="#watch">Watch the demo/);
+    assert.match(home, /href="#watch">Watch the film/);
     assert.match(home, /id="watch"/);
-    assert.match(home, /<video[^>]*poster="\/assets\/demo\/compass-walkthrough\.jpg"/);
+    assert.match(home, /<video[^>]*poster="\/assets\/promo\/compass-promo\.jpg"/);
     assert.match(home, /src="https:\/\/cdn\.example\.com\/compass\.mp4"/);
-    assert.match(home, /title="COMPASS demo video"/);
-    assert.doesNotMatch(home, /compass-walkthrough\.mp4|not on this page yet|See how it works/);
+    assert.match(home, /title="COMPASS product film"/);
+    assert.doesNotMatch(home, /compass-promo\.mp4|not on this page yet|See how it works/);
     assert.doesNotMatch(home, banned);
     assert.equal((await (await fetch(film.origin + '/api/config')).json()).demoVideoUrl, 'https://cdn.example.com/compass.mp4');
   } finally {
@@ -169,18 +171,18 @@ test('homepage plays the bundled walkthrough unless DEMO_VIDEO_URL overrides it'
   const youtube = await listen({ DEMO_VIDEO_URL: 'https://youtu.be/abc123XYZ_-' }, async () => new Response(''), { 'index.html': index, 'demo.html': demo });
   try {
     const home = await (await fetch(youtube.origin + '/')).text();
-    assert.match(home, /Watch the demo/);
+    assert.match(home, /Watch the film/);
     assert.match(home, /class="poster"/);
-    assert.match(home, /poster" src="\/assets\/demo\/compass-walkthrough\.jpg"/);
+    assert.match(home, /poster" src="\/assets\/promo\/compass-promo\.jpg"/);
     assert.match(home, /data-embed="https:\/\/www\.youtube-nocookie\.com\/embed\/abc123XYZ_-"/);
-    assert.doesNotMatch(home, /compass-walkthrough\.mp4|<video/);
+    assert.doesNotMatch(home, /compass-promo\.mp4|<video/);
     assert.doesNotMatch(home, banned);
     const insecure = await listen({ DEMO_VIDEO_URL: 'http://cdn.example.com/compass.mp4' }, async () => new Response(''), { 'index.html': index, 'demo.html': demo });
     try {
       const hidden = await (await fetch(insecure.origin + '/')).text();
       assert.match(hidden, /id="hero-secondary">Request access/);
-      assert.match(hidden, /href="#watch">Watch the demo/);
-      assert.match(hidden, /src="\/assets\/demo\/compass-walkthrough\.mp4"/);
+      assert.match(hidden, /href="#watch">Watch the film/);
+      assert.match(hidden, /src="\/assets\/promo\/compass-promo\.mp4"/);
       assert.doesNotMatch(hidden, /http:\/\/cdn\.example\.com|Watch the video/);
     } finally {
       await close(insecure);

@@ -1,10 +1,10 @@
 import { demoVideoUrl } from './demo-api.mjs';
 
-const HERO_POSTER = '/assets/demo/compass-walkthrough.jpg';
-export const BUNDLED_WALKTHROUGH = {
-  src: '/assets/demo/compass-walkthrough.mp4',
-  poster: '/assets/demo/compass-walkthrough.jpg',
-  captions: '/assets/demo/compass-walkthrough.vtt',
+const HERO_POSTER = '/assets/promo/compass-promo.jpg';
+export const BUNDLED_PROMO = {
+  src: '/assets/promo/compass-promo.mp4',
+  poster: '/assets/promo/compass-promo.jpg',
+  captions: '/assets/promo/compass-promo.en.vtt',
 };
 
 const MARKER = /<div\s+id="compass-video"[^>]*>\s*<\/div>/;
@@ -14,7 +14,7 @@ function esc(value) {
 }
 
 function playerFor(raw) {
-  if (raw === BUNDLED_WALKTHROUGH.src) return { kind: 'file', src: raw, bundled: true, type: 'video/mp4' };
+  if (raw === BUNDLED_PROMO.src) return { kind: 'file', src: raw, bundled: true, type: 'video/mp4' };
   let url;
   try { url = new URL(raw); } catch { return null; }
   if (url.protocol !== 'https:' || url.username || url.password) return null;
@@ -39,23 +39,23 @@ function playerFor(raw) {
 }
 
 function fileMedia(player) {
-  const poster = player.bundled ? BUNDLED_WALKTHROUGH.poster : HERO_POSTER;
+  const poster = player.bundled ? BUNDLED_PROMO.poster : HERO_POSTER;
   const track = player.bundled
-    ? `<track kind="captions" src="${esc(BUNDLED_WALKTHROUGH.captions)}" srclang="en" label="English" default>`
+    ? `<track kind="captions" src="${esc(BUNDLED_PROMO.captions)}" srclang="en" label="English" default>`
     : '';
-  return `<video controls playsinline muted preload="none" poster="${esc(poster)}" width="1920" height="1080" aria-describedby="watch-note" title="COMPASS demo video">${track}<source src="${esc(player.src)}" type="${esc(player.type || 'video/mp4')}"></video>`;
+  return `<video controls playsinline preload="none" poster="${esc(poster)}" width="1920" height="1080" aria-describedby="watch-note" title="COMPASS product film">${track}<source src="${esc(player.src)}" type="${esc(player.type || 'video/mp4')}"></video>`;
 }
 
 export function videoBlock(raw) {
-  const player = (raw && playerFor(raw)) || playerFor(BUNDLED_WALKTHROUGH.src);
+  const player = (raw && playerFor(raw)) || playerFor(BUNDLED_PROMO.src);
   if (!player) return '';
   const note = player.bundled
-    ? 'Prepared example · Earlier interface'
+    ? 'Product film · Earlier vision'
     : 'Product recording';
   const media = player.kind === 'file'
     ? fileMedia(player)
-    : `<img class="poster" src="${HERO_POSTER}" alt="" width="1536" height="1024"><a class="play" href="${esc(raw)}" data-embed="${esc(player.src)}">Play the demo</a>`;
-  return `<section class="watch" id="watch" aria-labelledby="watch-title"><div class="wrap"><div class="watch-heading"><div><h2 id="watch-title">Watch it happen.</h2></div><p class="watch-note" id="watch-note">${note}</p></div><div class="player" id="watch-player" data-state="ready">${media}</div></div></section>`;
+    : `<img class="poster" src="${HERO_POSTER}" alt="" width="1920" height="1080"><a class="play" href="${esc(raw)}" data-embed="${esc(player.src)}">Play the film</a>`;
+  return `<section class="watch" id="watch" aria-labelledby="watch-title"><div class="wrap"><div class="watch-heading"><div><h2 id="watch-title">Meet COMPASS.</h2></div><p class="watch-note" id="watch-note">${note}</p></div><div class="player" id="watch-player" data-state="ready">${media}</div></div></section>`;
 }
 
 export function applyHomepage(html, env = {}) {

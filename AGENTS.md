@@ -33,10 +33,18 @@ microphone until the browser's native onstart event, then Listening. Browsers
 may use a speech service; COMPASS receives submitted text. Automated speech
 tests do not prove physical microphone capture.
 
+Keep rendering fields (including density and mobile) bounded and compatible with
+the saved-project allowlist. The homepage starts with one prompt; do not restore
+decorative starter preview cards or mock app modes. A failed/incomplete request
+must retain the last complete HTML and the user's retry instruction. A new
+interim render must not inherit the previous result's live-model badge. Hide
+server-preview links while busy or after a rollback until a complete result
+matches again. Keep all page actions anchored to sections that actually exist.
+
 Studio team entries and testimonials render only from confirmed source data.
 Testimonials require founder approval, attribution and an https source URL.
 Do not fill empty configuration with invented quotes. See docs/RELEASE.md for
-the retained film and generated artwork provenance; do not replace the film
+the approved film and generated artwork provenance; do not replace the film
 with overlapping PR assets without coordination.
 
 Preserve concurrent user changes. Delete files only after checking imports,

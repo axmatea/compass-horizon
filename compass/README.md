@@ -30,7 +30,7 @@ so the homepage builder, /demo, and /plan work without a second server. Local
 Vite runs always use prepared builds and mailto access requests: model and
 webhook credentials are ignored and .env files are not loaded. An explicit
 DEMO_VIDEO_URL can still preview a supplied https video. Unset plays the
-bundled older prepared-example walkthrough, labelled as an earlier recording.
+founder-approved product film, labelled as an earlier product vision.
 Verify with npm run check, npm test and npm run build.
 
 Vite is the only development dependency. The production image contains dist,
@@ -44,7 +44,7 @@ Anthropic, General Compute, then Nebius. Early access delivers an
 email only when WAITLIST_WEBHOOK_URL is an https URL. Otherwise the form opens
 mailto:info@aimedia.global and does not claim the email was stored.
 DEMO_VIDEO_URL is optional and read at request time. Unset serves the bundled
-walkthrough at /assets/demo/compass-walkthrough.mp4. A valid https value replaces it.
+promo at /assets/promo/compass-promo.mp4. A valid https value replaces it.
 
 Keep font attribution with retained assets. See DEPLOYMENT.md for the existing
 Railway target and release gates, and ../docs/RELEASE.md for media provenance.

@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import { readFile, access } from 'node:fs/promises';
 import { createCompassServer } from '../server.mjs';
 import { MODES, DEFAULT_MODE, REVISIONS, modeById } from '../src/site/modes.mjs';
-import { webMock, phoneMock, briefMock, ideasMock, esc } from '../src/site/frames.mjs';
+import { briefMock, ideasMock, esc } from '../src/site/frames.mjs';
 import {
   MAX_TEXT, createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps,
   sourceLabel, previewName, previewDoc, parseSse, cleanText, turnError,
@@ -38,25 +38,22 @@ async function turn(origin, state, text) {
   return response.status;
 }
 
-test('homepage carries a website starting layout and labelled editable starters', async () => {
+test('homepage starts with a single composer and examples stay simple prompts', async () => {
   const html = await read('index.html');
-  for (const piece of [webMock('site'), phoneMock('site'), briefMock('site')]) {
-    assert.ok(html.includes(piece), piece.slice(0, 80));
-  }
+  assert.ok(html.includes(briefMock('site')));
+  assert.doesNotMatch(html, /Starter previews|showcase-item|\/demo\?starter=/);
+  assert.match(html, /id="studio"[^>]*hidden/);
+  assert.doesNotMatch(html, /Fresh bread, baked before you wake/);
   for (const idea of modeById('site').ideas) assert.ok(html.includes(`data-idea="${idea}"`));
   assert.match(html, /name="mode" value="site"/);
-  for (const starter of ['studio', 'bakery', 'portfolio']) assert.ok(html.includes('/demo?starter=' + starter));
-  assert.equal((html.match(/class="sample-type">Starter preview/g) || []).length, 3);
   const nav = html.match(/<nav class="menu"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
   assert.equal((nav.match(/<a /g) || []).length, 3);
   for (const mode of MODES) {
     assert.equal(mode.ideas.length, 3);
     for (const idea of mode.ideas) assert.ok(idea.length <= MAX_TEXT);
-    assert.ok(webMock(mode.id).startsWith('<div class="ui '));
-    assert.ok(phoneMock(mode.id).startsWith('<div class="ui '));
   }
-  assert.equal(DEFAULT_MODE, 'web');
-  assert.equal(modeById('nope').id, 'web');
+  assert.equal(DEFAULT_MODE, 'site');
+  assert.equal(modeById('nope').id, 'site');
   assert.equal(esc('<a href="x">&'), '&lt;a href=&quot;x&quot;&gt;&amp;');
   for (const [label, text] of REVISIONS) assert.ok(label && text.length <= MAX_TEXT);
 });
@@ -107,7 +104,7 @@ test('builder client follows a streamed turn, a revision and the prepared label'
   assert.equal(state.render.version, 1);
   assert.equal(state.source, 'prepared');
   assert.equal(sourceLabel(state), 'Prepared copy');
-  assert.equal(previewName(state.plan), 'barbershop');
+  assert.equal(previewName(state.plan), 'barbershop-booking');
   assert.deepEqual(briefRows(state.plan).find(row => row.key === 'tone'), { key: 'tone', label: 'Tone', value: 'Warm', from: '' });
   assert.deepEqual(buildSteps(state).map(step => step.status), ['done', 'done', 'done']);
   assert.match(buildSteps(state)[1].text, /prepared copy/i);
@@ -172,4 +169,16 @@ test('builder client never dead-ends: rate limit, JSON reply and a model-written
   assert.match(turnError(400, 'text_too_long'), /500/);
   assert.match(turnError(0), /connection/i);
   assert.match(turnError(500), /Send it again/);
+});
+
+test('an interim render never inherits the previous live model label', () => {
+  const state = applyResult(createStudio(), { intent: { kind: 'studio' }, html: '<p>First page</p>', version: 1, source: 'model' });
+  beginTurn(state);
+  applyEvent(state, { type: 'reasoning_status', stage: 'interpreting' });
+  assert.equal(sourceLabel(state), 'Live model');
+  applyEvent(state, { type: 'render', html: '<p>Interim page</p>', version: 2 });
+  assert.equal(sourceLabel(state), '');
+  applyResult(state, { html: '<p>Completed page</p>', version: 2, source: 'prepared' });
+  closeTurn(state);
+  assert.equal(sourceLabel(state), 'Prepared copy');
 });

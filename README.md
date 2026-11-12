@@ -14,6 +14,13 @@ snapshots stay in this browser; there is no account, cloud backup or autosave.
 Loading a project makes no model request. Its next submitted refinement can
 restore the validated brief into a fresh server session.
 
+The homepage starts with one composer; the canvas appears after a build begins.
+Example prompts replace starter preview cards. The full builder keeps the last
+complete page and retry text if a request fails, and shows source labels on every
+screen size. In-progress renders do not inherit an earlier live-model label.
+Generation uses domain-specific website compositions and supports typography,
+spacing and mobile refinements. Property cards and booking forms remain previews.
+
 Dictation appears in an editable prompt. Pause or stop, edit, then submit.
 The browser handles speech recognition and may use its speech service;
 COMPASS receives the submitted text. Automated speech tests use mocks;
@@ -56,7 +63,7 @@ Production sets COMPASS_DEMO_MODE=live, so the public builder calls the model
 and uses a prepared build only if that call fails.
 Anthropic is first when its key is set. /healthz reports the active demoMode.
 DEMO_VIDEO_URL is read on each request. When it is unset, the homepage plays
-the bundled earlier prepared-example walkthrough and links to “Watch the demo”. When it
+the founder-approved product film and links to “Watch the film”. When it
 is an https URL, that recording replaces the bundled file. An http URL is ignored.
 POST /api/early-access accepts one email. When WAITLIST_WEBHOOK_URL is an
 https URL, the server posts `{email, timestamp}` there. When it is unset, the
@@ -71,9 +78,13 @@ serving mycompass.world. Source: this repository main, root directory /compass.
 Use compass/Dockerfile; Railway supplies PORT; healthcheck is /healthz.
 The response records mode=public-demo, demoMode and the deployed Git revision.
 The existing production live setting is preserved. A missing DEMO_VIDEO_URL
-plays the older prepared-example walkthrough, labelled as an earlier recording.
+plays the founder-approved promo, labelled as an earlier product vision.
 See [release notes and media provenance](docs/RELEASE.md) and
 [deployment checks](compass/DEPLOYMENT.md).
+
+The [media audit](docs/COMPASS_2_MEDIA.md) distinguishes the approved founder promo
+from the two walkthroughs. The [limited-access design](docs/ACCESS_PREVIEW.md)
+describes a separate managed-auth preview; accounts are not enabled in this release.
 
 GitHub stores the source and lockfile needed to rebuild on another computer.
 Verify a fresh clone, npm run product:install, npm test and npm run build before

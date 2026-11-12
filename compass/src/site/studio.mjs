@@ -7,7 +7,7 @@ export const SECTION_NAMES = { hero: 'Hero', features: 'Features', products: 'Pr
 
 export const BRIEF_FIELDS = [
   ['business', 'Name'], ['kind', 'What'], ['audience', 'For'], ['tone', 'Tone'], ['theme', 'Theme'],
-  ['accent', 'Accent'], ['hero', 'Hero'], ['headline', 'Headline'], ['cta', 'Button'], ['sections', 'Sections'],
+  ['accent', 'Accent'], ['font', 'Type'], ['hero', 'Hero'], ['density', 'Spacing'], ['mobile', 'Mobile'], ['headline', 'Headline'], ['cta', 'Button'], ['sections', 'Sections'],
 ]
 
 export const PHASE_LABELS = { idle: 'Ready', listening: 'Listening', thinking: 'Understanding', building: 'Building', replanning: 'Updating the brief', done: 'Up to date' }
@@ -79,6 +79,7 @@ export function applyEvent(state, event) {
       break
     case 'render':
       if (typeof event.html === 'string' && event.html) {
+        state.source = '' // Provenance belongs to the final result, not an interim render.
         state.render = { html: event.html, version: event.version || 1, pending: Array.isArray(event.pending) ? event.pending : [], key: (state.render?.key || 0) + 1 }
         state.placeholder = Boolean(event.placeholder)
       }

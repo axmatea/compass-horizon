@@ -3,17 +3,12 @@ import { createPreviewTools } from '../site/preview-tools.mjs'
 import { parseSse, cleanText, previewDoc } from '../site/studio.mjs'
 import { createProjectStore, completedRevision, appendRevision, restoredProject } from './project-store.mjs'
 
-const LINES = [
-  'Build me a premium website for an AI company. Make it minimal, light and editorial.',
-  'Actually, make it warmer. Make the hero more ambitious, and add a pricing section.',
-  'Now make it lighter, and add a testimonials section.',
-]
 const NAMES = { hero: 'Hero', features: 'Features', products: 'Products', gallery: 'Gallery', testimonials: 'Testimonials', pricing: 'Pricing', faq: 'FAQ', contact: 'Contact', signup: 'Signup' }
 const FIELDS = [
   ['business', 'Name'], ['kind', 'What'], ['audience', 'For'], ['tone', 'Tone'], ['theme', 'Theme'],
-  ['accent', 'Accent'], ['font', 'Type'], ['hero', 'Hero'], ['headline', 'Headline'], ['cta', 'Button'], ['sections', 'Sections'],
+  ['accent', 'Accent'], ['font', 'Type'], ['hero', 'Hero'], ['density', 'Spacing'], ['mobile', 'Mobile'], ['headline', 'Headline'], ['cta', 'Button'], ['sections', 'Sections'],
 ]
-const ORB = { idle: 'Ready', starting: 'Waiting for microphone', listening: 'Listening', thinking: 'Thinking', acting: 'Acting', speaking: 'Speaking', replanning: 'Replanning' }
+const ORB = { idle: 'Ready', starting: 'Waiting for microphone', listening: 'Listening', thinking: 'Understanding', acting: 'Building', speaking: 'Speaking', replanning: 'Refining' }
 
 const demo = document.querySelector('#demo')
 const orb = document.querySelector('#orb')
@@ -23,9 +18,6 @@ const interim = document.querySelector('#interim')
 const mic = document.querySelector('#mic')
 const sound = document.querySelector('#sound')
 const reset = document.querySelector('#reset')
-const sample = document.querySelector('#sample')
-const sampleText = document.querySelector('#sample-text')
-const scriptLabel = document.querySelector('#script-label')
 const form = document.querySelector('#composer')
 const input = document.querySelector('#sd-input')
 const count = document.querySelector('#count')
@@ -44,6 +36,14 @@ const phoneFrame = document.querySelector('#phone-frame')
 const previewDevices = document.querySelector('#preview-devices')
 const previewSource = document.querySelector('#preview-source')
 const voiceFallback = document.querySelector('#voice-fallback')
+const composerLabel = document.querySelector('#composer-label')
+const examplePrompts = document.querySelector('#example-prompts')
+const refinePrompts = document.querySelector('#refine-prompts')
+const latestTurn = document.querySelector('#latest-turn')
+const lastInstruction = document.querySelector('#last-instruction')
+const lastReply = document.querySelector('#last-reply')
+const previewPhase = document.querySelector('#preview-phase')
+const stage = document.querySelector('#stage')
 
 const state = {
   sessionId: '',
@@ -55,7 +55,10 @@ const state = {
   busy: false,
   voiceOn: false,
   source: '',
+  sourcePending: false,
+  remotePreviewCurrent: false,
   placeholder: false,
+  buildPhase: 'understanding',
 }
 let epoch = 0
 let pendingRequests = 0
@@ -64,6 +67,7 @@ let history = []
 let selectedRevision = null
 let resumeIntent = null
 let lastPrompt = ''
+let latestReply = ''
 let lastSavedSignature = ''
 let saveMessage = ''
 let historyKey = ''
@@ -85,7 +89,10 @@ const STARTERS = {
   studio: 'A minimal, white website for an architecture studio. Use editorial typography, a project gallery and a contact section.',
   bakery: 'A warm, bright website for an independent bakery. Include the menu, opening hours and a contact section.',
   portfolio: 'A clean, light portfolio for a creative designer. Include selected work, a short introduction and contact details.',
+  realestate: 'A premium real estate website. Use a refined editorial layout, property listings, and a clear contact section.',
+  booking: 'A modern booking page for an independent studio. Show the services clearly and make the contact action prominent.',
 }
+const REFINEMENTS = { minimal:'Make this website more minimal. Give the content more room to breathe.', type:'Change the typography to an elegant serif.', mobile:'Improve the mobile layout. Use comfortable spacing and larger touch targets.' }
 const previewTools = createPreviewTools({
   root: document.querySelector('[data-preview-tools]'),
   surface: document.querySelector('#stage'),
@@ -105,6 +112,17 @@ function setOrb(next) {
   demo.dataset.state = next
   orb.dataset.state = next
   orbLabel.textContent = ORB[next] || 'Ready'
+  paintProgress()
+}
+function paintProgress() {
+  stage.setAttribute('aria-busy',String(state.busy))
+  previewPhase.hidden = !state.busy
+  previewPhase.textContent = state.buildPhase === 'writing' ? 'Building your page…' : state.buildPhase === 'refining' ? 'Applying your changes…' : 'Understanding your idea…'
+}
+function tell(text = '', kind = 'info') {
+  notice.textContent = text
+  notice.dataset.kind = kind
+  notice.setAttribute('role',kind === 'error' ? 'alert' : 'status')
 }
 function cap(value) {
   return String(value ?? '').replace(/\b\p{L}+/gu, (word) => word.toLowerCase() === 'ai' ? 'AI' : word.charAt(0).toUpperCase() + word.slice(1))
@@ -221,9 +239,9 @@ function paintStage() {
       item.srcdoc = previewDoc(render.html)
     }
   }
-  previewSource.hidden = !state.source && !selectedRevision
+  previewSource.hidden = state.sourcePending || (!state.source && !selectedRevision)
   previewSource.textContent = selectedRevision || state.source === 'saved' ? 'Saved preview' : state.source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
-  if (state.sessionId && !selectedRevision) {
+  if (state.sessionId && !selectedRevision && !state.busy && state.remotePreviewCurrent) {
     open.hidden = false
     open.href = '/api/site/session/' + encodeURIComponent(state.sessionId) + '/page'
   } else {
@@ -232,30 +250,37 @@ function paintStage() {
   }
 }
 
-function paintSample() {
-  const line = LINES[Math.min(state.turns, LINES.length - 1)]
-  sampleText.textContent = line
-  scriptLabel.textContent = state.turns ? 'A next step' : 'A starting point'
-  sample.classList.toggle('is-urgent', Boolean(state.busy && state.plan))
+function paintComposer() {
+  const hasPage = Boolean(previewRender()?.html)
+  composerLabel.textContent = selectedRevision ? 'Reviewing an earlier version' : hasPage ? 'What would you change?' : 'What would you like to make?'
+  input.placeholder = hasPage ? 'Make it more minimal. Change the type. Add a section…' : 'Describe your next website…'
+  examplePrompts.hidden = hasPage || state.busy || Boolean(selectedRevision)
+  refinePrompts.hidden = !hasPage || state.busy || Boolean(selectedRevision)
+  for (const button of document.querySelectorAll('[data-starter], [data-refine]')) button.disabled = state.busy || Boolean(selectedRevision)
+  latestTurn.hidden = !lastPrompt || Boolean(selectedRevision)
+  lastInstruction.textContent = lastPrompt
+  lastReply.textContent = latestReply
+  paintProgress()
 }
 function paint() {
-  paintBrief(); paintBuild(); paintStage(); paintSample()
+  paintBrief(); paintBuild(); paintStage(); paintComposer()
   previewTools.update()
   paintProject()
 }
 
-function applyEvent(event) {
+function applyEvent(event, { repaint = true } = {}) {
   if (event.sessionId) state.sessionId = event.sessionId
-  if (event.type === 'reasoning_status' && event.stage === 'interpreting') setOrb('thinking')
+  if (event.type === 'reasoning_status' && event.stage === 'interpreting') { state.buildPhase = 'understanding'; setOrb('thinking') }
   if (event.type === 'state_patch' && (event.version || 0) >= (state.plan?.version || 0)) {
     state.plan = { intent: event.intent, patch: event.patch, version: event.version }
     setOrb(state.actions.some(item => item.status === 'running') ? 'acting' : 'thinking')
     const changed = (event.patch || []).some(op => op.status === 'active' && op.change === 'updated')
-    if (changed) setOrb('replanning')
+    if (changed) { state.buildPhase = 'refining'; setOrb('replanning') }
   }
   if (event.type === 'tool_call') {
     state.actions = [...state.actions.filter(item => item.id !== event.actionId), { id: event.actionId, tool: event.tool, status: 'running', args: event.args }].slice(-3)
     state.busy = true
+    state.buildPhase = 'writing'
     setOrb('acting')
   }
   if (event.type === 'tool_result') {
@@ -266,6 +291,7 @@ function applyEvent(event) {
   }
   if (event.type === 'render' && (event.version || 0) >= (state.render?.version || 0)) {
     state.render = { html: event.html, version: event.version, pending: event.pending || [], key: (state.render?.key || 0) + 1 }
+    state.sourcePending = true
   }
   if (event.type === 'say' && event.text) {
     const li = document.createElement('li')
@@ -275,31 +301,42 @@ function applyEvent(event) {
     text.textContent = event.text
     li.append(who, text)
     log.append(li)
+    latestReply = cleanText(event.text).slice(0,240)
     say(event.text)
   }
   if (event.type === 'done') {
     state.busy = pendingRequests > 0 || state.actions.some(item => item.status === 'running')
     if (!state.busy && state.orb !== 'speaking') setOrb('idle')
   }
-  paint()
+  if (repaint) paint()
 }
 
-function applyResult(result, { replay = true } = {}) {
+function applyResult(result, { replay = true, repaint = true } = {}) {
   if (result.sessionId) state.sessionId = result.sessionId
   if ((result.version || 0) >= (state.render?.version || 0)) {
     state.source = result.source === 'model' ? 'model' : 'prepared'
+    state.sourcePending = false
     state.placeholder = Boolean(result.placeholder)
   }
+  if (result.reply) latestReply = cleanText(result.reply).slice(0,240)
   if (replay && Array.isArray(result.events) && result.events.length) {
-    for (const event of result.events) applyEvent(event)
-    paint()
+    for (const event of result.events) applyEvent(event,{repaint:false})
+    if ((result.version || 0) >= (state.render?.version || 0)) state.sourcePending = false
+    verifyRemotePreview(result)
+    if (repaint) paint()
     return
   }
   if (result.intent && (result.version || 0) >= (state.plan?.version || 0)) state.plan = { intent: result.intent, patch: result.patch || [], version: result.version || 1 }
   if (result.html && (result.version || 0) >= (state.render?.version || 0) && result.html !== state.render?.html) state.render = { html: result.html, version: result.version || 1, pending: result.pending || [], key: (state.render?.key || 0) + 1 }
   state.busy = pendingRequests > 0 || state.actions.some(item => item.status === 'running')
+  verifyRemotePreview(result)
   if (!state.busy && state.orb !== 'speaking') setOrb('idle')
-  paint()
+  if (repaint) paint()
+}
+
+function verifyRemotePreview(result) {
+  state.remotePreviewCurrent = Boolean(typeof result.html === 'string' && result.html.trim()
+    && result.html === state.render?.html && result.version === state.render?.version && !result.pending?.length)
 }
 
 async function readSse(response, mine) {
@@ -315,30 +352,48 @@ async function readSse(response, mine) {
     if (mine !== epoch) continue
     for (const event of parsed.frames) {
       if (event.event === 'result') {
-        applyResult(event.data, { replay: false })
+        applyResult(event.data, { replay:false, repaint:false })
         finished = true
-        resumeIntent = null
-      } else applyEvent(event.data)
+      } else applyEvent(event.data,{repaint:false})
     }
+    // A prepared turn may arrive in one packet with several render events.
+    // Navigate each iframe only once for that packet, to its latest document.
+    if (parsed.frames.length) paint()
   }
   return finished
 }
 
 async function submit(text) {
   const clean = cleanText(text)
-  if (!clean || selectedRevision) return
+  if (!clean || selectedRevision || state.busy) return
   if (dictation?.active) dictation.stop()
   const mine = epoch
+  const previous = { plan:state.plan, render:state.render, source:state.source, sourcePending:state.sourcePending, placeholder:state.placeholder, sessionId:state.sessionId, actions:state.actions }
+  const previousResumeIntent = resumeIntent
+  let finished = false
+  function recover(message) {
+    Object.assign(state,previous)
+    resumeIntent = previousResumeIntent
+    state.remotePreviewCurrent = false
+    latestReply = ''
+    tell(message + (previous.render?.html ? ' Previous preview kept.' : ''),'error')
+    if (!input.value) { input.value = clean; count.textContent = String(clean.length) }
+  }
   const controller = new AbortController()
+  let timedOut = false
+  const deadline = setTimeout(() => { timedOut = true; controller.abort() },45000)
   requestControllers.add(controller)
   pendingRequests += 1
   lastPrompt = clean
+  latestReply = ''
   saveMessage = ''
-  notice.textContent = ''
+  tell()
   input.value = ''
   count.textContent = '0'
   state.turns += 1
   state.busy = true
+  state.remotePreviewCurrent = false
+  state.buildPhase = 'understanding'
   setOrb('thinking')
   const row = document.createElement('li')
   const who = document.createElement('span')
@@ -358,29 +413,32 @@ async function submit(text) {
     if (response.status === 429) {
       const data = await response.json()
       if (mine !== epoch) return
-      if (data.fallback) { applyResult(data.fallback); resumeIntent = null }
-      notice.textContent = 'The request limit was reached. Showing a prepared preview for this turn.'
+      if (typeof data.fallback?.html === 'string' && data.fallback.html.trim()) {
+        applyResult(data.fallback); resumeIntent = null; finished = true
+        tell('Request limit reached. Showing a prepared preview.')
+      } else recover('Request limit reached. Try again in a moment.')
       return
     }
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
       if (mine !== epoch) return
-      notice.textContent = data.error === 'text_too_long' ? 'Keep it to 500 characters and try again.' : 'That update did not finish. Your current preview is still here. Try again.'
-      if (!input.value) { input.value = clean; count.textContent = String(clean.length) }
+      recover(data.error === 'text_too_long' ? 'Keep it to 500 characters and try again.' : 'Update interrupted. Try again.')
       return
     }
     const type = response.headers.get('content-type') || ''
     if (type.includes('text/event-stream') && response.body) {
-      if (!await readSse(response, mine) && mine === epoch) notice.textContent = 'The connection ended before the update finished. You can try again.'
+      finished = await readSse(response, mine)
+      if (finished && mine === epoch) resumeIntent = null
+      if (!finished && mine === epoch) recover('Connection ended early. Try again.')
     } else {
       const result = await response.json()
-      if (mine === epoch) { applyResult(result); resumeIntent = null }
+      if (mine === epoch) { applyResult(result); resumeIntent = null; finished = true }
     }
   } catch {
     if (mine !== epoch) return
-    notice.textContent = 'The connection dropped. Your current preview is still here. Try again.'
-    if (!input.value) { input.value = clean; count.textContent = String(clean.length) }
+    recover(timedOut ? 'This update took too long. Try again.' : 'Connection lost. Try again.')
   } finally {
+    clearTimeout(deadline)
     requestControllers.delete(controller)
     if (mine === epoch) {
       pendingRequests = Math.max(0, pendingRequests - 1)
@@ -388,7 +446,7 @@ async function submit(text) {
         state.actions = state.actions.map(action => action.status === 'running' ? {...action,status:'invalidated'} : action)
         state.busy = false
         if (state.orb !== 'speaking') setOrb('idle')
-        const revision = completedRevision(state,lastPrompt)
+        const revision = finished ? completedRevision(state,lastPrompt) : null
         history = appendRevision(history,revision)
         if (projectName.value === 'Untitled project' && state.plan?.intent) projectName.value = cap(state.plan.intent.business || state.plan.intent.kind || 'Untitled project').slice(0,64)
       }
@@ -412,13 +470,14 @@ const dictation = createDictation(window, {
     input.value = (left + text + right).slice(0,500)
     count.textContent = String(input.value.length)
     hint.textContent = 'Your words appear above. Pause or stop, then edit before building.'
+    paintProject()
   },
   onEnd: (reason,text) => {
     idleVoice()
-    if (reason !== 'error') hint.textContent = text ? 'Edit your words, then choose Build page.' : 'Describe a page, then refine it.'
+    if (reason !== 'error') hint.textContent = text ? 'Edit your words, then submit when ready.' : 'Describe a page, then refine it.'
     input.focus()
   },
-  onError: message => { notice.textContent = message; hint.textContent = message; idleVoice() },
+  onError: message => { tell(message,'error'); hint.textContent = message; idleVoice() },
   onState: next => {
     if (next === 'idle') { idleVoice(); return }
     mic.setAttribute('aria-pressed','true')
@@ -435,8 +494,8 @@ mic.addEventListener('click', () => {
   const start = input.selectionStart ?? input.value.length
   const end = input.selectionEnd ?? start
   voiceSelection = { prefix: input.value.slice(0,start), suffix: input.value.slice(end) }
-  notice.textContent = ''
-  if (!dictation.start() && !notice.textContent) notice.textContent = 'Voice could not start. You can type your idea instead.'
+  tell()
+  if (!dictation.start() && !notice.textContent) tell('Voice could not start. You can type your idea instead.','error')
 })
 
 sound.addEventListener('click', () => {
@@ -462,26 +521,30 @@ function clearCurrent() {
   state.turns = 0
   state.busy = false
   state.source = ''
+  state.sourcePending = false
+  state.remotePreviewCurrent = false
   state.placeholder = false
+  state.buildPhase = 'understanding'
   projectId = null
   history = []
   selectedRevision = null
   resumeIntent = null
   lastSavedSignature = ''
   saveMessage = ''
+  lastPrompt = ''
+  latestReply = ''
   projectName.value = 'Untitled project'
   input.value = ''
   count.textContent = '0'
   log.replaceChildren()
-  notice.textContent = ''
+  tell()
   setOrb('idle')
   paint()
 }
 reset.addEventListener('click', () => { if (discardCurrent()) { clearCurrent(); input.focus() } })
 
-sample.addEventListener('click', () => submit(sampleText.textContent))
 form.addEventListener('submit', (event) => { event.preventDefault(); submit(input.value) })
-input.addEventListener('input', () => { if (dictation?.active) dictation.stop(); count.textContent = String(input.value.length) })
+input.addEventListener('input', () => { if (dictation?.active) dictation.stop(); count.textContent = String(input.value.length); paintProject() })
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing && event.target === input) {
     event.preventDefault()
@@ -512,8 +575,8 @@ function storageMessage(error) {
 function paintProject() {
   const readOnly = Boolean(selectedRevision)
   input.disabled = readOnly
-  sendButton.disabled = readOnly
-  sample.disabled = readOnly
+  sendButton.disabled = readOnly || state.busy || !input.value.trim()
+  sendButton.textContent = state.busy ? 'Building…' : previewRender()?.html ? 'Update page' : 'Build page'
   mic.disabled = readOnly || !dictation
   saveButton.disabled = readOnly || state.busy || !history.length || !isDirty()
   saveButton.textContent = projectId ? 'Save changes' : 'Save on this device'
@@ -533,7 +596,7 @@ function paintProject() {
     summary.textContent = item.prompt.length > 75 ? item.prompt.slice(0,72) + '…' : item.prompt
     button.append(label,summary)
     button.addEventListener('click', () => {
-      if (state.busy) { notice.textContent = 'Wait for this update to finish before reviewing history.'; return }
+      if (state.busy) { tell('Wait for this update to finish before reviewing history.'); return }
       if (dictation?.active) dictation.stop()
       selectedRevision = item
       paint()
@@ -588,7 +651,8 @@ function loadProject(project) {
   lastSavedSignature = signature()
   projectsPanel.hidden = true
   projectsToggle.setAttribute('aria-expanded','false')
-  notice.textContent = 'Opened from this device. Your next instruction starts a fresh build session from the saved brief.'
+  lastPrompt = history.at(-1)?.prompt || ''
+  tell('Opened from this device. Ready to refine.')
   paint()
 }
 projectsToggle.addEventListener('click', () => {
@@ -618,8 +682,17 @@ saveButton.addEventListener('click', () => {
 projectName.addEventListener('input', () => { saveMessage = ''; paintProject() })
 document.querySelector('#history-current').addEventListener('click', () => { selectedRevision = null; paint(); input.focus() })
 for (const button of document.querySelectorAll('[data-starter]')) button.addEventListener('click', () => {
+  if (state.busy || selectedRevision) return
   input.value = STARTERS[button.dataset.starter] || ''
   count.textContent = String(input.value.length)
+  paintProject()
+  input.focus()
+})
+for (const button of document.querySelectorAll('[data-refine]')) button.addEventListener('click', () => {
+  if (state.busy || selectedRevision) return
+  input.value = REFINEMENTS[button.dataset.refine] || ''
+  count.textContent = String(input.value.length)
+  paintProject()
   input.focus()
 })
 const starterId = new URL(location.href).searchParams.get('starter')
@@ -629,7 +702,7 @@ if (requestedProject) {
   const saved = projectStore.read()
   const project = saved.projects.find(item => item.id === requestedProject)
   if (project) loadProject(project)
-  else notice.textContent = saved.ok ? 'That project is not saved in this browser. You can start a new one.' : storageMessage(saved.error)
+  else tell(saved.ok ? 'That project is not saved in this browser. You can start a new one.' : storageMessage(saved.error),'error')
 }
 
 paint()
