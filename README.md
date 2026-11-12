@@ -2,11 +2,22 @@
 
 Canonical source: [axmatea/compass-horizon](https://github.com/axmatea/compass-horizon).
 
-This repository contains the public COMPASS homepage, the /demo site builder,
-and the /plan product-plan preview. Workspace, login, registration,
-presentations and disconnected research are retired. The demo uses browser
-speech only. Historical code is recoverable from Git history; no history
-rewrite is needed.
+COMPASS describes and refines a single HTML website preview. The four public
+pages are `/` (product and inline preview), `/demo` (full builder), `/plan`
+(secondary product-plan preview), and `/studio` (AX Media Global, team and
+approved statements). `/voice-demo` aliases `/demo`. Legacy office, login,
+registration and presentation pages remain retired.
+
+The full builder supports desktop/phone views, brief copying, HTML download,
+and explicit project saving on this device. Saved projects and revision
+snapshots stay in this browser; there is no account, cloud backup or autosave.
+Loading a project makes no model request. Its next submitted refinement can
+restore the validated brief into a fresh server session.
+
+Dictation appears in an editable prompt. Pause or stop, edit, then submit.
+The browser handles speech recognition and may use its speech service;
+COMPASS receives the submitted text. Automated speech tests use mocks;
+physical microphone capture and transcription remain a live manual check.
 
 ## Run
 
@@ -36,7 +47,7 @@ npm run build
 npm audit --prefix compass
 ```
 
-The build produces the homepage, /demo, and /plan. The Node delivery server uses
+The build produces all four pages. The Node delivery server uses
 built-in modules only: no runtime dependencies, database, or login. The builder
 keeps its session in memory. When COMPASS_DEMO_MODE is unset, demos stay on
 prepared examples even if model keys exist. Only COMPASS_DEMO_MODE=live
@@ -45,7 +56,7 @@ Production sets COMPASS_DEMO_MODE=live, so the public builder calls the model
 and uses a prepared build only if that call fails.
 Anthropic is first when its key is set. /healthz reports the active demoMode.
 DEMO_VIDEO_URL is read on each request. When it is unset, the homepage plays
-the bundled walkthrough and the hero links to it with “Watch the demo”. When it
+the bundled earlier prepared-example walkthrough and links to “Watch the demo”. When it
 is an https URL, that recording replaces the bundled file. An http URL is ignored.
 POST /api/early-access accepts one email. When WAITLIST_WEBHOOK_URL is an
 https URL, the server posts `{email, timestamp}` there. When it is unset, the
@@ -59,7 +70,10 @@ Production is the existing COMPASS Railway project (compass-web service),
 serving mycompass.world. Source: this repository main, root directory /compass.
 Use compass/Dockerfile; Railway supplies PORT; healthcheck is /healthz.
 The response records mode=public-demo, demoMode and the deployed Git revision.
-/demo returns 200. A missing DEMO_VIDEO_URL plays the bundled walkthrough.
+The existing production live setting is preserved. A missing DEMO_VIDEO_URL
+plays the older prepared-example walkthrough, labelled as an earlier recording.
+See [release notes and media provenance](docs/RELEASE.md) and
+[deployment checks](compass/DEPLOYMENT.md).
 
 GitHub stores the source and lockfile needed to rebuild on another computer.
 Verify a fresh clone, npm run product:install, npm test and npm run build before
