@@ -1,7 +1,5 @@
-// Browser dictation for /demo.
-// The listener shape comes from the pre-cleanup speech module (c5cb564 speech.ts):
-// SpeechRecognition or webkitSpeechRecognition, interim results, no audio upload.
-// Only the finished transcript is returned to the caller.
+// Browser-managed speech recognition. Browsers may use their own speech service.
+// COMPASS receives submitted text; dictation never submits a prompt by default.
 
 export const PAUSE_MS = 1000
 
@@ -19,8 +17,8 @@ export function joinSpeech(parts, max) {
   return text.join(' ').slice(0, max).trim()
 }
 
-export function pauseShouldSubmit({ text, manual }) {
-  return !manual && String(text ?? '').trim().length > 0
+export function pauseShouldSubmit({ text, manual, autoSubmit = false }) {
+  return autoSubmit && !manual && String(text ?? '').trim().length > 0
 }
 
 export function defaultAnswers(questions) {
@@ -34,7 +32,10 @@ export function defaultAnswers(questions) {
 export function voiceErrorMessage(code) {
   if (code === 'not-allowed' || code === 'service-not-allowed') return 'Microphone access was denied. Type the idea instead.'
   if (code === 'audio-capture') return 'No microphone was found. Type the idea instead.'
-  return 'Voice input stopped. Type the idea instead.'
+  if (code === 'no-speech') return 'No speech was detected. Try the microphone again, or type the idea.'
+  if (code === 'network') return 'The speech service could not connect. Keep editing the text, or try again.'
+  if (code === 'start-failed') return 'Voice input could not start. Try again, or type the idea.'
+  return 'Voice input stopped. Your text stays editable.'
 }
 
 export function createDictation(win, handlers, options = {}) {
@@ -43,6 +44,7 @@ export function createDictation(win, handlers, options = {}) {
   const pauseMs = options.pauseMs ?? PAUSE_MS
   const max = options.max ?? 500
   const lang = options.lang || 'en-US'
+  const autoSubmit = options.autoSubmit === true
   let rec = null
   let active = false
   let settled = false
@@ -60,22 +62,19 @@ export function createDictation(win, handlers, options = {}) {
     active = false
     try { current?.abort() } catch { /* the session already ended */ }
   }
-  function finish(byUser) {
+  function finish(reason, code) {
     if (settled) return
     settled = true
     const text = latest
     halt()
     handlers.onState?.('idle')
-    if (byUser) return
-    if (!pauseShouldSubmit({ text, manual: false })) {
-      handlers.onEnd?.('empty')
-      return
-    }
-    handlers.onSubmit?.(text)
+    if (code) handlers.onError?.(voiceErrorMessage(code), code)
+    handlers.onEnd?.(code ? 'error' : text.trim() ? reason : 'empty', text)
+    if (!code && pauseShouldSubmit({ text, manual: reason === 'stopped', autoSubmit })) handlers.onSubmit?.(text)
   }
   function schedulePause() {
     clearPause()
-    timer = setTimeout(() => finish(false), pauseMs)
+    timer = setTimeout(() => finish('pause'), pauseMs)
   }
   function applyResults(results) {
     const finals = []
@@ -87,9 +86,9 @@ export function createDictation(win, handlers, options = {}) {
       else interims.push(text)
     }
     latest = joinSpeech([...finals, ...interims], max)
-    handlers.onTranscript?.(latest)
+    handlers.onTranscript?.(latest, { final: interims.length === 0 })
     if (latest.length >= max) {
-      finish(false)
+      finish('limit')
       return
     }
     if (interims.length) clearPause()
@@ -103,10 +102,17 @@ export function createDictation(win, handlers, options = {}) {
       if (active) return true
       settled = false
       latest = ''
-      const session = new Ctor()
+      handlers.onState?.('starting')
+      let session
+      try { session = new Ctor() }
+      catch { finish('error', 'start-failed'); return false }
       session.lang = lang
       session.continuous = true
       session.interimResults = true
+      session.onstart = () => {
+        if (rec !== session || settled) return
+        handlers.onState?.('listening')
+      }
       session.onresult = event => {
         if (rec !== session || settled) return
         applyResults(event?.results || [])
@@ -118,12 +124,8 @@ export function createDictation(win, handlers, options = {}) {
       session.onerror = event => {
         if (rec !== session || settled) return
         const code = event?.error || ''
-        if (code === 'no-speech' || code === 'aborted') return
-        settled = true
-        latest = ''
-        halt()
-        handlers.onState?.('idle')
-        handlers.onError?.(voiceErrorMessage(code))
+        if (code === 'aborted') { finish('ended'); return }
+        finish('error', code || 'unknown')
       }
       session.onend = () => {
         if (rec !== session) return
@@ -131,24 +133,22 @@ export function createDictation(win, handlers, options = {}) {
         active = false
         clearPause()
         if (settled) return
-        finish(false)
+        finish('ended')
       }
       rec = session
+      active = true
       try {
         session.start()
-      } catch {
-        rec = null
-        active = false
+      } catch (error) {
+        finish('error', error?.name === 'NotAllowedError' ? 'not-allowed' : 'start-failed')
         return false
       }
       if (settled || rec !== session) return false
-      active = true
-      handlers.onState?.('listening')
       return true
     },
     stop() {
       if (!active && !rec) return
-      finish(true)
+      finish('stopped')
     },
   }
 }
