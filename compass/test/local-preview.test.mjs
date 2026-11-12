@@ -16,9 +16,9 @@ async function verifyApplication(origin) {
   assert.equal(health.llmConfigured, false);
   const home = await (await fetch(origin + '/')).text();
   assert.match(home, /id="hero-secondary">Request access/);
-  assert.match(home, /href="#watch">Watch the demo/);
+  assert.match(home, /href="#watch">Watch the film/);
   assert.match(home, /id="watch-player"/);
-  assert.match(home, /src="\/assets\/demo\/compass-walkthrough\.mp4"/);
+  assert.match(home, /src="\/assets\/promo\/compass-promo\.mp4"/);
   assert.doesNotMatch(home, /id="compass-video"/);
   for (const path of ['/', '/demo?source=local', '/voice-demo/', '/plan?source=local', '/studio?source=local', '/studio/']) {
     const page = await fetch(origin + path);

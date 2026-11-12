@@ -12,11 +12,16 @@ test('restored briefs accept bounded known fields and never accept executable or
   const valid = validateResumeIntent(brief);
   assert.equal(valid.business, 'Morning Bakery');
   assert.equal(valid.theme, 'light');
-  assert.equal(valid.font, 'sans');
+  assert.equal(valid.font, 'serif');
+  assert.equal(valid.density, 'balanced');
+  assert.equal(valid.mobile, 'standard');
+  assert.equal(validateResumeIntent({ ...brief, font: 'sans' }).font, 'sans', 'an existing stored font is preserved');
+  assert.equal(validateResumeIntent({ ...brief, density: 'airy', mobile: 'comfortable' }).density, 'airy');
   assert.deepEqual(validateResumeIntent({ ...brief, sections: [] }).sections, []);
   for (const invalid of [null, [], 'text', {}, { theme: 'dark' }, { ...brief, html: '<script>bad()</script>' },
     { ...brief, history: [] }, { ...brief, version: 90 }, { ...brief, source: 'model' }, { ...brief, kind: {} },
-    { ...brief, business: 'x'.repeat(141) }, { ...brief, theme: 'unknown' }, { ...brief, sections: ['<script>'] }]) {
+    { ...brief, business: 'x'.repeat(141) }, { ...brief, theme: 'unknown' }, { ...brief, sections: ['<script>'] },
+    { ...brief, density: 'anything' }, { ...brief, mobile: '<script>' }]) {
     assert.equal(validateResumeIntent(invalid), null);
   }
 });
