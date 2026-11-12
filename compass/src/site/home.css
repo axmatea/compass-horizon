@@ -299,11 +299,12 @@ h3{font-size:1.3rem;line-height:1.2;letter-spacing:-.025em;font-weight:620;color
 .qa details[open] summary::after{transform:rotate(0)}
 .qa p{padding:0 44px 26px 0;font-size:16px;color:var(--muted);max-width:38em}
 
-/* Optional video band, rendered by the server once DEMO_VIDEO_URL is set */
-.watch{padding:0 0 120px;text-align:center}
-.watch h2{margin-bottom:44px}
+/* Walkthrough. The server fills #compass-video. DEMO_VIDEO_URL overrides the bundled file. */
+.watch{padding:8px 0 120px;text-align:center}
+.watch h2{margin-bottom:12px}
+.watch-note{max-width:40em;margin:0 auto 32px;color:var(--muted);font-size:16.5px;line-height:1.6}
 .player{position:relative;max-width:1040px;margin-inline:auto;aspect-ratio:16/9;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;background:#e9f1f0;box-shadow:var(--shadow-lg)}
-.player video,.player iframe,.player .poster{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:cover}
+.player video,.player iframe,.player .poster{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#e9f1f0}
 .player .play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 26px;border-radius:12px;background:var(--teal);color:#ffffff;font-weight:600;font-size:15.5px;box-shadow:var(--shadow)}
 
 .foot{padding:56px 0 44px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}

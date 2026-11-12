@@ -42,9 +42,9 @@ keeps its session in memory. Public demos default to prepared examples even
 when model keys exist. Only an explicitly approved COMPASS_DEMO_MODE=live
 setting enables provider calls; key names are documented in compass/.env.example.
 Anthropic is first when its key is set. /healthz reports the active demoMode.
-DEMO_VIDEO_URL is read on each request. When it is unset, the homepage omits
-the video block and the secondary hero link is “Request access”. When it is
-an https URL, the homepage renders that player and a “Watch the video” link.
+DEMO_VIDEO_URL is read on each request. When it is unset, the homepage plays
+the bundled walkthrough and the hero links to it with “Watch the demo”. When it
+is an https URL, that recording replaces the bundled file. An http URL is ignored.
 POST /api/early-access accepts one email. When WAITLIST_WEBHOOK_URL is an
 https URL, the server posts `{email, timestamp}` there. When it is unset, the
 form falls back to mailto:info@aimedia.global and the page does not claim the
@@ -57,7 +57,7 @@ Production is the existing COMPASS Railway project (compass-web service),
 serving mycompass.world. Source: this repository main, root directory /compass.
 Use compass/Dockerfile; Railway supplies PORT; healthcheck is /healthz.
 The response records mode=public-demo, demoMode and the deployed Git revision.
-/demo returns 200. A missing DEMO_VIDEO_URL omits the video block.
+/demo returns 200. A missing DEMO_VIDEO_URL plays the bundled walkthrough.
 
 GitHub stores the source and lockfile needed to rebuild on another computer.
 Verify a fresh clone, npm run product:install, npm test and npm run build before

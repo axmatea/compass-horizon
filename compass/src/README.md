@@ -14,7 +14,7 @@ mode and the product cards, and test/home.test.mjs fails when they drift.
 A reply is labelled "Live model" only when the model wrote the copy.
 
 Founder slots stay hidden until confirmed content exists. Search index.html
-for "FOUNDER SLOT": video (DEMO_VIDEO_URL), traction, team (team.mjs) and
+for "FOUNDER SLOT": video (bundled walkthrough, or DEMO_VIDEO_URL when set), traction, team (team.mjs) and
 pricing.
 
 No React, workspace, auth, or presentation modules remain. The microphones
