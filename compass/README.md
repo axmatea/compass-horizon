@@ -26,10 +26,11 @@ Verify with npm run check, npm test and npm run build.
 
 Vite is the only development dependency. The production image contains dist,
 the Node server, and the prepared demo catalog. No database or auth credentials
-are read. Public demos default to prepared examples, including when model keys
-exist in the service environment. Only an explicitly approved
-COMPASS_DEMO_MODE=live setting enables model calls. With no key or a failed
-model call, the prepared build still completes. Live provider order is
+are read. When COMPASS_DEMO_MODE is unset, demos stay on prepared examples,
+including when model keys exist. Only COMPASS_DEMO_MODE=live enables model
+calls. Production sets that value, so the public builder calls the model.
+With no key or a failed model call, the prepared build still completes. Live
+provider order is
 Anthropic, General Compute, then Nebius. Early access delivers an
 email only when WAITLIST_WEBHOOK_URL is an https URL. Otherwise the form opens
 mailto:info@aimedia.global and does not claim the email was stored.

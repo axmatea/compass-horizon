@@ -38,9 +38,11 @@ npm audit --prefix compass
 
 The build produces the homepage, /demo, and /plan. The Node delivery server uses
 built-in modules only: no runtime dependencies, database, or login. The builder
-keeps its session in memory. Public demos default to prepared examples even
-when model keys exist. Only an explicitly approved COMPASS_DEMO_MODE=live
-setting enables provider calls; key names are documented in compass/.env.example.
+keeps its session in memory. When COMPASS_DEMO_MODE is unset, demos stay on
+prepared examples even if model keys exist. Only COMPASS_DEMO_MODE=live
+enables provider calls; key names are documented in compass/.env.example.
+Production sets COMPASS_DEMO_MODE=live, so the public builder calls the model
+and uses a prepared build only if that call fails.
 Anthropic is first when its key is set. /healthz reports the active demoMode.
 DEMO_VIDEO_URL is read on each request. When it is unset, the homepage plays
 the bundled walkthrough and the hero links to it with “Watch the demo”. When it

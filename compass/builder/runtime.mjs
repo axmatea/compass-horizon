@@ -111,6 +111,7 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
     let patch = [];
     let planned = null;
     let ack = '';
+    let fromModel = false;
     try {
       emit('reasoning_status', { stage: 'interpreting' });
       let interp;
@@ -122,6 +123,7 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
         emit('done', {});
         return { sessionId: session.id, turnId, reply: ack, patch: [], source: 'prepared', events, page: null };
       }
+      fromModel = interp.source === 'model';
       const update = applyUpdate(session.state, interp, { turnId, text });
       session.state = update.state;
       patch = update.patch;
@@ -150,7 +152,7 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
       release();
     }
 
-    let source = 'prepared';
+    let source = fromModel ? 'model' : 'prepared';
     if (planned) {
       const outcome = await planned.promise;
       const action = session.state.actions.find((item) => item.id === planned.id);
@@ -161,6 +163,7 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
         const summary = tool.summarize(outcome.result, session.state.intent);
         if (summary) { ack = summary; emit('say', { text: summary, final: true }); }
       } else if (action?.status !== 'invalidated') {
+        source = 'prepared';
         emit('say', { text: 'The page is still on the preview.', final: true });
       } else emit('reasoning_status', { stage: 'superseded' });
     }

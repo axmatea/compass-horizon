@@ -10,15 +10,15 @@ GENERALCOMPUTE_MODEL, GENERAL_COMPUTE_BASE_URL, GENERALCOMPUTE_BASE_URL,
 GENERALCOMPUTE_TIMEOUT_MS, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_MODEL,
 NEBIUS_THINKING, NEBIUS_TIMEOUT_MS, ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
 ANTHROPIC_BASE_URL, ANTHROPIC_TIMEOUT_MS, DEMO_RATE_LIMIT, DEMO_RATE_WINDOW_MS.
-The public server defaults to examples mode even if keys are configured.
-Only set COMPASS_DEMO_MODE=live after the founder confirms the provider.
-In live mode, when ANTHROPIC_API_KEY is set it is tried first. The default model is
+The public server defaults to examples mode when COMPASS_DEMO_MODE is unset,
+even if keys are configured. Production sets COMPASS_DEMO_MODE=live. In live
+mode, when ANTHROPIC_API_KEY is set it is tried first. The default model is
 claude-haiku-5-5. The same 8 second cap applies, then General Compute, then
-Nebius. Unset model keys keep /demo on the prepared build. /plan is the
+Nebius. A missing key or a failed call keeps the prepared build. /plan is the
 secondary product-plan preview.
 
 Run check, tests, build and audit before merge. After deployment, require the
-expected Git revision, mode=public-demo and demoMode=examples in /healthz, successful homepage
+expected Git revision, mode=public-demo, and demoMode=live in /healthz, successful homepage
 and /demo assets, /demo returning 200, other retired office/login URLs
 returning 410, and unknown APIs returning 404.
 Inspect the published page in-browser. Never claim a merge is itself a deploy.
