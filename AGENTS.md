@@ -2,15 +2,15 @@
 
 Read README.md, then compass/README.md. Canonical repo: axmatea/compass-horizon.
 
-The public homepage, the site builder at /demo, and the secondary plan preview
-at /plan are maintained. Do not restore office, auth, databases, invite tools,
+The public homepage, the site builder at /demo, the plan preview at /plan,
+and the studio page at /studio are maintained. Do not restore office, auth, databases, invite tools,
 research, games, or presentations. Browser speech on the demo is in scope.
 Boson, Gradium, and other server voice bridges are not.
-Pages are compass/index.html, compass/demo.html, and compass/plan.html.
-Vite builds all three. A dependency-free Node server serves dist, /healthz,
+Pages are compass/index.html, compass/demo.html, compass/plan.html and compass/studio.html.
+Vite builds all four. A dependency-free Node server serves dist, /healthz,
 /api/config, /api/demo, /api/site/turn, /api/site/session/:id/page, and
 /api/early-access. /demo and /voice-demo return 200 and serve the builder.
-/plan returns 200. Other retired sections return 410. Unknown /api routes
+/plan and the exact /studio route return 200. /studio/legacy and other retired sections return 410. Unknown /api routes
 return 404. Never silently serve index.html for unknown app routes. The
 builder must keep working when no model key is set: it shows a prepared build.
 When COMPASS_DEMO_MODE is unset, demos stay on examples even with configured keys.
@@ -20,7 +20,24 @@ providers whose keys are set. ANTHROPIC_MODEL defaults to claude-haiku-5-5.
 
 Root commands forward to compass/. Use product:install, check, test, build,
 start and dev. No TypeScript/React checking or database fixture is required.
-Keep each actual asset and its license only while referenced by the homepage.
+Keep each actual asset and its license while referenced by a maintained page.
+
+The builder produces a scriptless HTML website preview, not a deployed full-stack
+or native mobile application. Explicit Save stores bounded projects and revision
+snapshots in this browser on this device; no account, cloud backup or autosave is
+implied. Restoring a local project makes no model request. On the user's next
+submission, resumeIntent may seed only validated brief fields in a fresh server
+session; never import stored HTML, actions, source labels, history or versions.
+Dictation is editable and never auto-submits by default. Show Waiting for
+microphone until the browser's native onstart event, then Listening. Browsers
+may use a speech service; COMPASS receives submitted text. Automated speech
+tests do not prove physical microphone capture.
+
+Studio team entries and testimonials render only from confirmed source data.
+Testimonials require founder approval, attribution and an https source URL.
+Do not fill empty configuration with invented quotes. See docs/RELEASE.md for
+the retained film and generated artwork provenance; do not replace the film
+with overlapping PR assets without coordination.
 
 Preserve concurrent user changes. Delete files only after checking imports,
 build entries, scripts, styles, routes and asset references. Do not rewrite Git
