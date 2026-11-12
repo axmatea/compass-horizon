@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#fafaf9"><meta name="color-scheme" content="light"><meta name="compass-design" content="homepage">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f8fbfc"><meta name="color-scheme" content="light"><meta name="compass-design" content="homepage">
 <title>COMPASS · Describe it. COMPASS builds it: web, mobile, real software.</title>
 <meta name="description" content="Describe the software you need, by voice or text. COMPASS builds web apps, mobile apps, websites and internal tools. Early access from AX Media Global.">
 <link rel="canonical" href="https://mycompass.world/">
@@ -62,6 +62,7 @@
 </div>
 </div>
 <div class="ideas" id="ideas" role="group" aria-label="Example ideas"><button type="button" class="idea" data-idea="A booking app for my barbershop">A booking app for my barbershop</button><button type="button" class="idea" data-idea="A client portal for a design studio">A client portal for a design studio</button><button type="button" class="idea" data-idea="A class schedule for a yoga studio">A class schedule for a yoga studio</button></div>
+<p class="shortcut-hint">Prepared demo · no account required <span>⌘ / Ctrl + Enter to build</span></p>
 </form>
 
 <div class="stage" id="studio" data-phase="idle" data-live="false" role="region" aria-label="COMPASS builder">
@@ -85,10 +86,17 @@
 <div class="ideas ideas-sm" id="changes" role="group" aria-label="Example changes" hidden></div>
 <p class="notice" id="notice" role="status"></p>
 </div>
-<div class="canvas">
+<div class="canvas" data-preview-view="both">
 <div class="canvas-bar">
 <span class="tag" id="canvas-tag">Example layout</span>
 <span class="canvas-tools"><button type="button" id="sound" aria-pressed="false">Sound off</button><button type="button" id="reset" hidden>Start over</button><a id="open" target="_blank" rel="noopener" hidden>Open page</a></span>
+</div>
+<div class="preview-tools" data-preview-tools>
+<div class="viewport-tabs" role="group" aria-label="Preview size">
+<button type="button" data-preview-view-button="web" aria-pressed="false">Desktop</button><button type="button" data-preview-view-button="phone" aria-pressed="false">Mobile</button><button type="button" data-preview-view-button="both" aria-pressed="true">Both</button>
+</div>
+<div class="preview-actions"><button type="button" data-preview-copy disabled>Copy brief</button><button type="button" data-preview-download disabled>Download HTML</button></div>
+<p class="preview-status" data-preview-status role="status" aria-live="polite"></p>
 </div>
 <div class="devices">
 <div class="dev dev-web"><div class="dev-chrome" aria-hidden="true"><i></i><i></i><i></i><span id="web-url">barbershop-booking · Preview</span></div><div class="screen" id="web-screen"><div class="ui ui-app"><div class="ui-side"><strong>Barbershop</strong><span class="on">Today</span><span>Calendar</span><span>Services</span><span>Clients</span></div><div class="ui-main"><div class="ui-head"><b>Today</b><em>New booking</em></div><ul class="ui-rows"><li><small>9:00</small><b>Haircut</b><i class="p p-ok">Confirmed</i></li><li><small>9:30</small><b>Beard trim</b><i class="p p-ok">Confirmed</i></li><li><small>10:15</small><b>Cut and shave</b><i class="p p-warn">Waiting</i></li><li><small>11:00</small><b>Kids cut</b><i class="p p-mute">Open</i></li></ul></div></div><iframe id="web-frame" title="Your page in a browser" sandbox="" hidden></iframe></div></div>
@@ -96,8 +104,8 @@
 </div>
 </div>
 </div>
-<p class="stage-note">The builder on this page writes and renders a first page for your idea. It stays in this session and nothing is published.</p>
-<p class="hero-links"><a class="ghost" id="hero-secondary" href="#how">See how it works</a><a class="ghost" href="/demo">Open full demo</a></p>
+<p class="stage-note">Explore a prepared build, shape the brief, and compare desktop and mobile. Download the HTML when you are ready. Your preview stays in this session; nothing is published.</p>
+<p class="hero-links"><a class="ghost" id="hero-secondary" href="#access">Request access</a><a class="ghost" href="/demo">Open full demo</a></p>
 </div>
 </section>
 
@@ -188,7 +196,7 @@
 </div>
 <div class="qa">
 <details open><summary>What is COMPASS?</summary><p>COMPASS turns intent into real software. You describe what you need, by voice or text, and it builds web apps, mobile apps, websites and internal tools.</p></details>
-<details><summary>What does the builder on this page do?</summary><p>It takes what you say or type, keeps a brief, writes a first page with a live AI model and renders it for web and phone. If the model cannot be reached it places prepared copy and says so. The page lives in your session and nothing is published.</p></details>
+<details><summary>What does the builder on this page do?</summary><p>It takes what you say or type, keeps a brief, and renders a prepared page for desktop and mobile. You can change the direction, copy the brief, and download the HTML preview. This early-access demo uses prepared examples while the AI provider is being confirmed. The page lives in your session and nothing is published.</p></details>
 <details><summary>Do I need to know how to code?</summary><p>No. You describe the outcome in plain language and answer the questions COMPASS asks.</p></details>
 <details><summary>How is it different from Lovable, Bolt, Replit or v0?</summary><p>Those begin with a typed prompt. COMPASS begins with a conversation: voice first, clarifying questions, and a web and phone preview you can change by talking.</p></details>
 <details><summary>Is my voice recorded?</summary><p>Voice input uses your browser's speech recognition. COMPASS receives only the text, and you can always type instead.</p></details>

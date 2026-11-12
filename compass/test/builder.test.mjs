@@ -76,6 +76,7 @@ test('a visitor with no key still sees the brief, the build, and the page', asyn
 test('anthropic is called first with the fast default and a stub failure still builds', async () => {
   const calls = [];
   const ctx = await listen({
+    COMPASS_DEMO_MODE: 'live',
     ANTHROPIC_API_KEY: anthropicKey,
     GENERALCOMPUTE_API_KEY: 'gc-test-key',
     NEBIUS_API_KEY: 'nebius-test-key',
@@ -128,7 +129,7 @@ test('a stub anthropic reply is used for the page and the prompt is not logged',
     footer: 'Preview',
   });
   let calls = 0;
-  const ctx = await listen({ ANTHROPIC_API_KEY: anthropicKey }, async () => {
+  const ctx = await listen({ COMPASS_DEMO_MODE: 'live', ANTHROPIC_API_KEY: anthropicKey }, async () => {
     calls += 1;
     return anthropicMessage(calls === 1 ? spec : copy);
   });

@@ -36,6 +36,9 @@ async function readJson(req) {
 }
 
 export function createCompassServer({ env = process.env, fetchImpl = fetch } = {}) {
+  // A stored provider key is not consent to enable generation. The public
+  // application stays on prepared examples until live mode is explicit.
+  env = { ...env, COMPASS_DEMO_MODE: env.COMPASS_DEMO_MODE === 'live' ? 'live' : 'examples' };
   const root = resolve(env.STATIC_ROOT || fileURLToPath(new URL('./dist/', import.meta.url)));
   const buckets = new Map();
   const windowMs = Math.min(Math.max(Number(env.DEMO_RATE_WINDOW_MS) || 600000, 1000), 3600000);
@@ -74,7 +77,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
         res.writeHead(308, { Location: `https://mycompass.world${url.pathname}${url.search}` }).end(); return;
       }
       if (pathname === '/healthz') {
-        json(200, { ok: true, mode: 'public-demo', llmConfigured: llmStatus(env),
+        json(200, { ok: true, mode: 'public-demo', demoMode: env.COMPASS_DEMO_MODE, llmConfigured: llmStatus(env),
           revision: env.RAILWAY_GIT_COMMIT_SHA || env.COMPASS_REVISION || 'local' }); return;
       }
       if (pathname === '/api/config' && req.method === 'GET') { json(200, { demoVideoUrl: demoVideoUrl(env) }); return; }

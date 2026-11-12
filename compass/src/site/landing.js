@@ -4,6 +4,7 @@ import { modeById, REVISIONS } from './modes.mjs'
 import { webMock, phoneMock, briefMock, ideasMock } from './frames.mjs'
 import { createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, previewDoc, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
 import { createDictation } from '../demo/voice.mjs'
+import { createPreviewTools } from './preview-tools.mjs'
 
 const $ = selector => document.querySelector(selector)
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -70,6 +71,13 @@ let mode = composer?.elements.mode?.value || 'web'
 let soundOn = false
 let soundChosen = false
 let listening = null
+const previewTools = createPreviewTools({
+  root: stage?.querySelector('[data-preview-tools]'),
+  surface: stage?.querySelector('.canvas'),
+  getPlan: () => state.plan,
+  getRender: () => state.render,
+  isBusy: () => state.open > 0,
+})
 
 function el(tag, className, text) {
   const node = document.createElement(tag)
@@ -160,6 +168,7 @@ function paint() {
   revise.hidden = !started
   changes.hidden = !started
   resetBtn.hidden = !started
+  previewTools.update()
 }
 
 function paintMode() {
@@ -297,7 +306,16 @@ if (stage && composer) {
     paintMode()
   })
   intent.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); submit(intent.value) }
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); submit(intent.value) }
+  })
+  reviseInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); submit(reviseInput.value) }
+  })
+  addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return
+    if (dictation?.active) dictation.stop()
+    stopListening()
+    if (window.speechSynthesis) window.speechSynthesis.cancel()
   })
   revise.addEventListener('submit', event => { event.preventDefault(); submit(reviseInput.value) })
   for (const group of [ideas, changes]) group.addEventListener('click', event => {

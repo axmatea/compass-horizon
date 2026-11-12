@@ -1,30 +1,57 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin, type ViteDevServer, type PreviewServer } from "vite";
 import { fileURLToPath } from "node:url";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { createCompassServer } from "./server.mjs";
+import { applyHomepage } from "./homepage.mjs";
 
-function demoRoute() {
-  const rewrite = (req: { url?: string }) => {
-    if (req.url && /^\/(?:demo|voice-demo)\/?(?:\?|$)/.test(req.url)) {
-      const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-      req.url = "/demo.html" + query;
-    } else if (req.url && /^\/plan\/?(?:\?|$)/.test(req.url)) {
-      const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-      req.url = "/plan.html" + query;
-    }
+function localApplication(): Plugin {
+  // Local previews use prepared builds. Do not inherit provider or delivery
+  // credentials from the shell, and do not load old .env files through Vite.
+  const env = {
+    COMPASS_REVISION: process.env.COMPASS_REVISION || "local",
+    DEMO_VIDEO_URL: process.env.DEMO_VIDEO_URL,
+  };
+  const install = (server: ViteDevServer | PreviewServer, preview = false) => {
+    const app = createCompassServer({ env });
+    server.httpServer?.once("close", () => { void app.close(); });
+    server.middlewares.use(async (req, res, next) => {
+      const url = new URL(req.url || "/", "http://localhost");
+      if (url.pathname === "/healthz" || url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+        app.server.emit("request", req, res);
+        return;
+      }
+      if (preview && (url.pathname === "/" || url.pathname === "/index.html") && ["GET", "HEAD"].includes(req.method || "")) {
+        try {
+          const html = await readFile(resolve(server.config.root, server.config.build.outDir, "index.html"), "utf8");
+          const body = Buffer.from(applyHomepage(html, env));
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "Content-Length": body.length });
+          res.end(req.method === "HEAD" ? undefined : body);
+        } catch (error) { next(error); }
+        return;
+      }
+      if (/^\/(?:demo|voice-demo)\/?$/.test(url.pathname)) req.url = "/demo.html" + url.search;
+      else if (/^\/plan\/?$/.test(url.pathname)) req.url = "/plan.html" + url.search;
+      next();
+    });
   };
   return {
-    name: "compass-demo-route",
-    configureServer(server: { middlewares: { use: (fn: (req: { url?: string }, res: unknown, next: () => void) => void) => void } }) {
-      server.middlewares.use((req, _res, next) => { rewrite(req); next(); });
-    },
-    configurePreviewServer(server: { middlewares: { use: (fn: (req: { url?: string }, res: unknown, next: () => void) => void) => void } }) {
-      server.middlewares.use((req, _res, next) => { rewrite(req); next(); });
+    name: "compass-local-application",
+    configureServer(server) { install(server); },
+    configurePreviewServer(server) { install(server, true); },
+    transformIndexHtml(html, context) {
+      // Leave the production build's video marker intact: its Node server
+      // resolves optional video settings when a page is requested.
+      if (context.server && context.path === "/index.html") return applyHomepage(html, env);
+      return html;
     },
   };
 }
 
 export default defineConfig({
   appType: "mpa",
-  plugins: [demoRoute()],
+  envDir: false,
+  plugins: [localApplication()],
   build: {
     outDir: "dist",
     rollupOptions: {

@@ -73,8 +73,7 @@ test('homepage keeps founder slots hidden and makes no unconfirmed claim', async
   assert.match(visible, /B2B SaaS studio with products for CPAs, developers and fintech teams, and recurring revenue/);
   assert.match(visible, /Lovable, Bolt, Replit and v0/);
   assert.match(visible, /nothing is published/i);
-  assert.match(html, /<a class="ghost" id="hero-secondary" href="#how">See how it works<\/a>/);
-  assert.equal((html.match(/See how it works/g) || []).length, 1);
+  assert.match(html, /<a class="ghost" id="hero-secondary" href="#access">Request access<\/a>/);
   assert.match(html, /<a class="ghost" href="\/demo">Open full demo<\/a>/);
   assert.equal((html.match(/<iframe\b[^>]*sandbox=""[^>]*hidden/g) || []).length, 2);
   assert.doesNotMatch(html, /<iframe\b(?![^>]*sandbox="")/);

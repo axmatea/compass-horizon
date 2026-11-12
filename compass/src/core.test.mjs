@@ -36,7 +36,7 @@ test('homepage offers the demo and does not call the product unavailable', async
   const demoJs = await read('src/demo/demo.js');
   assert.match(voice, /webkitSpeechRecognition/);
   assert.doesNotMatch(voice + demoJs, /MediaRecorder|getUserMedia|webkitSpeechRecognition\(\)|new WebSocket|EventSource/);
-  assert.match(html, /id="hero-secondary" href="#how">See how it works/);
+  assert.match(html, /id="hero-secondary" href="#access">Request access/);
   assert.match(html, /id="compass-video"/);
   assert.match(html, /id="early-access"/);
   assert.match(html, /action="mailto:info@aimedia\.global\?subject=COMPASS%20early%20access"/);

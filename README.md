@@ -19,8 +19,11 @@ npm start
 ```
 
 Open http://localhost:8770. npm start serves the built pages and the demo API.
-npm run dev serves the pages in Vite; the demo still finishes from the prepared
-examples if that API is not running.
+For local development, run `npm run dev` and open the URL Vite prints.
+After building, `npm run preview` runs the built pages locally. Both Vite
+commands include the demo API, streamed builder updates and session previews;
+no second server is needed. They use prepared builds and mailto access requests,
+ignore provider and webhook credentials, and do not load `.env` files.
 The root package only forwards commands to compass/; install that package
 rather than expecting root npm ci to install the application.
 
@@ -35,11 +38,12 @@ npm audit --prefix compass
 
 The build produces the homepage, /demo, and /plan. The Node delivery server uses
 built-in modules only: no runtime dependencies, database, or login. The builder
-keeps its session in memory. /demo returns 200 and still shows a prepared build
-when no model key is set. An optional server-side model call uses the key names
-in compass/.env.example. Anthropic is first when ANTHROPIC_API_KEY is set.
+keeps its session in memory. Public demos default to prepared examples even
+when model keys exist. Only an explicitly approved COMPASS_DEMO_MODE=live
+setting enables provider calls; key names are documented in compass/.env.example.
+Anthropic is first when its key is set. /healthz reports the active demoMode.
 DEMO_VIDEO_URL is read on each request. When it is unset, the homepage omits
-the video block and the secondary hero link is “See how it works”. When it is
+the video block and the secondary hero link is “Request access”. When it is
 an https URL, the homepage renders that player and a “Watch the video” link.
 POST /api/early-access accepts one email. When WAITLIST_WEBHOOK_URL is an
 https URL, the server posts `{email, timestamp}` there. When it is unset, the
@@ -52,7 +56,7 @@ email was stored. Other retired page URLs return 410. Unknown API URLs return
 Production is the existing COMPASS Railway project (compass-web service),
 serving mycompass.world. Source: this repository main, root directory /compass.
 Use compass/Dockerfile; Railway supplies PORT; healthcheck is /healthz.
-The response records mode=public-demo and the deployed Git revision.
+The response records mode=public-demo, demoMode and the deployed Git revision.
 /demo returns 200. A missing DEMO_VIDEO_URL omits the video block.
 
 GitHub stores the source and lockfile needed to rebuild on another computer.

@@ -130,8 +130,7 @@ test('homepage omits the video until DEMO_VIDEO_URL is set and public HTML has n
     const demoHtml = await (await fetch(plain.origin + '/demo')).text();
     assert.equal((await fetch(plain.origin + '/')).status, 200);
     assert.equal((await fetch(plain.origin + '/demo')).status, 200);
-    assert.match(home, /See how it works/);
-    assert.match(home, /href="#how"/);
+    assert.match(home, /id="hero-secondary" href="#access">Request access/);
     assert.doesNotMatch(home, /Watch the video|id="watch"|not on this page yet|<video|data-embed/);
     assert.doesNotMatch(home + demoHtml, banned);
     assert.match(home, /AX Media Global builds software for business clients/);
@@ -168,7 +167,7 @@ test('homepage omits the video until DEMO_VIDEO_URL is set and public HTML has n
     const insecure = await listen({ DEMO_VIDEO_URL: 'http://cdn.example.com/compass.mp4' }, async () => new Response(''), { 'index.html': index, 'demo.html': demo });
     try {
       const hidden = await (await fetch(insecure.origin + '/')).text();
-      assert.match(hidden, /See how it works/);
+      assert.match(hidden, /id="hero-secondary" href="#access">Request access/);
       assert.doesNotMatch(hidden, /Watch the video|<video/);
     } finally {
       await close(insecure);

@@ -5,6 +5,8 @@ RUN npm ci
 COPY index.html demo.html plan.html vite.config.ts ./
 COPY src ./src
 COPY public ./public
+COPY server.mjs llm.mjs demo-api.mjs early-access.mjs homepage.mjs ./
+COPY builder ./builder
 RUN npm run build
 
 FROM node:22-alpine AS runtime

@@ -46,13 +46,14 @@ test('prepared examples ask questions and reflect the answers in the preview', (
   assert.match(JSON.stringify(custom.preview), /A team/);
 });
 
-test('video URL is https only and the demo falls back without a key', async () => {
+test('video URL is https only and live mode falls back when the model fails', async () => {
   assert.equal(demoVideoUrl({}), null);
   assert.equal(demoVideoUrl({ DEMO_VIDEO_URL: 'http://example.com/a.mp4' }), null);
   assert.equal(demoVideoUrl({ DEMO_VIDEO_URL: 'https://user:pass@example.com/a.mp4' }), null);
   assert.equal(demoVideoUrl({ DEMO_VIDEO_URL: 'https://example.com/film.mp4' }), 'https://example.com/film.mp4');
   const seen = [];
   const ctx = await listen({
+    COMPASS_DEMO_MODE: 'live',
     DEMO_VIDEO_URL: 'https://example.com/film.mp4',
     NEBIUS_API_KEY: secret,
     DEMO_RATE_LIMIT: '2',
@@ -80,6 +81,7 @@ test('video URL is https only and the demo falls back without a key', async () =
     assert.equal(custom.ok, true);
     assert.equal(seen.length > 0, true);
     const health = await (await fetch(ctx.origin + '/healthz')).json();
+    assert.equal(health.demoMode, 'live');
     assert.equal(health.llmConfigured, true);
     assert.equal(JSON.stringify(health).includes(secret), false);
   } finally {
@@ -90,7 +92,7 @@ test('video URL is https only and the demo falls back without a key', async () =
 
 test('a valid model response is used and never echoes the key', async () => {
   let auth = '';
-  const ctx = await listen({ NEBIUS_API_KEY: secret, LLM_PROVIDER: 'nebius' }, async (_url, opts) => {
+  const ctx = await listen({ COMPASS_DEMO_MODE: 'live', NEBIUS_API_KEY: secret, LLM_PROVIDER: 'nebius' }, async (_url, opts) => {
     auth = opts.headers.Authorization;
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
       questions: [{ prompt: 'Which first screen?', options: ['Schedule', 'List'] }],
