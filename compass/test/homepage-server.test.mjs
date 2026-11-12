@@ -33,7 +33,7 @@ test('homepage-only delivery retires old pages even if stale files exist', async
   assert.equal((await fetch(origin + '/login', { method: 'POST' })).status, 405);
   const health = await fetch(origin + '/healthz');
   assert.equal(health.headers.get('cache-control'), 'no-store');
-  assert.deepEqual(await health.json(), { ok: true, mode: 'public-demo', llmConfigured: false, revision: 'test-homepage' });
+  assert.deepEqual(await health.json(), { ok: true, mode: 'public-demo', demoMode: 'examples', llmConfigured: false, revision: 'test-homepage' });
   const range = await fetch(origin + '/asset.js', { headers: { range: 'bytes=2-4' } });
   assert.equal(range.status, 206); assert.equal(await range.text(), 'cde');
   assert.equal((await fetch(origin + '/asset.js', { headers: { range: 'bytes=40-' } })).status, 416);
