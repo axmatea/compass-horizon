@@ -55,9 +55,14 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
     }
   }
 
-  function createSession(id = shortId('s')) {
+  function createSession(id = shortId('s'), resumeIntent = null) {
     sweep();
-    const session = { id, state: createState(id), lastSeen: now(), controller: null, lock: Promise.resolve() };
+    const state = createState(id);
+    if (resumeIntent) {
+      state.intent = structuredClone(resumeIntent);
+      state.version = 1;
+    }
+    const session = { id, state, lastSeen: now(), controller: null, lock: Promise.resolve() };
     sessions.set(id, session);
     return session;
   }
@@ -94,8 +99,8 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
     return { id, promise, args };
   }
 
-  async function runTurn(sessionId, text, { onEvent, localOnly = false } = {}) {
-    const session = getSession(sessionId) || createSession(sessionId || undefined);
+  async function runTurn(sessionId, text, { onEvent, localOnly = false, resumeIntent = null } = {}) {
+    const session = getSession(sessionId) || createSession(sessionId || undefined, resumeIntent);
     const turnId = shortId('t');
     const events = [];
     const emit = (type, data = {}) => {
@@ -140,7 +145,8 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
         }
       }
 
-      if (interp.tool === 'write_copy' && hasSite(session.state.intent)) {
+      const needsFirstCopy = !session.state.actions.some(action => action.tool === 'write_copy' && action.result);
+      if ((interp.tool === 'write_copy' || needsFirstCopy) && hasSite(session.state.intent)) {
         const args = tool.argsFromIntent(session.state.intent);
         planned = startAction(session, args, turnId, localOnly);
         emit('tool_call', { actionId: planned.id, tool: 'write_copy', args });
