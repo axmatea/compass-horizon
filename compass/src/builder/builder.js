@@ -1,4 +1,6 @@
 import { createDictation } from '../demo/voice.mjs'
+import { createPreviewTools } from '../site/preview-tools.mjs'
+import { parseSse, cleanText, previewDoc } from '../site/studio.mjs'
 
 const LINES = [
   'Build me a premium website for an AI company. Make it minimal, dark and cinematic.',
@@ -10,7 +12,7 @@ const FIELDS = [
   ['business', 'Name'], ['kind', 'What'], ['audience', 'For'], ['tone', 'Tone'], ['theme', 'Theme'],
   ['accent', 'Accent'], ['font', 'Type'], ['hero', 'Hero'], ['headline', 'Headline'], ['cta', 'Button'], ['sections', 'Sections'],
 ]
-const ORB = { idle: 'Ready', listening: 'Listening', thinking: 'Thinking', acting: 'Acting', speaking: 'Speaking', interrupted: 'Interrupted', replanning: 'Replanning' }
+const ORB = { idle: 'Ready', listening: 'Listening', thinking: 'Thinking', acting: 'Acting', speaking: 'Speaking', replanning: 'Replanning' }
 
 const demo = document.querySelector('#demo')
 const orb = document.querySelector('#orb')
@@ -18,7 +20,6 @@ const orbLabel = document.querySelector('#orb-label')
 const hint = document.querySelector('#hint')
 const interim = document.querySelector('#interim')
 const mic = document.querySelector('#mic')
-const stop = document.querySelector('#stop')
 const sound = document.querySelector('#sound')
 const reset = document.querySelector('#reset')
 const sample = document.querySelector('#sample')
@@ -38,6 +39,9 @@ const url = document.querySelector('#url')
 const open = document.querySelector('#open')
 const empty = document.querySelector('#empty')
 const frame = document.querySelector('#frame')
+const phoneFrame = document.querySelector('#phone-frame')
+const previewDevices = document.querySelector('#preview-devices')
+const previewSource = document.querySelector('#preview-source')
 const voiceFallback = document.querySelector('#voice-fallback')
 
 const state = {
@@ -49,7 +53,17 @@ const state = {
   turns: 0,
   busy: false,
   voiceOn: true,
+  source: '',
+  placeholder: false,
 }
+let epoch = 0
+const previewTools = createPreviewTools({
+  root: document.querySelector('[data-preview-tools]'),
+  surface: document.querySelector('#stage'),
+  getPlan: () => state.plan,
+  getRender: () => state.render,
+  isBusy: () => state.busy,
+})
 
 function setOrb(next) {
   state.orb = next
@@ -147,16 +161,28 @@ function paintStage() {
   url.textContent = `${slug} · Preview${state.render ? ` · v${state.render.version}` : ''}`
   if (!state.render?.html) {
     empty.hidden = false
-    frame.hidden = true
+    previewDevices.hidden = true
+    for (const item of [frame, phoneFrame]) {
+      item.hidden = true
+      item.removeAttribute('srcdoc')
+      delete item.dataset.key
+    }
+    previewSource.hidden = true
     open.hidden = true
+    open.removeAttribute('href')
     return
   }
   empty.hidden = true
-  frame.hidden = false
-  if (frame.dataset.key !== String(state.render.key)) {
-    frame.dataset.key = String(state.render.key)
-    frame.srcdoc = state.render.html
+  previewDevices.hidden = false
+  for (const item of [frame, phoneFrame]) {
+    item.hidden = false
+    if (item.dataset.key !== String(state.render.key)) {
+      item.dataset.key = String(state.render.key)
+      item.srcdoc = previewDoc(state.render.html)
+    }
   }
+  previewSource.hidden = !state.source
+  previewSource.textContent = state.source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
   if (state.sessionId) {
     open.hidden = false
     open.href = `/api/site/session/${encodeURIComponent(state.sessionId)}/page`
@@ -171,13 +197,13 @@ function paintSample() {
 }
 function paint() {
   paintBrief(); paintBuild(); paintStage(); paintSample()
-  stop.hidden = !state.busy
+  previewTools.update()
 }
 
 function applyEvent(event) {
   if (event.sessionId) state.sessionId = event.sessionId
   if (event.type === 'reasoning_status' && event.stage === 'interpreting') setOrb('thinking')
-  if (event.type === 'state_patch') {
+  if (event.type === 'state_patch' && (event.version || 0) >= (state.plan?.version || 0)) {
     state.plan = { intent: event.intent, patch: event.patch, version: event.version }
     setOrb(state.actions.some(item => item.status === 'running') ? 'acting' : 'thinking')
     const changed = (event.patch || []).some(op => op.status === 'active' && op.change === 'updated')
@@ -194,7 +220,7 @@ function applyEvent(event) {
   if (event.type === 'action_invalidated') {
     state.actions = state.actions.map(item => item.id === event.actionId ? { ...item, status: 'invalidated' } : item)
   }
-  if (event.type === 'render') {
+  if (event.type === 'render' && (event.version || 0) >= (state.render?.version || 0)) {
     state.render = { html: event.html, version: event.version, pending: event.pending || [], key: (state.render?.key || 0) + 1 }
   }
   if (event.type === 'say' && event.text) {
@@ -214,41 +240,45 @@ function applyEvent(event) {
   paint()
 }
 
-function applyResult(result) {
+function applyResult(result, { replay = true } = {}) {
   if (result.sessionId) state.sessionId = result.sessionId
-  if (Array.isArray(result.events) && result.events.length) {
+  if ((result.version || 0) >= (state.render?.version || 0)) {
+    state.source = result.source === 'model' ? 'model' : 'prepared'
+    state.placeholder = Boolean(result.placeholder)
+  }
+  if (replay && Array.isArray(result.events) && result.events.length) {
     for (const event of result.events) applyEvent(event)
+    paint()
     return
   }
-  if (result.intent) state.plan = { intent: result.intent, patch: result.patch || [], version: result.version || 1 }
-  if (result.html) state.render = { html: result.html, version: result.version || 1, pending: result.pending || [], key: (state.render?.key || 0) + 1 }
-  state.busy = false
-  setOrb('idle')
+  if (result.intent && (result.version || 0) >= (state.plan?.version || 0)) state.plan = { intent: result.intent, patch: result.patch || [], version: result.version || 1 }
+  if (result.html && (result.version || 0) >= (state.render?.version || 0) && result.html !== state.render?.html) state.render = { html: result.html, version: result.version || 1, pending: result.pending || [], key: (state.render?.key || 0) + 1 }
+  state.busy = state.actions.some(item => item.status === 'running')
+  if (!state.busy && state.orb !== 'speaking') setOrb('idle')
   paint()
 }
 
-async function readSse(response) {
+async function readSse(response, mine) {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
   while (true) {
     const { value, done } = await reader.read()
     if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const parts = buffer.split('\n\n')
-    buffer = parts.pop() || ''
-    for (const part of parts) {
-      if (!part.trim() || part.startsWith(':')) continue
-      const data = part.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trim()).join('\n')
-      if (!data) continue
-      try { applyEvent(JSON.parse(data)) } catch { /* ignore a partial frame */ }
+    const parsed = parseSse(buffer + decoder.decode(value, { stream: true }))
+    buffer = parsed.rest
+    if (mine !== epoch) continue
+    for (const event of parsed.frames) {
+      if (event.event === 'result') applyResult(event.data, { replay: false })
+      else applyEvent(event.data)
     }
   }
 }
 
 async function submit(text) {
-  const clean = String(text || '').trim()
+  const clean = cleanText(text)
   if (!clean) return
+  const mine = epoch
   notice.textContent = ''
   input.value = ''
   count.textContent = '0'
@@ -269,34 +299,43 @@ async function submit(text) {
       headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
       body: JSON.stringify({ sessionId: state.sessionId || undefined, text: clean }),
     })
+    if (mine !== epoch) return
     if (response.status === 429) {
       const data = await response.json()
+      if (mine !== epoch) return
       if (data.fallback) applyResult(data.fallback)
       notice.textContent = 'Showing the prepared build for this turn.'
       return
     }
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
+      if (mine !== epoch) return
       notice.textContent = data.error === 'text_too_long' ? 'Keep it to 500 characters and send it again.' : 'That turn did not start. The page you already have is still here.'
       state.busy = false
       setOrb(state.plan ? 'idle' : 'idle')
       return
     }
     const type = response.headers.get('content-type') || ''
-    if (type.includes('text/event-stream') && response.body) await readSse(response)
-    else applyResult(await response.json())
+    if (type.includes('text/event-stream') && response.body) await readSse(response, mine)
+    else {
+      const result = await response.json()
+      if (mine === epoch) applyResult(result)
+    }
   } catch {
+    if (mine !== epoch) return
     notice.textContent = 'The connection dropped. Type it again. Nothing already on the page was published.'
     state.busy = false
     setOrb('idle')
+  } finally {
+    if (mine === epoch) paint()
   }
 }
 
 const dictation = createDictation(window, {
   onTranscript: (text) => { interim.hidden = false; interim.textContent = `“${text}”`; hint.hidden = true },
   onSubmit: (text) => { interim.hidden = true; hint.hidden = false; mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Speak'; submit(text) },
-  onError: (message) => { notice.textContent = message; mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Speak' },
-  onEnd: () => { mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Speak'; interim.hidden = true; hint.hidden = false },
+  onError: (message) => { notice.textContent = message; mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Speak'; if (state.orb === 'listening') setOrb('idle') },
+  onEnd: () => { mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Speak'; interim.hidden = true; hint.hidden = false; if (state.orb === 'listening') setOrb('idle') },
   onState: () => {},
 }, { max: 500, pauseMs: 1200 })
 
@@ -313,7 +352,6 @@ mic.addEventListener('click', () => {
   mic.textContent = 'Listening'
   setOrb('listening')
 })
-stop.addEventListener('click', () => { if (state.busy) setOrb('interrupted') })
 sound.addEventListener('click', () => {
   state.voiceOn = !state.voiceOn
   sound.setAttribute('aria-pressed', String(state.voiceOn))
@@ -321,12 +359,19 @@ sound.addEventListener('click', () => {
   if (!state.voiceOn && window.speechSynthesis) window.speechSynthesis.cancel()
 })
 reset.addEventListener('click', () => {
+  epoch += 1
+  if (dictation?.active) dictation.stop()
+  if (window.speechSynthesis) window.speechSynthesis.cancel()
   state.sessionId = ''
   state.plan = null
   state.actions = []
   state.render = null
   state.turns = 0
   state.busy = false
+  state.source = ''
+  state.placeholder = false
+  input.value = ''
+  count.textContent = '0'
   log.replaceChildren()
   notice.textContent = ''
   setOrb('idle')
@@ -336,6 +381,13 @@ sample.addEventListener('click', () => submit(sampleText.textContent))
 form.addEventListener('submit', (event) => { event.preventDefault(); submit(input.value) })
 input.addEventListener('input', () => { count.textContent = String(input.value.length) })
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && state.busy) setOrb('interrupted')
+  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing && event.target === input) {
+    event.preventDefault()
+    submit(input.value)
+  }
+  if (event.key === 'Escape') {
+    if (dictation?.active) dictation.stop()
+    if (window.speechSynthesis) window.speechSynthesis.cancel()
+  }
 })
 paint()
