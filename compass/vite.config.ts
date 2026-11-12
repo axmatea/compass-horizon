@@ -21,6 +21,10 @@ function localApplication(): Plugin {
         app.server.emit("request", req, res);
         return;
       }
+      if (/^\/studio(?:\/|\.|$)/.test(url.pathname) && !/^\/studio\/?$/.test(url.pathname)) {
+        app.server.emit("request", req, res);
+        return;
+      }
       if (preview && (url.pathname === "/" || url.pathname === "/index.html") && ["GET", "HEAD"].includes(req.method || "")) {
         try {
           const html = await readFile(resolve(server.config.root, server.config.build.outDir, "index.html"), "utf8");
@@ -32,6 +36,7 @@ function localApplication(): Plugin {
       }
       if (/^\/(?:demo|voice-demo)\/?$/.test(url.pathname)) req.url = "/demo.html" + url.search;
       else if (/^\/plan\/?$/.test(url.pathname)) req.url = "/plan.html" + url.search;
+      else if (/^\/studio\/?$/.test(url.pathname)) req.url = "/studio.html" + url.search;
       next();
     });
   };
@@ -59,6 +64,7 @@ export default defineConfig({
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
         demo: fileURLToPath(new URL("./demo.html", import.meta.url)),
         plan: fileURLToPath(new URL("./plan.html", import.meta.url)),
+        studio: fileURLToPath(new URL("./studio.html", import.meta.url)),
       },
     },
   },
