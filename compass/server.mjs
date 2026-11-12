@@ -6,7 +6,7 @@ import { resolve, sep, extname } from 'node:path';
 import { clarifyDemo, planDemo, demoVideoUrl, llmStatus, fallbackRun, MAX_INTENT } from './demo-api.mjs';
 import { submitEarlyAccess } from './early-access.mjs';
 import { applyHomepage } from './homepage.mjs';
-import { createSiteBuilder, publicTurn, sessionIdFrom, MAX_TEXT } from './builder/index.mjs';
+import { createSiteBuilder, publicTurn, sessionIdFrom, validateResumeIntent, MAX_TEXT } from './builder/index.mjs';
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -99,8 +99,13 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
         if (!text) { json(400, { error: 'text_required', limit: MAX_TEXT }); return; }
         if (text.length > MAX_TEXT) { json(400, { error: 'text_too_long', limit: MAX_TEXT }); return; }
         const requested = sessionIdFrom(body.value?.sessionId, site.runtime);
+        let resumeIntent = null;
+        if (!requested.sessionId && body.value?.resumeIntent !== undefined) {
+          resumeIntent = validateResumeIntent(body.value.resumeIntent);
+          if (!resumeIntent) { json(400, { error: 'invalid_resume_intent' }); return; }
+        }
         if (gate.limited) {
-          const fallback = publicTurn(await site.runtime.runTurn(requested.sessionId, text, { localOnly: true }), { limited: true, sessionReset: requested.reset });
+          const fallback = publicTurn(await site.runtime.runTurn(requested.sessionId, text, { localOnly: true, resumeIntent }), { limited: true, sessionReset: requested.reset });
           json(429, { error: 'rate_limited', fallback }, { 'Retry-After': String(gate.retryAfter) });
           return;
         }
@@ -110,12 +115,12 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
           res.write(': compass\n\n');
           const write = (type, data) => { if (!res.writableEnded) res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`); };
           if (requested.reset) write('session_reset', { type: 'session_reset', reason: 'unknown_session' });
-          const result = await site.runtime.runTurn(requested.sessionId, text, { onEvent: (event) => write(event.type, event) });
+          const result = await site.runtime.runTurn(requested.sessionId, text, { resumeIntent, onEvent: (event) => write(event.type, event) });
           write('result', publicTurn(result, { sessionReset: requested.reset }));
           res.end();
           return;
         }
-        const result = publicTurn(await site.runtime.runTurn(requested.sessionId, text), { sessionReset: requested.reset });
+        const result = publicTurn(await site.runtime.runTurn(requested.sessionId, text, { resumeIntent }), { sessionReset: requested.reset });
         json(200, result);
         return;
       }
@@ -148,6 +153,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
       const normalized = pathname.replace(/\/$/, '') || '/';
       if (normalized === '/demo' || normalized === '/voice-demo') { await serveFile(req, res, root, '/demo.html', text); return; }
       if (normalized === '/plan') { await serveFile(req, res, root, '/plan.html', text); return; }
+      if (normalized === '/studio') { await serveFile(req, res, root, '/studio.html', text); return; }
       if (retired.test(normalized)) { text(410, 'This section has been retired. Visit the COMPASS homepage at /.'); return; }
       const page = normalized === '/' || normalized === '/index.html';
       if (page) { await serveHtml(req, res, root, '/index.html', env, text); return; }
