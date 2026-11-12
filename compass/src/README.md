@@ -14,7 +14,7 @@ mode and the product cards, and test/home.test.mjs fails when they drift.
 A reply is labelled "Live model" only when the model wrote the copy.
 
 Founder slots stay hidden until confirmed content exists. Search index.html
-for "FOUNDER SLOT": video (DEMO_VIDEO_URL), traction, team (team.mjs) and
+for "FOUNDER SLOT": video (bundled walkthrough, or DEMO_VIDEO_URL when set), traction, team (team.mjs) and
 pricing.
 
 No React, workspace, auth, or presentation modules remain. The microphones
@@ -23,6 +23,7 @@ posts the transcript to /api/site/turn. The plan preview posts to /api/demo.
 The early-access form posts to
 /api/early-access. Email is delivered to WAITLIST_WEBHOOK_URL when that https
 URL is set. Otherwise the visitor sends it from their email app, and the page
-does not claim it was stored. The demo falls back to the prepared examples if
-the model call fails. Unknown routes do not fall back to the homepage. Verify
+does not claim it was stored. In live mode a model writes the page, and the
+demo falls back to a prepared build if that call fails. Unknown routes do not
+fall back to the homepage. Verify
 with npm run check, npm test and npm run build.

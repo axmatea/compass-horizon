@@ -13,7 +13,8 @@ const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
   '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.mp4': 'video/mp4',
   '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf',
   '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8',
-  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon',
+  '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8' };
 const retired = /^\/(?:app|office|login|demo|voice-demo|presentation|present|story|protect|studio|horizon|vision|acquisition|live|film)(?:\/|\.|$)/;
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action mailto:; frame-ancestors 'none'; frame-src 'self' https:";
 

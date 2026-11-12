@@ -62,6 +62,10 @@ test('a visitor with no key still sees the brief, the build, and the page', asyn
     assert.match(third.body.html, /data-theme="light"/);
     assert.match(third.body.html, /What people say/);
     assert.doesNotMatch(third.body.html, /\$\d|£\d|€\d/);
+    const darker = await turn(ctx.origin, 'Make it darker.', first.body.sessionId);
+    assert.equal(darker.body.source, 'prepared');
+    assert.equal(darker.body.intent.theme, 'dark');
+    assert.match(darker.body.html, /data-theme="dark"/);
     assert.equal(JSON.stringify(third.body).includes('sk-'), false);
     const page = await fetch(ctx.origin + '/api/site/session/' + first.body.sessionId + '/page');
     assert.equal(page.status, 200);
@@ -128,10 +132,20 @@ test('a stub anthropic reply is used for the page and the prompt is not logged',
     contact: { line: 'Write when you want a loaf.' },
     footer: 'Preview',
   });
+  const darker = JSON.stringify({
+    set: { theme: 'dark' },
+    add_sections: [],
+    remove_sections: [],
+    unset: [],
+    tool: null,
+    reply: 'Theme updated to dark.',
+  });
   let calls = 0;
   const ctx = await listen({ COMPASS_DEMO_MODE: 'live', ANTHROPIC_API_KEY: anthropicKey }, async () => {
     calls += 1;
-    return anthropicMessage(calls === 1 ? spec : copy);
+    if (calls === 1) return anthropicMessage(spec);
+    if (calls === 2) return anthropicMessage(copy);
+    return anthropicMessage(darker);
   });
   try {
     const out = await turn(ctx.origin, 'Build me a website for a bakery');
@@ -142,6 +156,12 @@ test('a stub anthropic reply is used for the page and the prompt is not logged',
     assert.equal(calls >= 2, true);
     assert.equal(logs.join('\n').includes('bakery'), false);
     assert.equal(logs.join('\n').includes(anthropicKey), false);
+    const revision = await turn(ctx.origin, 'Make it darker.', out.body.sessionId);
+    assert.equal(revision.body.source, 'model');
+    assert.equal(revision.body.placeholder, false);
+    assert.equal(revision.body.intent.theme, 'dark');
+    assert.match(revision.body.html, /data-theme="dark"/);
+    assert.match(revision.body.html, /Bread, still warm/);
   } finally {
     console.error = original;
     await ctx.app.close();

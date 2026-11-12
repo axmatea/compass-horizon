@@ -29,7 +29,7 @@ if (!reduce && 'IntersectionObserver' in window) {
   }), { rootMargin: '0px 0px -8% 0px' })
   document.documentElement.classList.add('motion')
   document.querySelectorAll('main > section:not(.hero)').forEach(section => {
-    section.querySelectorAll('.eyebrow, h2, .kind, .how-steps > li, .pillars > li, .differ-lede, .studio-body, .access-lede, #early-access, .qa, .aside').forEach((el, index) => {
+    section.querySelectorAll('.eyebrow, h2, .watch-note, .player, .kind, .how-steps > li, .pillars > li, .differ-lede, .studio-body, .access-lede, #early-access, .qa, .aside').forEach((el, index) => {
       el.classList.add('rise')
       el.style.transitionDelay = Math.min(index, 5) * 60 + 'ms'
       io.observe(el)
@@ -370,7 +370,8 @@ if (bios && people.length) {
   bios.hidden = false
 }
 
-// Video: the server renders the player when DEMO_VIDEO_URL is set.
+// Video: the server renders the bundled walkthrough, or DEMO_VIDEO_URL when that https URL is set.
+// Metadata stays unloaded until the player is near the viewport.
 const player = $('#watch-player')
 function embedUrl(raw) {
   let url
@@ -430,6 +431,15 @@ function mountFilm(raw) {
   play.href = raw
   play.dataset.embed = src
   player.append(poster, play)
+}
+const film = player?.querySelector('video[preload="none"]')
+if (film && 'IntersectionObserver' in window) {
+  const arm = new IntersectionObserver(entries => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+    arm.disconnect()
+    film.preload = 'metadata'
+  }, { rootMargin: '240px 0px' })
+  arm.observe(film)
 }
 if (player && !player.querySelector('video, iframe, [data-embed]')) {
   const stop = AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined
