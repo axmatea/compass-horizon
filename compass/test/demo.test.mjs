@@ -116,7 +116,8 @@ test('a valid model response is used and never echoes the key', async () => {
 });
 
 test('voice skip defaults are the first answer and the transcript stays text', () => {
-  assert.equal(pauseShouldSubmit({ text: '  a booking app ', manual: false }), true);
+  assert.equal(pauseShouldSubmit({ text: '  a booking app ', manual: false }), false);
+  assert.equal(pauseShouldSubmit({ text: '  a booking app ', manual: false, autoSubmit: true }), true);
   assert.equal(pauseShouldSubmit({ text: 'a booking app', manual: true }), false);
   assert.equal(pauseShouldSubmit({ text: '   ', manual: false }), false);
   assert.equal(joinSpeech(['  a booking ', 'app\nfor my shop'], 500), 'a booking app for my shop');
@@ -132,7 +133,7 @@ test('voice skip defaults are the first answer and the transcript stays text', (
   }
 });
 
-test('dictation streams interim speech and submits the text after a pause', t => {
+test('dictation streams interim speech and leaves paused text ready to edit', t => {
   mock.timers.enable({ apis: ['setTimeout'] });
   t.after(() => mock.timers.reset());
   const seen = [];
@@ -161,7 +162,8 @@ test('dictation streams interim speech and submits the text after a pause', t =>
   mock.timers.tick(999);
   assert.equal(seen.some(item => item.startsWith('submit:')), false);
   mock.timers.tick(1);
-  assert.equal(seen.at(-1), 'submit:a booking');
+  assert.equal(seen.at(-1), 'end:pause');
+  assert.equal(seen.some(item => item.startsWith('submit:')), false);
   assert.equal(session.aborted, true);
 });
 
