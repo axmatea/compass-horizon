@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
+import { fileURLToPath } from 'node:url';
 import { createCompassServer } from '../server.mjs';
 
 test('homepage-only delivery retires old pages even if stale files exist', async (t) => {
@@ -40,4 +41,32 @@ test('homepage-only delivery retires old pages even if stale files exist', async
   assert.equal(await (await fetch(origin + '/', { method: 'HEAD' })).text(), '');
   const xml = await fetch(origin + '/sitemap.xml');
   assert.equal(xml.status, 200); assert.match(xml.headers.get('content-type'), /application\/xml/);
+});
+
+test('bundled walkthrough is a small faststart file with a poster and captions', async (t) => {
+  const dir = fileURLToPath(new URL('../public/assets/demo/', import.meta.url));
+  const video = await stat(join(dir, 'compass-walkthrough.mp4'));
+  assert.ok(video.size > 200_000 && video.size <= 6 * 1024 * 1024, video.size);
+  const poster = await stat(join(dir, 'compass-walkthrough.jpg'));
+  assert.ok(poster.size > 10_000 && poster.size < 400_000, poster.size);
+  const root = fileURLToPath(new URL('../public/', import.meta.url));
+  const app = createCompassServer({ env: { STATIC_ROOT: root, COMPASS_REVISION: 'walkthrough' } });
+  t.after(() => app.close());
+  app.server.listen(0, '127.0.0.1');
+  await once(app.server, 'listening');
+  const origin = 'http://127.0.0.1:' + app.server.address().port;
+  const mp4 = await fetch(origin + '/assets/demo/compass-walkthrough.mp4', { headers: { range: 'bytes=0-11' } });
+  assert.equal(mp4.status, 206);
+  assert.match(mp4.headers.get('content-type'), /^video\/mp4/);
+  assert.match(await mp4.text(), /ftyp/);
+  const captions = await fetch(origin + '/assets/demo/compass-walkthrough.vtt');
+  assert.equal(captions.status, 200);
+  assert.match(captions.headers.get('content-type'), /text\/vtt/);
+  const text = await captions.text();
+  assert.match(text, /^WEBVTT/);
+  assert.match(text, /barbershop/i);
+  assert.match(text, /dark/i);
+  const jpg = await fetch(origin + '/assets/demo/compass-walkthrough.jpg');
+  assert.equal(jpg.status, 200);
+  assert.match(jpg.headers.get('content-type'), /^image\/jpeg/);
 });
