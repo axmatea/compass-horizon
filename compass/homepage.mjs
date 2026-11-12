@@ -1,6 +1,6 @@
 import { demoVideoUrl } from './demo-api.mjs';
 
-const HERO_POSTER = '/assets/hero/compass-hero.jpg';
+const HERO_POSTER = '/assets/demo/compass-walkthrough.jpg';
 export const BUNDLED_WALKTHROUGH = {
   src: '/assets/demo/compass-walkthrough.mp4',
   poster: '/assets/demo/compass-walkthrough.jpg',
@@ -8,8 +8,6 @@ export const BUNDLED_WALKTHROUGH = {
 };
 
 const MARKER = /<div\s+id="compass-video"[^>]*>\s*<\/div>/;
-const HERO_LINKS = '<p class="hero-links"><a class="ghost" id="hero-secondary" href="#access">Request access</a><a class="ghost" href="/demo">Open full demo</a></p>';
-const HERO_LINKS_WITH_WATCH = '<p class="hero-links"><a class="ghost" id="hero-secondary" href="#access">Request access</a><a class="ghost" href="#watch">Watch the demo</a><a class="ghost" href="/demo">Open full demo</a></p>';
 
 function esc(value) {
   return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -51,10 +49,13 @@ function fileMedia(player) {
 export function videoBlock(raw) {
   const player = (raw && playerFor(raw)) || playerFor(BUNDLED_WALKTHROUGH.src);
   if (!player) return '';
+  const note = player.bundled
+    ? 'Prepared example · Earlier interface'
+    : 'Product recording';
   const media = player.kind === 'file'
     ? fileMedia(player)
     : `<img class="poster" src="${HERO_POSTER}" alt="" width="1536" height="1024"><a class="play" href="${esc(raw)}" data-embed="${esc(player.src)}">Play the demo</a>`;
-  return `<section class="watch" id="watch" aria-labelledby="watch-title"><div class="wrap"><p class="eyebrow center">Watch the demo</p><h2 class="center reveal" id="watch-title">The walkthrough</h2><p class="watch-note" id="watch-note">A recording of the builder: a barbershop booking idea, the brief, the build, web and phone, then a darker revision. Spoken or typed.</p><div class="player" id="watch-player" data-state="ready">${media}</div></div></section>`;
+  return `<section class="watch" id="watch" aria-labelledby="watch-title"><div class="wrap"><div class="watch-heading"><div><h2 id="watch-title">Watch it happen.</h2></div><p class="watch-note" id="watch-note">${note}</p></div><div class="player" id="watch-player" data-state="ready">${media}</div></div></section>`;
 }
 
 export function applyHomepage(html, env = {}) {
@@ -62,5 +63,5 @@ export function applyHomepage(html, env = {}) {
   const configured = demoVideoUrl(env);
   const section = videoBlock(configured);
   if (!section) return html;
-  return html.replace(MARKER, section).replace(HERO_LINKS, HERO_LINKS_WITH_WATCH);
+  return html.replace(MARKER, section);
 }
