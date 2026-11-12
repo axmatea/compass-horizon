@@ -9,7 +9,7 @@ import { createCompassServer } from '../server.mjs';
 
 test('homepage-only delivery retires old pages even if stale files exist', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'compass-home-'));
-  for (const name of ['index', 'app', 'login', 'demo']) await writeFile(join(root, name + '.html'), '<h1>' + name + '</h1>');
+  for (const name of ['index', 'app', 'login', 'demo', 'plan', 'studio']) await writeFile(join(root, name + '.html'), '<h1>' + name + '</h1>');
   await writeFile(join(root, 'asset.js'), 'abcdefghij');
   await writeFile(join(root, 'sitemap.xml'), '<urlset/>');
   await writeFile(join(root, '.env'), 'not-public');
@@ -27,7 +27,14 @@ test('homepage-only delivery retires old pages even if stale files exist', async
   assert.equal(await (await fetch(origin + '/demo')).text(), '<h1>demo</h1>');
   assert.equal((await fetch(origin + '/voice-demo')).status, 200);
   assert.equal(await (await fetch(origin + '/voice-demo')).text(), '<h1>demo</h1>');
-  for (const path of ['/app', '/app.html', '/office', '/office?workspaceInvite=old', '/login', '/login.html', '/demo/workspace', '/demo/remaster/app', '/presentation', '/presentation/finale', '/protect', '/horizon', '/studio', '/vision', '/acquisition', '/film.html']) {
+  for (const path of ['/studio', '/studio/', '/studio?source=local']) {
+    const studio = await fetch(origin + path);
+    assert.equal(studio.status, 200);
+    assert.equal(await studio.text(), '<h1>studio</h1>');
+  }
+  assert.equal((await fetch(origin + '/studio', { method: 'HEAD' })).status, 200);
+  assert.equal((await fetch(origin + '/studio', { method: 'POST' })).status, 405);
+  for (const path of ['/app', '/app.html', '/office', '/office?workspaceInvite=old', '/login', '/login.html', '/demo/workspace', '/demo/remaster/app', '/presentation', '/presentation/finale', '/protect', '/horizon', '/studio/legacy', '/studio/legacy.html', '/studio.html', '/vision', '/acquisition', '/film.html']) {
     assert.equal((await fetch(origin + path)).status, 410, path);
   }
   for (const path of ['/api', '/api/auth/get-session', '/api/workspaces', '/api/acquisition/state', '/api/remaster/state', '/api/waitlist', '/.env', '/unknown.html', '/unknown']) assert.equal((await fetch(origin + path)).status, 404, path);
