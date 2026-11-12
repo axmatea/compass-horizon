@@ -1,4 +1,4 @@
-# Homepage deployment
+# COMPASS deployment
 
 Canonical repo: axmatea/compass-horizon. Existing Railway service:
 the COMPASS Railway project (compass-web service), serving mycompass.world.
@@ -17,11 +17,26 @@ claude-haiku-5-5. The same 8 second cap applies, then General Compute, then
 Nebius. A missing key or a failed call keeps the prepared build. /plan is the
 secondary product-plan preview.
 
-Run check, tests, build and audit before merge. After deployment, require the
-expected Git revision, mode=public-demo, and demoMode=live in /healthz, successful homepage
-and /demo assets, /demo returning 200, other retired office/login URLs
-returning 410, and unknown APIs returning 404.
-Inspect the published page in-browser. Never claim a merge is itself a deploy.
+Run check, tests, build and audit before merge. Build all four HTML entries,
+including studio.html in the Docker context. Automated HTTP tests cover Vite
+development/preview, the Node delivery server, resumeIntent validation and
+examples-mode generation without external calls.
+
+After deployment, require the expected Git revision, mode=public-demo and the
+preserved production demoMode=live in /healthz. Verify `/`, `/demo`, `/plan` and
+`/studio`, their scripts/styles and film/poster/captions. `/studio/legacy`,
+office and login stay 410; unknown APIs stay 404. In-browser smoke tests cover
+describe/refine, device views, export, explicit device saving, reopen and a
+subsequent refinement. Loading a saved project must make no model request.
+Check mobile layout, console/network failures and video controls. The retained
+film is an older prepared-example recording, not proof of the current live flow.
+
+Physical microphone capture/transcription is a founder-run live follow-up:
+grant access in a supported browser, verify Waiting → Listening, dictate,
+pause/stop, edit and explicitly submit. Also check denied permission and typing
+fallback. Mocked recognition tests alone do not complete this check.
+Never claim a merge is itself a deploy. Record the resulting revision and
+deployment URL after verification; do not invent release evidence in advance.
 
 Keep current domains, resource limits, variable values and data unchanged.
 Old runtime variables may be unused but are not credentials to disclose or

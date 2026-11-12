@@ -3,12 +3,34 @@ import { loadLlm } from '../llm.mjs';
 import { createSiteCopyTool } from './copy.mjs';
 import { interpretLocal, interpretSite } from './interpret.mjs';
 import { createSiteRuntime } from './runtime.mjs';
+import { SITE_FIELDS, SECTIONS, normalizeField, createState, applyUpdate, hasSite } from './spec.mjs';
 
 export const MAX_TEXT = 500;
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
+// A local draft can restore its brief into a new server session. It cannot
+// import executable HTML, actions, history, session identifiers or versions.
+export function validateResumeIntent(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const normalized = {};
+  for (const [field, raw] of Object.entries(value)) {
+    if (!SITE_FIELDS.includes(field)) return null;
+    if (raw == null) continue;
+    if (field === 'sections') {
+      if (!Array.isArray(raw) || raw.length > SECTIONS.length || raw.some(item => typeof item !== 'string' || !SECTIONS.includes(item))) return null;
+    } else if (typeof raw !== 'string' || raw.length > 140) return null;
+    const clean = normalizeField(field, raw);
+    if (clean == null) return null;
+    normalized[field] = clean;
+  }
+  if (!hasSite(normalized)) return null;
+  const intent = applyUpdate(createState('resume'), { set: normalized }).state.intent;
+  if (normalized.sections?.length === 0) intent.sections = [];
+  return intent;
+}
+
 export function createSiteBuilder({ env = process.env, fetchImpl = fetch } = {}) {
-  const stepMs = Math.min(Math.max(Number(env.BUILDER_STEP_MS ?? 800) || 0, 0), 4000);
+  const stepMs = Math.min(Math.max(Number(env.BUILDER_STEP_MS ?? 0) || 0, 0), 4000);
   const clients = () => loadLlm(env, fetchImpl).clients;
   const tool = createSiteCopyTool({ clients, stepMs });
   const runtime = createSiteRuntime({

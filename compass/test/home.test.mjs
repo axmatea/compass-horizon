@@ -38,59 +38,58 @@ async function turn(origin, state, text) {
   return response.status;
 }
 
-test('homepage carries the example layouts the picker script renders', async () => {
+test('homepage carries a website starting layout and labelled editable starters', async () => {
   const html = await read('index.html');
-  assert.equal(DEFAULT_MODE, 'web');
-  assert.deepEqual(MODES.map(mode => mode.label), ['Web app', 'Mobile app', 'Website', 'Internal tool']);
-  // The stage and the product cards are static HTML so the first paint needs no script.
-  // After editing modes.mjs or frames.mjs, paste the new output of these calls into index.html.
-  for (const piece of [webMock('web'), phoneMock('web'), briefMock('web'), ideasMock('web'), phoneMock('mobile'), webMock('site'), webMock('tool')]) {
+  for (const piece of [webMock('site'), phoneMock('site'), briefMock('site')]) {
     assert.ok(html.includes(piece), piece.slice(0, 80));
   }
+  for (const idea of modeById('site').ideas) assert.ok(html.includes(`data-idea="${idea}"`));
+  assert.match(html, /name="mode" value="site"/);
+  for (const starter of ['studio', 'bakery', 'portfolio']) assert.ok(html.includes('/demo?starter=' + starter));
+  assert.equal((html.match(/class="sample-type">Starter preview/g) || []).length, 3);
+  const nav = html.match(/<nav class="menu"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
+  assert.equal((nav.match(/<a /g) || []).length, 3);
   for (const mode of MODES) {
-    assert.match(html, new RegExp(`name="mode" value="${mode.id}"`));
-    assert.ok(html.includes(`<h3>${esc(mode.title)}</h3><p>${esc(mode.blurb)}</p>`), mode.id);
     assert.equal(mode.ideas.length, 3);
     for (const idea of mode.ideas) assert.ok(idea.length <= MAX_TEXT);
-    assert.doesNotMatch(JSON.stringify(mode), /[$€£%]|\d{3,}/, mode.id);
     assert.ok(webMock(mode.id).startsWith('<div class="ui '));
     assert.ok(phoneMock(mode.id).startsWith('<div class="ui '));
   }
+  assert.equal(DEFAULT_MODE, 'web');
   assert.equal(modeById('nope').id, 'web');
-  assert.equal((html.match(/Example layout/g) || []).length, 5);
   assert.equal(esc('<a href="x">&'), '&lt;a href=&quot;x&quot;&gt;&amp;');
   for (const [label, text] of REVISIONS) assert.ok(label && text.length <= MAX_TEXT);
 });
 
-test('homepage keeps founder slots hidden and makes no unconfirmed claim', async () => {
+test('homepage tells the verified page-preview story and uses shared neutral foundations', async () => {
   const html = await read('index.html');
-  const slots = [...html.matchAll(/<(div|ul)\b([^>]*data-founder-slot="([a-z]+)"[^>]*)>\s*<\/\1>/g)];
-  assert.deepEqual(slots.map(slot => slot[3]).sort(), ['pricing', 'team', 'traction', 'video']);
-  for (const slot of slots) assert.match(slot[2], /\bhidden\b/, slot[3]);
-  assert.equal((html.match(/FOUNDER SLOT: /g) || []).length, 4);
   const visible = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<head>[\s\S]*?<\/head>/, '').replace(/<[^>]+>/g, ' ');
-  assert.doesNotMatch(visible, /[$€£]|\d\s?%|\b\d+\s?(?:k|m|x)\b|\bARR\b|\bMRR\b|customers|testimonial|trusted by|backed by|funded|raised/i);
-  assert.match(visible, /B2B SaaS studio with products for CPAs, developers and fintech teams, and recurring revenue/);
-  assert.match(visible, /Lovable, Bolt, Replit and v0/);
-  assert.match(visible, /nothing is published/i);
-  assert.match(html, /<a class="ghost" id="hero-secondary" href="#access">Request access<\/a>/);
-  assert.match(html, /<a class="ghost" href="\/demo">Open full demo<\/a>/);
+  assert.match(visible, /Your idea\.[\s\S]*Its first page\./);
+  assert.match(visible, /Preview only;/);
+  assert.match(visible, /nothing is published/);
+  assert.doesNotMatch(visible, /recurring revenue|Lovable|Bolt|Replit|production-ready|native apps|unlimited|\bARR\b|\bMRR\b|customers|testimonial|trusted by|backed by|funded|raised/i);
+  assert.match(html, /<details class="build-details">/);
+  assert.doesNotMatch(html, /<details class="build-details" open/);
   assert.equal((html.match(/<iframe\b[^>]*sandbox=""[^>]*hidden/g) || []).length, 2);
   assert.doesNotMatch(html, /<iframe\b(?![^>]*sandbox="")/);
   assert.doesNotMatch(html, /<script(?![^>]*src="\/src\/site\/landing\.js")/);
-  assert.doesNotMatch(html, /https?:\/\/fonts\.|landing\.css/);
   assert.match(html, /rel="preload" as="font" type="font\/woff2" href="\/src\/site\/fonts\/inter-var-latin\.woff2" crossorigin/);
   await access(new URL('src/site/fonts/inter-var-latin.woff2', root));
   assert.match(await read('public/licenses/inter-OFL.txt'), /SIL OPEN FONT LICENSE/i);
   const css = await read('src/site/home.css');
+  const tokens = await read('src/site/tokens.css');
+  assert.match(css, /@import '\.\/tokens\.css'/);
+  assert.match(tokens, /--accent:#3455e8/);
+  assert.doesNotMatch(tokens, /--teal|--green|--wash/);
   assert.match(css, /prefers-reduced-motion:reduce/);
   assert.match(css, /\.watch\b/);
   assert.match(css, /\.player \.poster/);
-  assert.doesNotMatch(css, /@import|https?:\/\//);
+  assert.doesNotMatch(css, /https?:\/\//);
   const landing = await read('src/site/landing.js');
   assert.match(landing, /'\/api\/site\/turn'/);
   assert.match(landing, /text\/event-stream/);
-  // Markup is only ever written from the escaped example layouts, never from a server reply.
+  assert.match(landing, /autoSubmit: false/);
+  assert.doesNotMatch(landing, /onSubmit: text/);
   for (const [, value] of landing.matchAll(/(?:inner|outer)HTML\s*=\s*([^\n;]+)/g)) assert.match(value, /^(?:briefMock\(mode\)|ideasMock\(mode\)|item\.mock\(mode\)|PENDING)(?:$|\s)/, value);
 });
 

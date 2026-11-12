@@ -141,7 +141,7 @@ const SHAPE = {
   signup: '{"headline":"3-6 words","text":"one sentence","cta":"1-3 words"}',
 };
 
-export function createSiteCopyTool({ clients = [], stepMs = 800, maxTokens = 1400 } = {}) {
+export function createSiteCopyTool({ clients = [], stepMs = 0, maxTokens = 1400 } = {}) {
   const resolveClients = () => (typeof clients === 'function' ? clients() : clients);
   async function write(args, sections, signal) {
     const ready = resolveClients();

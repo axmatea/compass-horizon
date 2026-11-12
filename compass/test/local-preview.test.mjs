@@ -15,16 +15,25 @@ async function verifyApplication(origin) {
   assert.equal(health.ok, true);
   assert.equal(health.llmConfigured, false);
   const home = await (await fetch(origin + '/')).text();
-  assert.match(home, /id="hero-secondary" href="#access">Request access/);
+  assert.match(home, /id="hero-secondary">Request access/);
   assert.match(home, /href="#watch">Watch the demo/);
   assert.match(home, /id="watch-player"/);
   assert.match(home, /src="\/assets\/demo\/compass-walkthrough\.mp4"/);
   assert.doesNotMatch(home, /id="compass-video"/);
-  for (const path of ['/demo?source=local', '/voice-demo/', '/plan?source=local']) {
+  for (const path of ['/', '/demo?source=local', '/voice-demo/', '/plan?source=local', '/studio?source=local', '/studio/']) {
     const page = await fetch(origin + path);
     assert.equal(page.status, 200, path);
-    assert.match(await page.text(), path.startsWith('/plan') ? /id="intent-form"/ : /id="sd-input"/);
+    const html = await page.text();
+    assert.match(html, path === '/' ? /id="intent"/ : path.startsWith('/plan') ? /id="intent-form"/ : path.startsWith('/studio') ? /<h1\b/ : /id="sd-input"/);
+    // Check the actual entry's built or development scripts and styles, so a
+    // successful HTML route cannot conceal a missing fourth build entry.
+    for (const [tag] of html.matchAll(/<(?:script|link)\b[^>]*>/g)) {
+      if (!tag.startsWith('<script') && !/rel="stylesheet"/.test(tag)) continue;
+      const asset = /(?:src|href)="(\/[^"]+)"/.exec(tag)?.[1];
+      if (asset) assert.equal((await fetch(origin + asset)).status, 200, path + ': ' + asset);
+    }
   }
+  assert.equal((await fetch(origin + '/studio/legacy')).status, 410);
   assert.equal((await fetch(origin + '/api/not-a-route')).status, 404);
 
   const turn = await fetch(origin + '/api/site/turn', {

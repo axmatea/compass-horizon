@@ -1,9 +1,10 @@
 import { createDictation } from '../demo/voice.mjs'
 import { createPreviewTools } from '../site/preview-tools.mjs'
 import { parseSse, cleanText, previewDoc } from '../site/studio.mjs'
+import { createProjectStore, completedRevision, appendRevision, restoredProject } from './project-store.mjs'
 
 const LINES = [
-  'Build me a premium website for an AI company. Make it minimal, dark and cinematic.',
+  'Build me a premium website for an AI company. Make it minimal, light and editorial.',
   'Actually, make it warmer. Make the hero more ambitious, and add a pricing section.',
   'Now make it lighter, and add a testimonials section.',
 ]
@@ -12,7 +13,7 @@ const FIELDS = [
   ['business', 'Name'], ['kind', 'What'], ['audience', 'For'], ['tone', 'Tone'], ['theme', 'Theme'],
   ['accent', 'Accent'], ['font', 'Type'], ['hero', 'Hero'], ['headline', 'Headline'], ['cta', 'Button'], ['sections', 'Sections'],
 ]
-const ORB = { idle: 'Ready', listening: 'Listening', thinking: 'Thinking', acting: 'Acting', speaking: 'Speaking', replanning: 'Replanning' }
+const ORB = { idle: 'Ready', starting: 'Waiting for microphone', listening: 'Listening', thinking: 'Thinking', acting: 'Acting', speaking: 'Speaking', replanning: 'Replanning' }
 
 const demo = document.querySelector('#demo')
 const orb = document.querySelector('#orb')
@@ -52,19 +53,53 @@ const state = {
   render: null,
   turns: 0,
   busy: false,
-  voiceOn: true,
+  voiceOn: false,
   source: '',
   placeholder: false,
 }
 let epoch = 0
+let pendingRequests = 0
+let projectId = null
+let history = []
+let selectedRevision = null
+let resumeIntent = null
+let lastPrompt = ''
+let lastSavedSignature = ''
+let saveMessage = ''
+let historyKey = ''
+const requestControllers = new Set()
+const projectStore = createProjectStore()
+const projectName = document.querySelector('#project-name')
+const saveButton = document.querySelector('#save-project')
+const saveStatus = document.querySelector('#save-status')
+const projectsPanel = document.querySelector('#projects-panel')
+const projectsList = document.querySelector('#projects-list')
+const projectsStatus = document.querySelector('#projects-status')
+const projectsToggle = document.querySelector('#projects-toggle')
+const historyList = document.querySelector('#history-list')
+const historyCount = document.querySelector('#history-count')
+const snapshotNote = document.querySelector('#snapshot-note')
+const snapshotLabel = document.querySelector('#snapshot-label')
+const sendButton = document.querySelector('#send')
+const STARTERS = {
+  studio: 'A minimal, white website for an architecture studio. Use editorial typography, a project gallery and a contact section.',
+  bakery: 'A warm, bright website for an independent bakery. Include the menu, opening hours and a contact section.',
+  portfolio: 'A clean, light portfolio for a creative designer. Include selected work, a short introduction and contact details.',
+}
 const previewTools = createPreviewTools({
   root: document.querySelector('[data-preview-tools]'),
   surface: document.querySelector('#stage'),
-  getPlan: () => state.plan,
-  getRender: () => state.render,
-  isBusy: () => state.busy,
+  getPlan: () => previewPlan(),
+  getRender: () => previewRender(),
+  isBusy: () => selectedRevision ? false : state.busy,
 })
 
+function previewPlan() {
+  return selectedRevision?.plan || (state.source === 'saved' && !state.busy ? history.at(-1)?.plan : null) || state.plan
+}
+function previewRender() {
+  return selectedRevision?.render || (state.source === 'saved' && !state.busy ? history.at(-1)?.render : null) || state.render
+}
 function setOrb(next) {
   state.orb = next
   demo.dataset.state = next
@@ -93,7 +128,7 @@ function say(text) {
 }
 
 function paintBrief() {
-  const plan = state.plan
+  const plan = previewPlan()
   if (!plan) { briefCard.hidden = true; return }
   briefCard.hidden = false
   briefVersion.textContent = plan.version ? `Updated · v${plan.version}` : ''
@@ -138,6 +173,7 @@ function paintBrief() {
 }
 
 function paintBuild() {
+  if (selectedRevision) { buildCard.hidden = true; return }
   const items = [{ text: 'Understanding', className: state.orb === 'thinking' ? 'is-run' : 'is-done' }]
   for (const action of state.actions.filter(item => item.tool === 'write_copy').slice(-2)) {
     const wrote = (action.result?.wrote || []).map(section => NAMES[section] || section).join(', ')
@@ -156,10 +192,13 @@ function paintBuild() {
 }
 
 function paintStage() {
-  const business = state.plan?.intent?.business || state.plan?.intent?.kind || 'untitled'
-  const slug = String(business).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled'
-  url.textContent = `${slug} · Preview${state.render ? ` · v${state.render.version}` : ''}`
-  if (!state.render?.html) {
+  const plan = previewPlan()
+  const render = previewRender()
+  const business = plan?.intent?.business || plan?.intent?.kind || 'Your page'
+  url.textContent = cap(business) + (render?.version ? ' · v' + render.version : ' · Preview')
+  snapshotNote.hidden = !selectedRevision
+  snapshotLabel.textContent = selectedRevision ? 'Viewing revision ' + selectedRevision.number + '. Read-only preview.' : ''
+  if (!render?.html) {
     empty.hidden = false
     previewDevices.hidden = true
     for (const item of [frame, phoneFrame]) {
@@ -174,30 +213,35 @@ function paintStage() {
   }
   empty.hidden = true
   previewDevices.hidden = false
+  const renderKey = selectedRevision ? selectedRevision.id : state.source === 'saved' && !state.busy ? 'saved-' + history.at(-1)?.id : 'current-' + render.key
   for (const item of [frame, phoneFrame]) {
     item.hidden = false
-    if (item.dataset.key !== String(state.render.key)) {
-      item.dataset.key = String(state.render.key)
-      item.srcdoc = previewDoc(state.render.html)
+    if (item.dataset.key !== renderKey) {
+      item.dataset.key = renderKey
+      item.srcdoc = previewDoc(render.html)
     }
   }
-  previewSource.hidden = !state.source
-  previewSource.textContent = state.source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
-  if (state.sessionId) {
+  previewSource.hidden = !state.source && !selectedRevision
+  previewSource.textContent = selectedRevision || state.source === 'saved' ? 'Saved preview' : state.source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
+  if (state.sessionId && !selectedRevision) {
     open.hidden = false
-    open.href = `/api/site/session/${encodeURIComponent(state.sessionId)}/page`
+    open.href = '/api/site/session/' + encodeURIComponent(state.sessionId) + '/page'
+  } else {
+    open.hidden = true
+    open.removeAttribute('href')
   }
 }
 
 function paintSample() {
   const line = LINES[Math.min(state.turns, LINES.length - 1)]
   sampleText.textContent = line
-  scriptLabel.textContent = state.busy && state.plan ? 'Interrupt with' : state.turns ? 'Change the page' : 'Try saying'
+  scriptLabel.textContent = state.turns ? 'A next step' : 'A starting point'
   sample.classList.toggle('is-urgent', Boolean(state.busy && state.plan))
 }
 function paint() {
   paintBrief(); paintBuild(); paintStage(); paintSample()
   previewTools.update()
+  paintProject()
 }
 
 function applyEvent(event) {
@@ -234,7 +278,7 @@ function applyEvent(event) {
     say(event.text)
   }
   if (event.type === 'done') {
-    state.busy = state.actions.some(item => item.status === 'running')
+    state.busy = pendingRequests > 0 || state.actions.some(item => item.status === 'running')
     if (!state.busy && state.orb !== 'speaking') setOrb('idle')
   }
   paint()
@@ -253,7 +297,7 @@ function applyResult(result, { replay = true } = {}) {
   }
   if (result.intent && (result.version || 0) >= (state.plan?.version || 0)) state.plan = { intent: result.intent, patch: result.patch || [], version: result.version || 1 }
   if (result.html && (result.version || 0) >= (state.render?.version || 0) && result.html !== state.render?.html) state.render = { html: result.html, version: result.version || 1, pending: result.pending || [], key: (state.render?.key || 0) + 1 }
-  state.busy = state.actions.some(item => item.status === 'running')
+  state.busy = pendingRequests > 0 || state.actions.some(item => item.status === 'running')
   if (!state.busy && state.orb !== 'speaking') setOrb('idle')
   paint()
 }
@@ -262,6 +306,7 @@ async function readSse(response, mine) {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let finished = false
   while (true) {
     const { value, done } = await reader.read()
     if (done) break
@@ -269,16 +314,26 @@ async function readSse(response, mine) {
     buffer = parsed.rest
     if (mine !== epoch) continue
     for (const event of parsed.frames) {
-      if (event.event === 'result') applyResult(event.data, { replay: false })
-      else applyEvent(event.data)
+      if (event.event === 'result') {
+        applyResult(event.data, { replay: false })
+        finished = true
+        resumeIntent = null
+      } else applyEvent(event.data)
     }
   }
+  return finished
 }
 
 async function submit(text) {
   const clean = cleanText(text)
-  if (!clean) return
+  if (!clean || selectedRevision) return
+  if (dictation?.active) dictation.stop()
   const mine = epoch
+  const controller = new AbortController()
+  requestControllers.add(controller)
+  pendingRequests += 1
+  lastPrompt = clean
+  saveMessage = ''
   notice.textContent = ''
   input.value = ''
   count.textContent = '0'
@@ -292,74 +347,112 @@ async function submit(text) {
   said.textContent = clean
   row.append(who, said)
   log.append(row)
-  paintSample()
+  paint()
   try {
     const response = await fetch('/api/site/turn', {
-      method: 'POST',
+      method: 'POST', signal: controller.signal,
       headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-      body: JSON.stringify({ sessionId: state.sessionId || undefined, text: clean }),
+      body: JSON.stringify({ sessionId: state.sessionId || undefined, text: clean, ...(resumeIntent ? {resumeIntent} : {}) }),
     })
     if (mine !== epoch) return
     if (response.status === 429) {
       const data = await response.json()
       if (mine !== epoch) return
-      if (data.fallback) applyResult(data.fallback)
-      notice.textContent = 'Showing the prepared build for this turn.'
+      if (data.fallback) { applyResult(data.fallback); resumeIntent = null }
+      notice.textContent = 'The request limit was reached. Showing a prepared preview for this turn.'
       return
     }
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
       if (mine !== epoch) return
-      notice.textContent = data.error === 'text_too_long' ? 'Keep it to 500 characters and send it again.' : 'That turn did not start. The page you already have is still here.'
-      state.busy = false
-      setOrb(state.plan ? 'idle' : 'idle')
+      notice.textContent = data.error === 'text_too_long' ? 'Keep it to 500 characters and try again.' : 'That update did not finish. Your current preview is still here. Try again.'
+      if (!input.value) { input.value = clean; count.textContent = String(clean.length) }
       return
     }
     const type = response.headers.get('content-type') || ''
-    if (type.includes('text/event-stream') && response.body) await readSse(response, mine)
-    else {
+    if (type.includes('text/event-stream') && response.body) {
+      if (!await readSse(response, mine) && mine === epoch) notice.textContent = 'The connection ended before the update finished. You can try again.'
+    } else {
       const result = await response.json()
-      if (mine === epoch) applyResult(result)
+      if (mine === epoch) { applyResult(result); resumeIntent = null }
     }
   } catch {
     if (mine !== epoch) return
-    notice.textContent = 'The connection dropped. Type it again. Nothing already on the page was published.'
-    state.busy = false
-    setOrb('idle')
+    notice.textContent = 'The connection dropped. Your current preview is still here. Try again.'
+    if (!input.value) { input.value = clean; count.textContent = String(clean.length) }
   } finally {
-    if (mine === epoch) paint()
+    requestControllers.delete(controller)
+    if (mine === epoch) {
+      pendingRequests = Math.max(0, pendingRequests - 1)
+      if (!pendingRequests) {
+        state.actions = state.actions.map(action => action.status === 'running' ? {...action,status:'invalidated'} : action)
+        state.busy = false
+        if (state.orb !== 'speaking') setOrb('idle')
+        const revision = completedRevision(state,lastPrompt)
+        history = appendRevision(history,revision)
+        if (projectName.value === 'Untitled project' && state.plan?.intent) projectName.value = cap(state.plan.intent.business || state.plan.intent.kind || 'Untitled project').slice(0,64)
+      }
+      paint()
+    }
   }
 }
 
-const dictation = createDictation(window, {
-  onTranscript: (text) => { interim.hidden = false; interim.textContent = `“${text}”`; hint.hidden = true },
-  onSubmit: (text) => { interim.hidden = true; hint.hidden = false; mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Speak'; submit(text) },
-  onError: (message) => { notice.textContent = message; mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Speak'; if (state.orb === 'listening') setOrb('idle') },
-  onEnd: () => { mic.setAttribute('aria-pressed', 'false'); mic.textContent = 'Speak'; interim.hidden = true; hint.hidden = false; if (state.orb === 'listening') setOrb('idle') },
-  onState: () => {},
-}, { max: 500, pauseMs: 1200 })
-
-if (!dictation) {
-  mic.disabled = true
-  voiceFallback.hidden = false
+function idleVoice() {
+  mic.setAttribute('aria-pressed','false')
+  mic.setAttribute('aria-label','Dictate your idea')
+  mic.querySelector('span').textContent = 'Speak'
+  interim.hidden = true
+  if (state.orb === 'listening' || state.orb === 'starting') setOrb(state.busy ? 'acting' : 'idle')
 }
+let voiceSelection = { prefix: '', suffix: '' }
+const dictation = createDictation(window, {
+  onTranscript: text => {
+    const left = voiceSelection.prefix && !/\s$/.test(voiceSelection.prefix) && text ? voiceSelection.prefix + ' ' : voiceSelection.prefix
+    const right = voiceSelection.suffix && !/^\s/.test(voiceSelection.suffix) && text ? ' ' + voiceSelection.suffix : voiceSelection.suffix
+    input.value = (left + text + right).slice(0,500)
+    count.textContent = String(input.value.length)
+    hint.textContent = 'Your words appear above. Pause or stop, then edit before building.'
+  },
+  onEnd: (reason,text) => {
+    idleVoice()
+    if (reason !== 'error') hint.textContent = text ? 'Edit your words, then choose Build page.' : 'Describe a page, then refine it.'
+    input.focus()
+  },
+  onError: message => { notice.textContent = message; hint.textContent = message; idleVoice() },
+  onState: next => {
+    if (next === 'idle') { idleVoice(); return }
+    mic.setAttribute('aria-pressed','true')
+    mic.setAttribute('aria-label',next === 'starting' ? 'Cancel microphone request' : 'Stop dictation')
+    mic.querySelector('span').textContent = next === 'starting' ? 'Cancel' : 'Stop'
+    hint.textContent = next === 'starting' ? 'Waiting for browser microphone access. Choose Cancel to stop.' : 'Listening. Speak naturally, then pause or stop to edit.'
+    setOrb(next)
+  },
+}, {max:500,autoSubmit:false})
+if (!dictation) { mic.disabled = true; voiceFallback.hidden = false }
 mic.addEventListener('click', () => {
-  if (!dictation) return
+  if (!dictation || selectedRevision) return
   if (dictation.active) { dictation.stop(); return }
-  const started = dictation.start()
-  if (!started) { voiceFallback.hidden = false; return }
-  mic.setAttribute('aria-pressed', 'true')
-  mic.textContent = 'Listening'
-  setOrb('listening')
+  const start = input.selectionStart ?? input.value.length
+  const end = input.selectionEnd ?? start
+  voiceSelection = { prefix: input.value.slice(0,start), suffix: input.value.slice(end) }
+  notice.textContent = ''
+  if (!dictation.start() && !notice.textContent) notice.textContent = 'Voice could not start. You can type your idea instead.'
 })
+
 sound.addEventListener('click', () => {
   state.voiceOn = !state.voiceOn
   sound.setAttribute('aria-pressed', String(state.voiceOn))
   sound.textContent = state.voiceOn ? 'Sound on' : 'Sound off'
   if (!state.voiceOn && window.speechSynthesis) window.speechSynthesis.cancel()
 })
-reset.addEventListener('click', () => {
+function discardCurrent() {
+  return !isDirty() || confirm('Start another project without saving these changes on this device?')
+}
+function clearCurrent() {
   epoch += 1
+  for (const controller of requestControllers) controller.abort()
+  requestControllers.clear()
+  pendingRequests = 0
   if (dictation?.active) dictation.stop()
   if (window.speechSynthesis) window.speechSynthesis.cancel()
   state.sessionId = ''
@@ -370,16 +463,25 @@ reset.addEventListener('click', () => {
   state.busy = false
   state.source = ''
   state.placeholder = false
+  projectId = null
+  history = []
+  selectedRevision = null
+  resumeIntent = null
+  lastSavedSignature = ''
+  saveMessage = ''
+  projectName.value = 'Untitled project'
   input.value = ''
   count.textContent = '0'
   log.replaceChildren()
   notice.textContent = ''
   setOrb('idle')
   paint()
-})
+}
+reset.addEventListener('click', () => { if (discardCurrent()) { clearCurrent(); input.focus() } })
+
 sample.addEventListener('click', () => submit(sampleText.textContent))
 form.addEventListener('submit', (event) => { event.preventDefault(); submit(input.value) })
-input.addEventListener('input', () => { count.textContent = String(input.value.length) })
+input.addEventListener('input', () => { if (dictation?.active) dictation.stop(); count.textContent = String(input.value.length) })
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing && event.target === input) {
     event.preventDefault()
@@ -390,4 +492,144 @@ document.addEventListener('keydown', (event) => {
     if (window.speechSynthesis) window.speechSynthesis.cancel()
   }
 })
+
+function signature() {
+  return projectName.value.trim() + ':' + history.map(item => item.id).join(',')
+}
+function isDirty() {
+  return Boolean(history.length && signature() !== lastSavedSignature)
+}
+function storageMessage(error) {
+  return {
+    unavailable:'Device storage is unavailable in this browser. You can still download the HTML.',
+    quota:'This browser could not save the project. Download the HTML, or remove a saved project you no longer need.',
+    full:'Device storage is full. Remove a saved project you no longer need, or download the HTML.',
+    corrupt:'Saved projects could not be read safely. Your current preview is untouched; you can download the HTML.',
+    missing:'The original saved project was removed. Choose Save on this device to keep a new copy.',
+    invalid:'The completed preview could not be saved. You can download its HTML instead.',
+  }[error] || 'The project could not be saved on this device.'
+}
+function paintProject() {
+  const readOnly = Boolean(selectedRevision)
+  input.disabled = readOnly
+  sendButton.disabled = readOnly
+  sample.disabled = readOnly
+  mic.disabled = readOnly || !dictation
+  saveButton.disabled = readOnly || state.busy || !history.length || !isDirty()
+  saveButton.textContent = projectId ? 'Save changes' : 'Save on this device'
+  saveStatus.textContent = saveMessage || (state.busy ? 'Build in progress' : history.length ? isDirty() ? 'Unsaved changes' : 'Saved on this device' : 'Not saved')
+  historyCount.textContent = history.length + (history.length === 1 ? ' revision' : ' revisions')
+  const nextKey = history.map(item => item.id).join(',') + ':' + (selectedRevision?.id || '')
+  if (historyKey === nextKey) return
+  historyKey = nextKey
+  historyList.replaceChildren(...[...history].reverse().map(item => {
+    const li = document.createElement('li')
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.setAttribute('aria-pressed',String(selectedRevision?.id === item.id))
+    const label = document.createElement('b')
+    label.textContent = 'Revision ' + item.number
+    const summary = document.createElement('span')
+    summary.textContent = item.prompt.length > 75 ? item.prompt.slice(0,72) + '…' : item.prompt
+    button.append(label,summary)
+    button.addEventListener('click', () => {
+      if (state.busy) { notice.textContent = 'Wait for this update to finish before reviewing history.'; return }
+      if (dictation?.active) dictation.stop()
+      selectedRevision = item
+      paint()
+    })
+    li.append(button)
+    return li
+  }))
+}
+function paintProjects() {
+  const result = projectStore.read()
+  projectsStatus.textContent = result.ok ? result.projects.length ? 'Up to six projects and eight revision previews per project.' : 'No saved projects yet. Build a page, then choose Save on this device.' : storageMessage(result.error)
+  projectsList.replaceChildren(...result.projects.map(project => {
+    const li = document.createElement('li')
+    const openProject = document.createElement('button')
+    openProject.type = 'button'
+    openProject.className = 'project-open'
+    const name = document.createElement('strong')
+    name.textContent = project.name
+    const when = document.createElement('span')
+    when.textContent = 'Saved ' + new Date(project.updatedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' · ' + project.revisions.length + (project.revisions.length === 1 ? ' revision' : ' revisions')
+    openProject.append(name,when)
+    openProject.addEventListener('click', () => { if (discardCurrent()) loadProject(project) })
+    const remove = document.createElement('button')
+    remove.type = 'button'
+    remove.className = 'project-remove'
+    remove.textContent = 'Remove'
+    remove.setAttribute('aria-label','Remove ' + project.name + ' from this device')
+    remove.addEventListener('click', () => {
+      if (!confirm('Remove ' + project.name + ' from this device? Download its HTML first if you want to keep a copy.')) return
+      const deleted = projectStore.remove(project.id)
+      if (!deleted.ok) { projectsStatus.textContent = storageMessage(deleted.error); return }
+      if (projectId === project.id) { projectId = null; lastSavedSignature = ''; saveMessage = ''; paintProject() }
+      paintProjects()
+    })
+    li.append(openProject,remove)
+    return li
+  }))
+}
+function loadProject(project) {
+  const restored = restoredProject(project)
+  if (!restored) { projectsStatus.textContent = 'This saved project could not be opened safely.'; return }
+  clearCurrent()
+  projectId = restored.projectId
+  projectName.value = restored.name
+  history = restored.history
+  state.plan = restored.plan
+  state.render = restored.render
+  state.source = 'saved'
+  state.placeholder = restored.placeholder
+  state.turns = history.length
+  resumeIntent = restored.resumeIntent
+  lastSavedSignature = signature()
+  projectsPanel.hidden = true
+  projectsToggle.setAttribute('aria-expanded','false')
+  notice.textContent = 'Opened from this device. Your next instruction starts a fresh build session from the saved brief.'
+  paint()
+}
+projectsToggle.addEventListener('click', () => {
+  projectsPanel.hidden = !projectsPanel.hidden
+  projectsToggle.setAttribute('aria-expanded',String(!projectsPanel.hidden))
+  if (!projectsPanel.hidden) paintProjects()
+})
+document.querySelector('#projects-close').addEventListener('click', () => {
+  projectsPanel.hidden = true
+  projectsToggle.setAttribute('aria-expanded','false')
+  projectsToggle.focus()
+})
+saveButton.addEventListener('click', () => {
+  if (saveButton.disabled) return
+  const result = projectStore.save({projectId,name:projectName.value.trim() || 'Untitled project',revisions:history})
+  if (!result.ok) {
+    if (result.error === 'missing') { projectId = null; lastSavedSignature = '' }
+    saveMessage = storageMessage(result.error); paintProject(); return
+  }
+  projectId = result.project.id
+  projectName.value = result.project.name
+  lastSavedSignature = signature()
+  saveMessage = 'Saved on this device'
+  paintProject()
+  if (!projectsPanel.hidden) paintProjects()
+})
+projectName.addEventListener('input', () => { saveMessage = ''; paintProject() })
+document.querySelector('#history-current').addEventListener('click', () => { selectedRevision = null; paint(); input.focus() })
+for (const button of document.querySelectorAll('[data-starter]')) button.addEventListener('click', () => {
+  input.value = STARTERS[button.dataset.starter] || ''
+  count.textContent = String(input.value.length)
+  input.focus()
+})
+const starterId = new URL(location.href).searchParams.get('starter')
+if (STARTERS[starterId]) { input.value = STARTERS[starterId]; count.textContent = String(input.value.length) }
+const requestedProject = new URL(location.href).searchParams.get('project')
+if (requestedProject) {
+  const saved = projectStore.read()
+  const project = saved.projects.find(item => item.id === requestedProject)
+  if (project) loadProject(project)
+  else notice.textContent = saved.ok ? 'That project is not saved in this browser. You can start a new one.' : storageMessage(saved.error)
+}
+
 paint()

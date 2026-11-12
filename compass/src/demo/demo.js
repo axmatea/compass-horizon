@@ -24,17 +24,11 @@ let pendingExample = ''
 let entry = 'type'
 let busy = false
 let dictation = null
-let revealTimer = 0
-let revealToken = 0
+let voicePrefix = ''
+let voiceSuffix = ''
 
 function say(text) { if (status) status.textContent = text }
-function clearReveal() {
-  revealToken += 1
-  if (revealTimer) clearTimeout(revealTimer)
-  revealTimer = 0
-}
 function show(stage) {
-  if (stage !== 'preview') clearReveal()
   if (stage !== 'intent') dictation?.stop()
   for (const name of ['intent', 'questions', 'building', 'preview']) {
     const node = document.querySelector('#stage-' + name)
@@ -55,10 +49,6 @@ function show(stage) {
 function setBuilding(title) {
   const node = document.querySelector('#building-title')
   if (node) node.textContent = title
-}
-function pause(ms) {
-  if (reduce) return Promise.resolve()
-  return new Promise(resolve => setTimeout(resolve, ms))
 }
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag)
@@ -84,12 +74,14 @@ function writeIntent(value) {
   intentInput.value = value
   if (count) count.textContent = String(intentInput.value.length)
 }
-function setMic(on) {
-  micBtn?.classList.toggle('is-listening', on)
-  composer?.classList.toggle('is-listening', on)
+function setMic(state) {
+  const on = state === 'starting' || state === 'listening'
+  micBtn?.classList.toggle('is-listening', state === 'listening')
+  composer?.classList.toggle('is-listening', state === 'listening')
   micBtn?.setAttribute('aria-pressed', String(on))
   const label = micBtn?.querySelector('.mic-label')
-  if (label) label.textContent = on ? 'Listening' : 'Speak your idea'
+  if (label) label.textContent = state === 'starting' ? 'Waiting for microphone' : on ? 'Stop dictation' : 'Speak your idea'
+  micBtn?.setAttribute('aria-label', on ? 'Stop dictation' : 'Dictate your idea')
 }
 
 intentInput?.addEventListener('input', () => {
@@ -98,26 +90,28 @@ intentInput?.addEventListener('input', () => {
 })
 
 dictation = createDictation(window, {
-  onState: state => setMic(state === 'listening'),
-  onTranscript: writeIntent,
-  onSubmit(text) {
+  onState: state => {
+    setMic(state)
+    if (state === 'starting') say('Waiting for browser microphone access. Choose the microphone again to cancel.')
+    if (state === 'listening') say('Listening. Pause or choose Stop dictation when you are done. You can edit before continuing.')
+  },
+  onTranscript(text) {
     entry = 'voice'
     pendingExample = ''
-    writeIntent(text)
-    note('')
-    say('Heard you. Building from that.')
-    intentForm?.requestSubmit()
+    writeIntent([voicePrefix, text, voiceSuffix].filter(Boolean).join(' ').slice(0, MAX_INTENT))
   },
   onError(message) {
     note(message)
     say(message)
     intentInput?.focus()
   },
-  onEnd(reason) {
-    if (reason !== 'empty') return
-    const message = 'No speech detected. Type the idea, or try the microphone again.'
+  onEnd(reason, text) {
+    setMic('idle')
+    if (reason === 'error') return
+    const message = text.trim() ? 'Dictation stopped. Edit the text, then choose Continue.' : 'No speech detected. Type the idea, or try the microphone again.'
     note(message)
     say(message)
+    intentInput?.focus()
   },
 }, { max: MAX_INTENT })
 
@@ -133,6 +127,11 @@ if (!dictation) {
     }
     note('')
     if (intentError) intentError.textContent = ''
+    const value = intentInput?.value || ''
+    const start = intentInput?.selectionStart ?? value.length
+    const end = intentInput?.selectionEnd ?? start
+    voicePrefix = value.slice(0, start).trimEnd()
+    voiceSuffix = value.slice(end).trimStart()
     if (!dictation.start()) {
       if (!voiceNote?.textContent) {
         const message = 'Voice input is unavailable right now. Type the idea instead.'
@@ -142,7 +141,6 @@ if (!dictation) {
       intentInput?.focus()
       return
     }
-    say('Listening. A pause submits what you said.')
   })
 }
 
@@ -203,8 +201,6 @@ function toneLabel(kind) {
   return { full: 'Full', open: 'Open', quiet: 'Preview', hold: 'Set' }[kind] || ''
 }
 function previewView(data, noteText) {
-  clearReveal()
-  const token = revealToken
   const summary = document.querySelector('#preview-summary')
   const notice = document.querySelector('#preview-notice')
   const title = document.querySelector('#preview-title')
@@ -215,7 +211,6 @@ function previewView(data, noteText) {
   const tabs = data.preview?.tabs || []
   let active = tabs[0]?.id || ''
   const shells = []
-  const liveLabels = []
   let firstPaint = true
   const paint = () => {
     const reveal = firstPaint
@@ -244,14 +239,13 @@ function previewView(data, noteText) {
     const heading = mark(el('h3'), 2)
     const cards = el('div', { class: 'cards' })
     const nav = mark(el('div', { class: 'shell-tabs' }), 7)
-    const live = el('span', { class: 'shell-live', text: reduce ? 'Preview' : 'Assembling' })
-    liveLabels.push(live)
+    const live = el('span', { class: 'shell-live', text: 'Preview' })
     for (const tab of tabs) {
       const button = el('button', { type: 'button', 'data-tab': tab.id, text: tab.label })
       button.addEventListener('click', () => { active = tab.id; paint() })
       nav.append(button)
     }
-    const node = el('div', { class: 'shell' + (compact ? ' is-phone' : ''), style: '--accent:' + (data.preview?.accent || '#1c3a34') }, [
+    const node = el('div', { class: 'shell' + (compact ? ' is-phone' : '') }, [
       mark(el('div', { class: 'shell-bar' }, [el('strong', { text: data.productName || 'Preview' }), live]), 1),
       el('div', { class: 'shell-body' }, [kicker, heading, mark(el('p', { class: 'shell-note', text: data.preview?.subhead || '' }), 3), cards]),
       nav,
@@ -266,7 +260,7 @@ function previewView(data, noteText) {
   const screenItems = (data.screens || []).map(item => el('li', {}, [el('b', { text: item.name }), el('span', { text: item.purpose })]))
   const dataItems = (data.dataModel || []).map(item => el('li', {}, [el('b', { text: item.name }), el('span', { text: (item.fields || []).join(' · ') })]))
   const linkItems = (data.integrations || []).map(item => el('li', {}, [el('b', { text: item.name }), el('span', { text: item.purpose })]))
-  const devices = el('div', { class: 'devices' + (reduce ? '' : ' is-assembling') }, [
+  const devices = el('div', { class: 'devices' }, [
     el('article', { class: 'phone', 'aria-label': 'Phone preview' }, [shell(true)]),
     el('article', { class: 'web', 'aria-label': 'Web preview' }, [
       el('div', { class: 'chrome' }, [el('i'), el('i'), el('i'), el('span', { text: 'Preview' })]),
@@ -284,29 +278,15 @@ function previewView(data, noteText) {
   paint()
   firstPaint = false
   show('preview')
-  if (reduce) {
-    say((data.productName || 'Preview') + ' is ready.')
-    return
-  }
-  say('Assembling the screens.')
-  previewRoot.setAttribute('aria-busy', 'true')
   requestAnimationFrame(() => {
     previewRoot.querySelectorAll('.assemble').forEach(node => node.classList.add('is-in'))
   })
-  revealTimer = setTimeout(() => {
-    if (token !== revealToken) return
-    revealTimer = 0
-    devices.classList.remove('is-assembling')
-    previewRoot.removeAttribute('aria-busy')
-    for (const label of liveLabels) label.textContent = 'Preview'
-    say((data.productName || 'Preview') + ' is ready.')
-  }, 7 * 70 + 560)
+  say((data.productName || 'Preview') + ' is ready.')
 }
 
 async function clarify(intent, exampleId, kind) {
   if (busy) return
   busy = true
-  const started = performance.now()
   setBuilding('Reading what you described')
   show('building')
   say('Reading what you described.')
@@ -315,7 +295,6 @@ async function clarify(intent, exampleId, kind) {
     let data
     try { data = await post('/api/demo/clarify', payload) }
     catch { data = { ...clarifyLocal(intent, exampleId), source: 'fallback' } }
-    await pause(Math.max(0, 420 - (performance.now() - started)))
     if (data.error === 'rate_limited' && data.fallback) { previewView(data.fallback, 'Too many previews from this network.'); return }
     if (data.error === 'too_long') { formError('Keep it under ' + MAX_INTENT + ' characters.'); return }
     if (data.error === 'empty' || data.ok === false) { formError('Describe what the software should do.'); return }
@@ -352,7 +331,6 @@ questionForm?.addEventListener('submit', async event => {
   event.preventDefault()
   if (busy) return
   busy = true
-  const started = performance.now()
   setBuilding('Laying out the screens')
   show('building')
   say('Laying out the screens.')
@@ -363,7 +341,6 @@ questionForm?.addEventListener('submit', async event => {
     let data
     try { data = await post('/api/demo/plan', payload) }
     catch { data = { ...planLocal(payload.intent, payload.exampleId, answers), source: 'fallback' } }
-    await pause(Math.max(0, 380 - (performance.now() - started)))
     if (data.error === 'rate_limited' && data.fallback) { previewView(data.fallback, 'Too many previews from this network.'); return }
     if (!data.ok && data.ok !== undefined) throw new Error('plan')
     if (!data.preview?.tabs?.length) throw new Error('plan')
@@ -379,4 +356,7 @@ document.querySelector('#start-over')?.addEventListener('click', () => {
   note('')
   show('intent')
   intentInput?.focus()
+})
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') dictation?.stop()
 })

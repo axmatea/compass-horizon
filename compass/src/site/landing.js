@@ -1,5 +1,4 @@
-// COMPASS homepage: menu, the builder stage, quiet reveals, optional video, early access.
-import { team, visibleTeam } from './team.mjs'
+// COMPASS homepage: menu, the builder stage, quiet reveals, recorded film, early access.
 import { modeById, REVISIONS } from './modes.mjs'
 import { webMock, phoneMock, briefMock, ideasMock } from './frames.mjs'
 import { createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, previewDoc, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
@@ -29,7 +28,7 @@ if (!reduce && 'IntersectionObserver' in window) {
   }), { rootMargin: '0px 0px -8% 0px' })
   document.documentElement.classList.add('motion')
   document.querySelectorAll('main > section:not(.hero)').forEach(section => {
-    section.querySelectorAll('.eyebrow, h2, .watch-note, .player, .kind, .how-steps > li, .pillars > li, .differ-lede, .studio-body, .access-lede, #early-access, .qa, .aside').forEach((el, index) => {
+    section.querySelectorAll('.eyebrow, h2, .watch-note, .player, .showcase-item, .how-steps > li, .access-form').forEach((el, index) => {
       el.classList.add('rise')
       el.style.transitionDelay = Math.min(index, 5) * 60 + 'ms'
       io.observe(el)
@@ -57,6 +56,7 @@ const canvasTag = $('#canvas-tag')
 const webUrl = $('#web-url')
 const sound = $('#sound')
 const resetBtn = $('#reset')
+const buildButton = $('#build-btn')
 const openLink = $('#open')
 const screens = [
   { screen: $('#web-screen'), frame: $('#web-frame'), base: 1200, mock: webMock },
@@ -64,12 +64,13 @@ const screens = [
 ]
 const HINT = hint?.textContent || ''
 const PENDING = stepsEl?.innerHTML || ''
+const ideaLabels = ['Bakery', 'AI company', 'Portfolio']
+function compactIdeas() { ideas?.querySelectorAll('button').forEach((button, index) => { button.textContent = ideaLabels[index] || button.textContent }) }
 
 let state = createStudio()
 let epoch = 0
-let mode = composer?.elements.mode?.value || 'web'
+let mode = composer?.elements.mode?.value || 'site'
 let soundOn = false
-let soundChosen = false
 let listening = null
 const previewTools = createPreviewTools({
   root: stage?.querySelector('[data-preview-tools]'),
@@ -143,7 +144,7 @@ function paintFrames() {
     void item.screen.offsetWidth
     item.screen.classList.add('is-fresh')
   }
-  canvasTag.textContent = live ? 'Your page · v' + state.render.version : 'Example layout'
+  canvasTag.textContent = live ? 'Your page · v' + state.render.version : 'Example'
   webUrl.textContent = (live || state.plan ? previewName(state.plan) : slug(modeById(mode).sample.name)) + ' · Preview'
   const canOpen = live && Boolean(state.sessionId)
   openLink.hidden = !canOpen
@@ -152,9 +153,9 @@ function paintFrames() {
 }
 
 function paint() {
-  const phase = listening ? 'listening' : state.phase
+  const phase = listening ? listening.phase || 'starting' : state.phase
   stage.dataset.phase = phase
-  statusEl.textContent = PHASE_LABELS[phase] || PHASE_LABELS.idle
+  statusEl.textContent = phase === 'starting' ? 'Waiting for microphone' : PHASE_LABELS[phase] || PHASE_LABELS.idle
   const source = sourceLabel(state)
   sourceEl.hidden = !source
   sourceEl.textContent = source
@@ -168,6 +169,7 @@ function paint() {
   revise.hidden = !started
   changes.hidden = !started
   resetBtn.hidden = !started
+  if (buildButton) { buildButton.disabled = state.open > 0; buildButton.setAttribute('aria-busy', String(state.open > 0)) }
   previewTools.update()
 }
 
@@ -175,6 +177,7 @@ function paintMode() {
   const current = modeById(mode)
   intent.placeholder = current.placeholder
   ideas.innerHTML = ideasMock(mode)
+  compactIdeas()
   if (state.render) return
   for (const item of screens) {
     const mock = item.screen.querySelector('.ui')
@@ -205,6 +208,8 @@ async function readStream(response, mine) {
 }
 
 async function submit(raw) {
+  if (state.open > 0) { setNotice('Build in progress.'); return }
+  if (dictation?.active) dictation.stop()
   const text = cleanText(raw)
   if (!text) { setNotice(turnError(400, 'text_required')); hint.textContent = turnError(400, 'text_required'); intent.focus(); return }
   const mine = epoch
@@ -248,41 +253,62 @@ async function submit(raw) {
   }
 }
 
-// Voice: the browser turns speech into text, and only the text is sent.
+// Dictation leaves an editable transcript. Only an explicit Build or Send submits it.
 function stopListening() {
   if (!listening) return
   listening.button.setAttribute('aria-pressed', 'false')
+  listening.button.setAttribute('aria-label', listening.label)
   composer.classList.remove('is-listening')
-  if (listening.field === intent && hint.textContent === 'Listening. Pause when you are done.') hint.textContent = HINT
   listening = null
   paint()
 }
 const dictation = createDictation(window, {
-  onTranscript: text => { if (listening) listening.field.value = text },
-  onSubmit: text => { stopListening(); submit(text) },
+  onTranscript: text => {
+    if (!listening) return
+    const { prefix, suffix, field } = listening
+    const left = prefix && !/\s$/.test(prefix) && text ? prefix + ' ' : prefix
+    const right = suffix && !/^\s/.test(suffix) && text ? ' ' + suffix : suffix
+    field.value = (left + text + right).slice(0, 500)
+  },
   onError: message => { stopListening(); hint.textContent = message; setNotice(message) },
-  onEnd: () => stopListening(),
-  onState: () => {},
-}, { max: 500, pauseMs: 1200 })
+  onEnd: reason => {
+    const field = listening?.field
+    stopListening()
+    if (reason !== 'error') {
+      hint.textContent = reason === 'empty' ? 'No speech recognised. Try again.' : 'Edit, then build.'
+      if (field) field.focus()
+    }
+  },
+  onState: phase => {
+    if (!listening) return
+    if (phase === 'idle') { composer.classList.remove('is-listening'); return }
+    listening.phase = phase
+    listening.button.setAttribute('aria-pressed', 'true')
+    listening.button.setAttribute('aria-label', 'Stop dictation')
+    composer.classList.toggle('is-listening', phase === 'listening')
+    hint.textContent = phase === 'listening' ? 'Listening. Stop to edit.' : 'Waiting for microphone…'
+    paint()
+  },
+}, { max: 500, pauseMs: 1200, autoSubmit: false })
 
 function toggleVoice(button, field) {
   if (!dictation) {
-    const message = 'Voice input is not available in this browser. Type it instead.'
+    const message = 'Voice unavailable. Please type.'
     hint.textContent = message
     setNotice(message)
     field.focus()
     return
   }
-  if (dictation.active) { dictation.stop(); stopListening(); return }
+  if (dictation.active) { dictation.stop(); return }
+  const start = typeof field.selectionStart === 'number' ? field.selectionStart : field.value.length
+  const end = typeof field.selectionEnd === 'number' ? field.selectionEnd : start
+  listening = { button, field, prefix: field.value.slice(0, start), suffix: field.value.slice(end), label: button.getAttribute('aria-label') }
   if (!dictation.start()) {
-    hint.textContent = 'Voice input did not start. Type it instead.'
+    stopListening()
+    hint.textContent = 'Microphone unavailable. Please type.'
     field.focus()
     return
   }
-  listening = { button, field }
-  button.setAttribute('aria-pressed', 'true')
-  if (field === intent) { composer.classList.add('is-listening'); hint.textContent = 'Listening. Pause when you are done.' }
-  if (!soundChosen) setSound(true)
   paint()
 }
 function setSound(on) {
@@ -317,6 +343,14 @@ if (stage && composer) {
     stopListening()
     if (window.speechSynthesis) window.speechSynthesis.cancel()
   })
+  for (const field of [intent, reviseInput]) field.addEventListener('input', () => {
+    if (!dictation?.active || listening?.field !== field) return
+    const edited = field.value
+    dictation.stop()
+    stopListening()
+    field.value = edited
+    hint.textContent = 'Ready to build.'
+  })
   revise.addEventListener('submit', event => { event.preventDefault(); submit(reviseInput.value) })
   for (const group of [ideas, changes]) group.addEventListener('click', event => {
     const idea = event.target.closest('[data-idea]')
@@ -324,7 +358,7 @@ if (stage && composer) {
   })
   $('#mic').addEventListener('click', event => toggleVoice(event.currentTarget, intent))
   $('#revise-mic').addEventListener('click', event => toggleVoice(event.currentTarget, reviseInput))
-  sound.addEventListener('click', () => { soundChosen = true; setSound(!soundOn) })
+  sound.addEventListener('click', () => setSound(!soundOn))
   resetBtn.addEventListener('click', () => {
     epoch += 1
     if (dictation?.active) dictation.stop()
@@ -345,29 +379,8 @@ if (stage && composer) {
     })
     for (const item of screens) fit.observe(item.screen)
   }
-  if (mode !== 'web') paintMode()
-}
-
-// Team: bios render only once the founder adds confirmed entries to team.mjs.
-const people = visibleTeam(team)
-const bios = $('#team-bios')
-if (bios && people.length) {
-  for (const person of people) {
-    const item = el('li')
-    if (person.logo) {
-      const img = el('img')
-      img.src = person.logo
-      img.alt = ''
-      img.width = 48
-      img.height = 48
-      item.append(img)
-    }
-    item.append(el('h3', '', person.name))
-    if (person.role) item.append(el('p', 'role', person.role))
-    if (person.bio) item.append(el('p', '', person.bio))
-    bios.append(item)
-  }
-  bios.hidden = false
+  if (mode !== 'site') paintMode()
+  compactIdeas()
 }
 
 // Video: the server renders the bundled walkthrough, or DEMO_VIDEO_URL when that https URL is set.
