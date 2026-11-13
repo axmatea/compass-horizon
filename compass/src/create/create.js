@@ -12,6 +12,7 @@ const providerNames = {google:'Google',github:'GitHub',apple:'Apple'}
 const accountForm = $('account-form')
 const onboardingForm = $('onboarding-form')
 const promptInput = $('create-prompt')
+if(appEntry){$('prompt-note').textContent='Data apps in preview.';promptInput.placeholder='A CRM for my studio…'}
 const entry = accountEntry(location.href)
 if (new URL(location.href).searchParams.has('token') || new URL(location.href).searchParams.has('error')) history.replaceState(null,'',entry.cleanURL)
 const views = createAccountViews({root:$('account-tools'),api,onMessage:message,onExpired:requireAccountChoice,onUser:bindIdentity,onPreferences:openPreferences})

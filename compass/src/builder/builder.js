@@ -620,6 +620,12 @@ function storageMessage(error) {
   }[error] || 'The project could not be saved on this device.'
 }
 function paintProject() {
+  const hasWork=Boolean(history.length || previewRender()?.html)
+  const projectBar=document.querySelector('.project-bar'),historyDetails=document.querySelector('.history-details'),context=document.querySelector('.context-row')
+  if(projectBar)projectBar.hidden=!hasWork
+  if(historyDetails)historyDetails.hidden=!history.length
+  if(context)context.hidden=!hasWork && !state.busy
+  const counter=document.querySelector('.count');if(counter)counter.hidden=!input.value.length
   const readOnly = Boolean(selectedRevision)
   input.disabled = readOnly
   sendButton.disabled = readOnly || state.busy || !input.value.trim()

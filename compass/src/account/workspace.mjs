@@ -25,6 +25,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   try { mountedOwner=(await request('me')).userId } catch (error) { onMessage(error.message); return null }
   if(initialDraft?.ready && !draftCanAutoBuild(initialDraft,{accountMode:true,userId:mountedOwner})){disarmDraft({id:initialDraft.id});onMessage('Review your idea with this account before building.');location.replace('/create');return null}
   document.body.classList.add('account-workspace')
+  const previewLink=document.querySelector('[data-app-preview]');if(previewLink)previewLink.hidden=true
   document.title = 'Workspace — COMPASS'
   document.querySelector('h1').textContent = 'Workspace'
   const sidebar = element('aside',null,'workspace-nav')

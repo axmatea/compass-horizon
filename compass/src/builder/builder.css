@@ -58,3 +58,5 @@ h1,h2,p{margin:0}h1{font-size:28px;line-height:1.15;font-weight:550;letter-spaci
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
 
 .website-design{border-top:1px solid var(--line);padding-top:18px;margin-top:20px}.website-design summary{cursor:pointer;font-size:16px;font-weight:550;min-height:44px}.website-design label{display:inline-flex;flex-direction:column;gap:8px;font-size:14px;margin:8px 16px 8px 0}.website-design select{font:inherit;min-height:44px;padding:8px 24px 8px 10px;border:1px solid var(--line);background:white;border-radius:6px}.preview-code{border-top:1px solid var(--line);padding:24px;background:white}.preview-code h3{font-size:18px}.preview-code>button{font:inherit;margin:12px 0;min-height:44px}.preview-code pre{white-space:pre;overflow:auto;max-height:500px;font-size:14px;line-height:1.6;color:#30343b}.preview-code code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+
+#send{background:var(--ink);border-color:var(--ink)}#send:hover:not(:disabled){background:#363a42}#send:disabled{opacity:.35;cursor:default}
