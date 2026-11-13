@@ -1,5 +1,6 @@
 import { isAbsolute } from 'node:path';
 import { open, chmod } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 
 const AUTH_PATH = '/api/auth';
 const MAX_BODY = 16 * 1024;
@@ -91,11 +92,18 @@ async function readBody(req, form) {
 export function createAccountAuth({ env = process.env, sendEmail, database: suppliedDatabase } = {}) {
   const enabled = env.COMPASS_ACCOUNT_MODE === 'staging';
   const origin = originFrom(env.COMPASS_ACCOUNT_ORIGIN, env.NODE_ENV === 'production');
-  const secret = env.BETTER_AUTH_SECRET;
+  const suppliedSecret = env.BETTER_AUTH_SECRET;
   const path = env.COMPASS_ACCOUNT_DATABASE;
   const mail = emailDelivery(env, sendEmail);
   const socialProviders = configuredProviders(env, Boolean(mail));
   const primaryDomain = origin && ['mycompass.world', 'www.mycompass.world'].includes(new URL(origin).hostname.replace(/\.+$/, ''));
+  const stagingLocation = enabled && origin && !primaryDomain && typeof path === 'string' && isAbsolute(path) && path !== '/';
+  // Explicit disposable-email QA only. A rotating key must never encrypt real
+  // OAuth tokens or issue real verification/reset links that a restart breaks.
+  // Generate inside this instance; never persist, log or return the bytes.
+  const ephemeralSecret = Boolean(stagingLocation && env.COMPASS_ACCOUNT_EPHEMERAL_SECRET === '1'
+    && suppliedSecret === undefined && !mail && !Object.keys(socialProviders).length);
+  const secret = ephemeralSecret ? randomBytes(48).toString('base64url') : suppliedSecret;
   const valid = enabled && origin && !primaryDomain && typeof secret === 'string' && secret.trim().length >= 32
     && typeof path === 'string' && isAbsolute(path) && path !== '/';
   let db = null, auth = null, readyState = false, closed = false;
@@ -188,7 +196,8 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
   function publicConfig() {
     return { enabled, configured: readyState && !closed, provider: 'better-auth',
       providers: readyState && !closed ? ['email', ...Object.keys(socialProviders)] : [],
-      emailMode: mail ? 'verification' : 'test', origin: origin || null };
+      emailMode: mail ? 'verification' : 'test', origin: origin || null,
+      secretMode: readyState && !closed ? ephemeralSecret ? 'ephemeral' : 'configured' : null };
   }
 
   async function getIdentity(input) {

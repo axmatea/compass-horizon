@@ -33,7 +33,13 @@ async function fixture(t, extra = {}) {
       ...(cookie ? { cookie } : {}), ...headers,
     }, ...(body !== undefined ? { body: typeof body === 'string' ? body : JSON.stringify(body) } : {}),
   });
-  return { auth, origin, env, directory, request };
+  const restart = async () => {
+    await auth.close();
+    auth = createAccountAuth({ env, ...extra.options });
+    await auth.ready;
+    return auth;
+  };
+  return { auth, origin, env, directory, request, restart };
 }
 
 function cookieFor(response) {
@@ -89,7 +95,7 @@ test('missing/unsafe staging config fails closed without touching a file', async
 
 test('real Better Auth registration uses private DB, hashed passwords and HttpOnly host-only cookies', async t => {
   const { auth, request, env } = await fixture(t);
-  assert.deepEqual(auth.publicConfig(), { enabled: true, configured: true, provider: 'better-auth', providers: ['email'], emailMode: 'test', origin: env.COMPASS_ACCOUNT_ORIGIN });
+  assert.deepEqual(auth.publicConfig(), { enabled: true, configured: true, provider: 'better-auth', providers: ['email'], emailMode: 'test', origin: env.COMPASS_ACCOUNT_ORIGIN, secretMode: 'configured' });
   const { response, cookie, body } = await register(request);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   const sessionCookie = response.headers.getSetCookie().find(value => value.includes('session_token='));
@@ -258,4 +264,52 @@ test('disposable staging storage has a real SQLite size cap and an atomic test-a
   assert.equal(response.status, 429);
   assert.equal((await response.json()).code, 'STAGING_ACCOUNT_LIMIT');
   assert.equal(auth.database.prepare('SELECT count(*) AS count FROM compass_account_user').get().count, 50);
+});
+
+test('an explicitly ephemeral QA secret rotates across instances without exposing its value', async t => {
+  const context = await fixture(t, { env: { BETTER_AUTH_SECRET: undefined, COMPASS_ACCOUNT_EPHEMERAL_SECRET: '1' } });
+  assert.equal(context.auth.publicConfig().configured, true);
+  assert.equal(context.auth.publicConfig().secretMode, 'ephemeral');
+  const { cookie } = await register(context.request);
+  assert.ok(await context.auth.getIdentity(new Headers({ cookie })));
+  const next = await context.restart();
+  assert.equal(next.publicConfig().configured, true);
+  assert.equal(await next.getIdentity(new Headers({ cookie })), null, 'a fresh random signing key must reject the prior instance cookie');
+  const login = await context.request('/api/auth/sign-in/email', { method: 'POST', body: { email: 'one@compass.test', password } });
+  assert.equal(login.status, 200);
+  assert.ok(await next.getIdentity(new Headers({ cookie: cookieFor(login) })), 'stored synthetic account can sign in again');
+  assert.deepEqual(Object.keys(next.publicConfig()).sort(), ['configured', 'emailMode', 'enabled', 'origin', 'provider', 'providers', 'secretMode']);
+});
+
+test('an explicitly configured fixed secret wins and retains its session after restart', async t => {
+  const context = await fixture(t, { env: { COMPASS_ACCOUNT_EPHEMERAL_SECRET: '1' } });
+  assert.equal(context.auth.publicConfig().secretMode, 'configured');
+  const { cookie } = await register(context.request);
+  const before = await context.auth.getIdentity(new Headers({ cookie }));
+  const next = await context.restart();
+  assert.equal(next.publicConfig().secretMode, 'configured');
+  assert.deepEqual(await next.getIdentity(new Headers({ cookie })), before);
+});
+
+test('ephemeral opt-in cannot enable a missing-secret real-provider or primary-domain configuration', async t => {
+  const base = { COMPASS_ACCOUNT_MODE: 'staging', COMPASS_ACCOUNT_EPHEMERAL_SECRET: '1',
+    COMPASS_ACCOUNT_ORIGIN: 'https://preview.example.test', COMPASS_ACCOUNT_DATABASE: '/tmp/compass-ephemeral-must-not-open.sqlite' };
+  for (const env of [
+    { ...base, COMPASS_ACCOUNT_MODE: 'off' },
+    { ...base, COMPASS_ACCOUNT_ORIGIN: 'https://mycompass.world' },
+    { ...base, COMPASS_ACCOUNT_ORIGIN: 'https://www.mycompass.world.' },
+    { ...base, COMPASS_ACCOUNT_DATABASE: 'relative.sqlite' },
+    { ...base, COMPASS_ACCOUNT_ORIGIN: 'http://public.example.test' },
+    { ...base, BETTER_AUTH_SECRET: '' },
+    { ...base, BETTER_AUTH_SECRET: 'short' },
+    { ...base, GOOGLE_CLIENT_ID: 'synthetic-google', GOOGLE_CLIENT_SECRET: 'synthetic-google-secret' },
+    { ...base, COMPASS_ACCOUNT_EMAIL_WEBHOOK_URL: 'https://delivery.example.test/send' },
+  ]) {
+    const auth = createAccountAuth({ env });
+    await auth.ready;
+    assert.equal(auth.publicConfig().configured, false);
+    assert.equal(auth.publicConfig().secretMode, null);
+    assert.equal(auth.database, null);
+    await auth.close();
+  }
 });

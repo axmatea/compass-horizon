@@ -57,12 +57,28 @@ Railway settings; never paste secret values into chats, commits or logs.
 | COMPASS_ACCOUNT_MODE | staging; all other values keep accounts off |
 | COMPASS_ACCOUNT_ORIGIN | Exact HTTPS preview origin, without path/query |
 | COMPASS_ACCOUNT_DATABASE | Absolute SQLite path in the isolated preview container |
-| BETTER_AUTH_SECRET | Random server-only secret, at least 32 characters |
+| BETTER_AUTH_SECRET | Random server-only secret, at least 32 characters; required except for the explicit disposable QA option below |
+| COMPASS_ACCOUNT_EPHEMERAL_SECRET | Optional `1`: generate a server-memory signing secret for synthetic email-only, single-process staging when BETTER_AUTH_SECRET is absent |
 | GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET | Optional owned Google OAuth application |
 | GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET | Optional owned GitHub OAuth application |
 | APPLE_CLIENT_ID / APPLE_CLIENT_SECRET | Optional owned Apple Services ID and valid signing secret |
 | COMPASS_ACCOUNT_EMAIL_WEBHOOK_URL | Optional HTTPS transactional delivery endpoint |
 | COMPASS_ACCOUNT_EMAIL_WEBHOOK_TOKEN | Optional delivery authorization secret |
+
+The ephemeral-secret option generates 48 cryptographically random bytes inside
+the server instance and never writes, logs or returns them. Only the mode name
+is exposed. It requires explicit staging mode, a valid non-primary origin and an
+absolute database path. Missing secrets still fail closed without this opt-in;
+an empty or invalid supplied secret does not trigger a fallback. A configured
+fixed secret always wins. Ephemeral mode refuses real email delivery and OAuth
+credentials unless a fixed secret is supplied, because rotation would invalidate
+their verification tokens and encrypted provider tokens.
+
+Use this option only for disposable `.test` accounts in the existing preview,
+with one replica. Every server-instance restart invalidates its old login
+cookies, even if the SQLite file survives; synthetic accounts can sign in again.
+It is unsuitable for production, shared replicas, real providers or durable
+session guarantees. It provisions no external service or paid infrastructure.
 
 For each configured social provider, register precisely
 `<preview-origin>/api/auth/callback/google`, `/github`, or `/apple`. Configure the
