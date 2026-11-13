@@ -2,13 +2,14 @@
 
 Canonical source: [axmatea/compass-horizon](https://github.com/axmatea/compass-horizon).
 
-COMPASS describes and refines a single HTML website preview. The four public
+COMPASS describes and refines a single HTML website preview. The public
 pages are `/` (product and inline preview), `/demo` (full builder), `/plan`
 (secondary product-plan preview), and `/studio` (AX Media Global, team and
-approved statements). `/voice-demo` aliases `/demo`. Legacy office, login,
+approved statements). `/create` preserves a prompt through short optional
+onboarding and opens the public builder. `/voice-demo` aliases `/demo`. Legacy office, login,
 registration and presentation pages remain retired.
 
-The full builder supports desktop/phone views, brief copying, HTML download,
+The public builder supports desktop/phone views, brief copying, HTML download,
 and explicit project saving on this device. Saved projects and revision
 snapshots stay in this browser; there is no account, cloud backup or autosave.
 Loading a project makes no model request. Its next submitted refinement can
@@ -28,7 +29,7 @@ physical microphone capture and transcription remain a live manual check.
 
 ## Run
 
-Use Node 22.12 or newer:
+Use Node 22.13 or newer:
 
 ```sh
 npm run product:install
@@ -54,8 +55,9 @@ npm run build
 npm audit --prefix compass
 ```
 
-The build produces all four pages. The Node delivery server uses
-built-in modules only: no runtime dependencies, database, or login. The builder
+The build produces five pages, including the new /create onboarding flow.
+The default public server opens no database or account sessions. Better Auth is
+loaded only by the explicitly configured isolated staging feature. The builder
 keeps its session in memory. When COMPASS_DEMO_MODE is unset, demos stay on
 prepared examples even if model keys exist. Only COMPASS_DEMO_MODE=live
 enables provider calls; key names are documented in compass/.env.example.
@@ -69,7 +71,8 @@ POST /api/early-access accepts one email. When WAITLIST_WEBHOOK_URL is an
 https URL, the server posts `{email, timestamp}` there. When it is unset, the
 form falls back to mailto:info@aimedia.global and the page does not claim the
 email was stored. Other retired page URLs return 410. Unknown API URLs return
-404. Do not reintroduce office, auth, or a server voice bridge as incidental cleanup.
+404. Do not reintroduce the retired office or server voice bridge. Account routes are
+limited to the isolated staging implementation described below.
 
 ## Deploy and recover
 
@@ -83,8 +86,10 @@ See [release notes and media provenance](docs/RELEASE.md) and
 [deployment checks](compass/DEPLOYMENT.md).
 
 The [media audit](docs/COMPASS_2_MEDIA.md) distinguishes the approved founder promo
-from the two walkthroughs. The [limited-access design](docs/ACCESS_PREVIEW.md)
-describes a separate managed-auth preview; accounts are not enabled in this release.
+from the two walkthroughs. The [account foundation](docs/ACCOUNT_FOUNDATION.md) documents the Better Auth
+staging implementation, configured sign-in methods, owner-scoped projects and
+measured usage. Accounts remain off on production; the earlier Clerk proposal
+in ACCESS_PREVIEW.md is superseded.
 
 GitHub stores the source and lockfile needed to rebuild on another computer.
 Verify a fresh clone, npm run product:install, npm test and npm run build before

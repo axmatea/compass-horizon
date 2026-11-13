@@ -7,6 +7,8 @@ import { clarifyDemo, planDemo, demoVideoUrl, llmStatus, fallbackRun, MAX_INTENT
 import { submitEarlyAccess } from './early-access.mjs';
 import { applyHomepage } from './homepage.mjs';
 import { createSiteBuilder, publicTurn, sessionIdFrom, validateResumeIntent, MAX_TEXT } from './builder/index.mjs';
+import { createAccountAuth } from './account/auth.mjs';
+import { createAccountApi } from './account/http.mjs';
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -57,6 +59,8 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
     return { limited: false };
   };
   const site = createSiteBuilder({ env, fetchImpl });
+  const accounts = createAccountAuth({env});
+  const accountApi = createAccountApi({auth:accounts,env,fetchImpl});
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -82,6 +86,8 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
           revision: env.RAILWAY_GIT_COMMIT_SHA || env.COMPASS_REVISION || 'local' }); return;
       }
       if (pathname === '/api/config' && req.method === 'GET') { json(200, { demoVideoUrl: demoVideoUrl(env) }); return; }
+      if (await accounts.handleNode(req,res)) return;
+      if (await accountApi(req,res)) return;
       if (pathname === '/api/early-access') {
         if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); text(405, 'Method not allowed'); return; }
         const gate = hit(clientAddress(req));
@@ -105,7 +111,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
           if (!resumeIntent) { json(400, { error: 'invalid_resume_intent' }); return; }
         }
         if (gate.limited) {
-          const fallback = publicTurn(await site.runtime.runTurn(requested.sessionId, text, { localOnly: true, resumeIntent }), { limited: true, sessionReset: requested.reset });
+          const fallback = publicTurn(await site.runtime.runTurn(requested.sessionId, text, { localOnly: true, resumeIntent, preferences:body.value?.preferences }), { limited: true, sessionReset: requested.reset });
           json(429, { error: 'rate_limited', fallback }, { 'Retry-After': String(gate.retryAfter) });
           return;
         }
@@ -115,12 +121,12 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
           res.write(': compass\n\n');
           const write = (type, data) => { if (!res.writableEnded) res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`); };
           if (requested.reset) write('session_reset', { type: 'session_reset', reason: 'unknown_session' });
-          const result = await site.runtime.runTurn(requested.sessionId, text, { resumeIntent, onEvent: (event) => write(event.type, event) });
+          const result = await site.runtime.runTurn(requested.sessionId, text, { resumeIntent, preferences:body.value?.preferences, onEvent: (event) => write(event.type, event) });
           write('result', publicTurn(result, { sessionReset: requested.reset }));
           res.end();
           return;
         }
-        const result = publicTurn(await site.runtime.runTurn(requested.sessionId, text, { resumeIntent }), { sessionReset: requested.reset });
+        const result = publicTurn(await site.runtime.runTurn(requested.sessionId, text, { resumeIntent, preferences:body.value?.preferences }), { sessionReset: requested.reset });
         json(200, result);
         return;
       }
@@ -154,6 +160,16 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
       if (normalized === '/demo' || normalized === '/voice-demo') { await serveFile(req, res, root, '/demo.html', text); return; }
       if (normalized === '/plan') { await serveFile(req, res, root, '/plan.html', text); return; }
       if (normalized === '/studio') { await serveFile(req, res, root, '/studio.html', text); return; }
+      if (normalized === '/create') { await serveFile(req,res,root,'/create.html',text); return; }
+      if (normalized === '/workspace') {
+        if (!accounts.enabled) { text(404,'Account preview is not enabled.'); return; }
+        res.setHeader('X-Robots-Tag','noindex');
+        await serveFile(req,res,root,'/demo.html',text); return;
+      }
+      if (normalized === '/assets/brand-next/studies' && accounts.enabled) {
+        res.setHeader('X-Robots-Tag','noindex');
+        await serveFile(req,res,root,'/assets/brand-next/studies.html',text); return;
+      }
       if (retired.test(normalized)) { text(410, 'This section has been retired. Visit the COMPASS homepage at /.'); return; }
       const page = normalized === '/' || normalized === '/index.html';
       if (page) { await serveHtml(req, res, root, '/index.html', env, text); return; }
@@ -165,7 +181,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
   });
   return { server, async close() {
     const stopped = server.listening ? new Promise(resolve => server.close(resolve)) : Promise.resolve();
-    server.closeIdleConnections(); await stopped;
+    server.closeIdleConnections(); await stopped; await accounts.close();
   } };
 }
 

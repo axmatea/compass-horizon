@@ -11,6 +11,8 @@
 // lower-latency serving path. A General Compute chat 404 loads GET /v1/models
 // once and retries a single active id.
 
+import { trackProviderAttempt, setUsageOutcome } from './usage.mjs';
+
 const MODEL_CACHE_MS = 10 * 60 * 1000;
 const GC_PREFERENCE = ['gpt-oss-120b', 'minimax-m2.7', 'deepseek-v3.2', 'deepseek-v3.1'];
 const modelLists = new Map();
@@ -39,7 +41,8 @@ function safeToken(value, max = 96) {
   return clean || '-';
 }
 
-function noteModel(provider, model) {
+function noteModel(provider, model, secret) {
+  if (secret && String(model).includes(secret)) return;
   const key = provider + '\0' + model;
   if (notedModels.has(key)) return;
   notedModels.add(key);
@@ -146,39 +149,48 @@ export function loadLlm(env = process.env, fetchImpl = fetch) {
 
 export function createClient({ apiKey, baseUrl, model, backupModel = '', provider, timeoutMs = 8000, thinking = false, fetchImpl = fetch }) {
   async function send(modelId, messages, temperature, maxTokens, signal, timeout, providerCaps) {
-    const body = { model: modelId, messages, temperature, max_tokens: maxTokens };
-    if (provider === 'nebius') {
-      const cap = Math.min(maxTokens, Number(providerCaps?.nebius) || maxTokens);
-      body.max_tokens = cap;
-      // max_completion_tokens counts reasoning tokens. Without it, GLM can
-      // think until the shared deadline even when max_tokens is small.
-      body.max_completion_tokens = cap;
-      if (!thinking) body.reasoning_effort = 'low';
-    }
-    let res;
-    try {
-      res = await fetchImpl(new URL('chat/completions', baseUrl), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify(body),
-        signal,
-      });
-    } catch (err) {
-      if (signal?.aborted && !timeout?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err, model: modelId });
-      if (timeout?.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err, model: modelId });
-      throw new LlmError('LLM network error', { code: 'network', cause: err, model: modelId });
-    }
-    if (!res.ok) {
-      const text = (await res.text().catch(() => '')).slice(0, 2000);
-      throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', providerCode: readProviderCode(text, apiKey), model: modelId });
-    }
-    let json;
-    try { json = await res.json(); }
-    catch (err) { throw new LlmError('LLM response was not JSON', { code: 'parse', cause: err, model: modelId }); }
-    const choice = json?.choices?.[0] ?? {};
-    const finishReason = typeof choice.finish_reason === 'string' ? choice.finish_reason : '';
-    noteModel(provider, modelId);
-    return { message: choice.message ?? {}, provider, model: modelId, finishReason };
+    return trackProviderAttempt({ provider, model: modelId, secret: apiKey }, async usage => {
+      const body = { model: modelId, messages, temperature, max_tokens: maxTokens };
+      if (provider === 'nebius') {
+        const cap = Math.min(maxTokens, Number(providerCaps?.nebius) || maxTokens);
+        body.max_tokens = cap;
+        // max_completion_tokens counts reasoning tokens. Without it, GLM can
+        // think until the shared deadline even when max_tokens is small.
+        body.max_completion_tokens = cap;
+        if (!thinking) body.reasoning_effort = 'low';
+      }
+      let res;
+      try {
+        res = await fetchImpl(new URL('chat/completions', baseUrl), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify(body),
+          signal,
+        });
+      } catch (err) {
+        if (signal?.aborted && !timeout?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err, model: modelId });
+        if (timeout?.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err, model: modelId });
+        throw new LlmError('LLM network error', { code: 'network', cause: err, model: modelId });
+      }
+      usage.http(res.status);
+      if (!res.ok) {
+        const text = (await res.text().catch(() => '')).slice(0, 2000);
+        try { usage.usage(JSON.parse(text)?.usage); } catch { /* unknown usage stays unknown */ }
+        throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', providerCode: readProviderCode(text, apiKey), model: modelId });
+      }
+      let json;
+      try { json = await res.json(); }
+      catch (err) {
+        if (signal?.aborted && !timeout?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err, model: modelId });
+        if (timeout?.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err, model: modelId });
+        throw new LlmError('LLM response was not JSON', { code: 'parse', cause: err, model: modelId });
+      }
+      usage.usage(json?.usage, json?.model);
+      const choice = json?.choices?.[0] ?? {};
+      const finishReason = typeof choice.finish_reason === 'string' ? choice.finish_reason : '';
+      noteModel(provider, modelId, apiKey);
+      return { message: choice.message ?? {}, provider, model: modelId, finishReason };
+    });
   }
 
   async function activeModels(signal) {
@@ -242,37 +254,46 @@ export function createClient({ apiKey, baseUrl, model, backupModel = '', provide
 }
 
 async function anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, fetchImpl }) {
-  const system = messages.filter(item => item.role === 'system').map(item => contentToString(item.content)).filter(Boolean).join('\n\n');
-  const dialogue = messages.filter(item => item.role !== 'system').map(item => ({
-    role: item.role === 'assistant' ? 'assistant' : 'user',
-    content: contentToString(item.content),
-  }));
-  const body = { model, max_tokens: maxTokens, temperature, messages: dialogue.length ? dialogue : [{ role: 'user', content: 'Respond with one JSON object.' }] };
-  if (system) body.system = system;
-  let res;
-  try {
-    res = await fetchImpl(new URL('messages', baseUrl), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify(body),
-      signal: combined,
-    });
-  } catch (err) {
-    if (signal?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err });
-    if (timeout.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err });
-    throw new LlmError('LLM network error', { code: 'network', cause: err });
-  }
-  if (!res.ok) {
-    const text = (await res.text().catch(() => '')).slice(0, 180);
-    throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', providerCode: readProviderCode(text, apiKey), model });
-  }
-  let json;
-  try { json = await res.json(); }
-  catch (err) { throw new LlmError('LLM response was not JSON', { code: 'parse', cause: err }); }
-  const blocks = Array.isArray(json?.content) ? json.content : [];
-  const text = blocks.filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n');
-  const thinking = blocks.filter(block => block?.type === 'thinking' && typeof block.thinking === 'string').map(block => block.thinking).join('\n');
-  return { message: { content: text, reasoning_content: thinking }, provider: 'anthropic', model, finishReason: typeof json?.stop_reason === 'string' ? json.stop_reason : '' };
+  return trackProviderAttempt({ provider: 'anthropic', model, secret: apiKey }, async usage => {
+    const system = messages.filter(item => item.role === 'system').map(item => contentToString(item.content)).filter(Boolean).join('\n\n');
+    const dialogue = messages.filter(item => item.role !== 'system').map(item => ({
+      role: item.role === 'assistant' ? 'assistant' : 'user',
+      content: contentToString(item.content),
+    }));
+    const body = { model, max_tokens: maxTokens, temperature, messages: dialogue.length ? dialogue : [{ role: 'user', content: 'Respond with one JSON object.' }] };
+    if (system) body.system = system;
+    let res;
+    try {
+      res = await fetchImpl(new URL('messages', baseUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify(body),
+        signal: combined,
+      });
+    } catch (err) {
+      if (signal?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err });
+      if (timeout.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err });
+      throw new LlmError('LLM network error', { code: 'network', cause: err });
+    }
+    usage.http(res.status);
+    if (!res.ok) {
+      const text = (await res.text().catch(() => '')).slice(0, 2000);
+      try { usage.usage(JSON.parse(text)?.usage); } catch { /* unknown usage stays unknown */ }
+      throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', providerCode: readProviderCode(text, apiKey), model });
+    }
+    let json;
+    try { json = await res.json(); }
+    catch (err) {
+      if (signal?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err, model });
+      if (timeout.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err, model });
+      throw new LlmError('LLM response was not JSON', { code: 'parse', cause: err, model });
+    }
+    usage.usage(json?.usage, json?.model);
+    const blocks = Array.isArray(json?.content) ? json.content : [];
+    const text = blocks.filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n');
+    const thinking = blocks.filter(block => block?.type === 'thinking' && typeof block.thinking === 'string').map(block => block.thinking).join('\n');
+    return { message: { content: text, reasoning_content: thinking }, provider: 'anthropic', model, finishReason: typeof json?.stop_reason === 'string' ? json.stop_reason : '' };
+  });
 }
 
 export function createChain(clients, budgetMs = 8000) {
@@ -448,8 +469,12 @@ export async function completeJson({ clients, messages, maxTokens, accept, signa
         timeoutMs: Math.min(client.timeoutMs || budgetMs, Math.max(1, remaining)),
       });
       const candidates = jsonCandidates(out.message);
+      setUsageOutcome(out, candidates.length ? 'rejected_shape' : 'parse_error');
       const accepted = candidates.find(item => accept(item));
-      if (accepted) return { json: accepted, provider: out.provider, model: out.model, failures: [] };
+      if (accepted) {
+        setUsageOutcome(out, 'accepted');
+        return { json: accepted, provider: out.provider, model: out.model, failures: [] };
+      }
       throw new LlmError(candidates.length ? 'Model output shape was rejected' : 'Model output contained no JSON object', {
         code: candidates.length ? 'shape' : 'parse',
         finishReason: out.finishReason,

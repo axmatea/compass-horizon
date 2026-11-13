@@ -45,9 +45,20 @@ export function normalizeSavedIntent(value) {
 export function safeSavedHtml(value) {
   if (typeof value !== 'string' || value.length > MAX_HTML || !/^<!doctype html>/i.test(value.trim())) return null
   if (/<\s*(?:script|iframe|object|embed|base|link)\b/i.test(value)
-    || /\son[a-z]+\s*=/i.test(value)
+    || /(?:\s|\/)on[a-z]+\s*=/i.test(value)
     || /(?:javascript:|vbscript:|@import|url\s*\(|http-equiv\s*=)/i.test(value)
-    || /\s(?:src|action|formaction)\s*=/i.test(value)) return null
+    || /(?:\s|\/)(?:src|srcset|poster|background|action|formaction|ping)\s*=/i.test(value)) return null
+  for (const style of value.matchAll(/<style\b[^>]*>([\s\S]*?)(?:<\/style\s*>|$)/gi)) {
+    if (/[\\]|https?:|image-set\s*\(|expression\s*\(|-moz-binding|(?:^|[;{])\s*behavior\s*:/i.test(style[1])) return null
+  }
+  for (const style of value.matchAll(/(?:\s|\/)style\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
+    if (/[\\&]|https?:|image-set\s*\(|expression\s*\(|-moz-binding|(?:^|[;{])\s*behavior\s*:/i.test(style[1] ?? style[2] ?? style[3] ?? '')) return null
+  }
+  // Rendered previews use fragment anchors only. An exported document loses
+  // the iframe sandbox, so reject encoded protocol tricks and external links.
+  for (const link of value.matchAll(/(?:\s|\/)(?:xlink:)?href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
+    if (!/^#[A-Za-z][A-Za-z0-9_-]*$/.test(link[1] ?? link[2] ?? link[3] ?? '')) return null
+  }
   return value
 }
 

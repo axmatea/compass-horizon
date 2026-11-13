@@ -1,7 +1,9 @@
 # COMPASS public product
 
-Public pages: index.html, demo.html, plan.html and studio.html.
-No account, cloud workspace, login, presentation, or database is supported.
+Public pages: index.html, demo.html, plan.html, studio.html and create.html.
+/create preserves the prompt through optional onboarding. The account workspace
+is an isolated, default-off staging feature; see ../docs/ACCOUNT_FOUNDATION.md.
+Production has no account or cloud persistence.
 The homepage hero runs the site builder inline (voice or text, brief, build,
 page preview on web and phone). /demo is the full-screen builder.
 /voice-demo serves that same builder. /plan is the product-plan preview.
@@ -23,7 +25,7 @@ only after the native recognition start event. The browser may use a speech
 service; COMPASS receives submitted text. Real microphone transcription must
 still be checked manually on the live site.
 
-Node 22.12+. npm ci, npm run build, npm start. Open localhost:8770.
+Node 22.13+. npm ci, npm run build, npm start. Open localhost:8770.
 npm run dev serves frontend development; npm run preview serves built output.
 Both commands include the application APIs and session pages on the same URL,
 so the homepage builder, /demo, and /plan work without a second server. Local
@@ -33,9 +35,10 @@ DEMO_VIDEO_URL can still preview a supplied https video. Unset plays the
 founder-approved product film, labelled as an earlier product vision.
 Verify with npm run check, npm test and npm run build.
 
-Vite is the only development dependency. The production image contains dist,
+Vite is the only development dependency; Better Auth is the runtime identity
+library for isolated staging. The production image contains dist,
 the Node server, and the prepared demo catalog. No database or auth credentials
-are read. When COMPASS_DEMO_MODE is unset, demos stay on prepared examples,
+are used unless the staging feature is explicitly configured. When COMPASS_DEMO_MODE is unset, demos stay on prepared examples,
 including when model keys exist. Only COMPASS_DEMO_MODE=live enables model
 calls. Production sets that value, so the public builder calls the model.
 With no key or a failed model call, the prepared build still completes. Live

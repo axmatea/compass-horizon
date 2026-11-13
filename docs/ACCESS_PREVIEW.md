@@ -1,4 +1,9 @@
-# Limited-access preview design
+# Limited-access preview design (superseded)
+
+Historical 12 November research. The founder's 13 November brief and provider
+choice supersede this Clerk proposal. Current implementation uses the previously
+used Better Auth library; see [account foundation](ACCOUNT_FOUNDATION.md).
+Clerk was not installed or enabled.
 
 Research checked 12 November 2026. This is a concrete follow-up design, **not an
 implemented account system**. Public `/`, `/demo`, `/plan` and `/studio` remain

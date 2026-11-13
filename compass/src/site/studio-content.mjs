@@ -10,7 +10,7 @@ export const studioCompany = Object.freeze({
   shipped: Object.freeze({ name: 'Jarrar CPA Pro', url: 'https://jarrarcpa.pro' }),
   product: Object.freeze({
     name: 'COMPASS',
-    line: 'the new B2C product that turns intent into real software — web apps, mobile apps and full products',
+    line: 'the new B2C product: website previews today, with web apps, mobile apps and full products as the vision',
   }),
 })
 
