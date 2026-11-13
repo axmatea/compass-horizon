@@ -137,7 +137,7 @@ test('homepage plays the approved founder film unless DEMO_VIDEO_URL overrides i
     assert.match(home, /playsinline/);
     assert.doesNotMatch(home, /<video[^>]*\bautoplay\b/);
     assert.match(home, /Product film · Earlier vision/);
-    assert.match(home, /poster="\/assets\/promo\/compass-promo\.jpg"/);
+    assert.match(home, /poster="\/assets\/promo\/compass-promo\.webp"/);
     assert.match(home, /<source src="\/assets\/promo\/compass-promo\.mp4" type="video\/mp4">/);
     assert.match(home, /<track kind="captions" src="\/assets\/promo\/compass-promo\.en\.vtt"/);
     assert.match(home, /id="watch-note"/);
@@ -158,7 +158,7 @@ test('homepage plays the approved founder film unless DEMO_VIDEO_URL overrides i
     assert.match(home, /id="hero-secondary">Request access/);
     assert.match(home, /href="#watch">Watch the film/);
     assert.match(home, /id="watch"/);
-    assert.match(home, /<video[^>]*poster="\/assets\/promo\/compass-promo\.jpg"/);
+    assert.match(home, /<video[^>]*poster="\/assets\/promo\/compass-promo\.webp"/);
     assert.match(home, /src="https:\/\/cdn\.example\.com\/compass\.mp4"/);
     assert.match(home, /title="COMPASS product film"/);
     assert.doesNotMatch(home, /compass-promo\.mp4|not on this page yet|See how it works/);
@@ -173,7 +173,7 @@ test('homepage plays the approved founder film unless DEMO_VIDEO_URL overrides i
     const home = await (await fetch(youtube.origin + '/')).text();
     assert.match(home, /Watch the film/);
     assert.match(home, /class="poster"/);
-    assert.match(home, /poster" src="\/assets\/promo\/compass-promo\.jpg"/);
+    assert.match(home, /<picture>[\s\S]*compass-promo\.webp[\s\S]*compass-promo\.jpg/);
     assert.match(home, /data-embed="https:\/\/www\.youtube-nocookie\.com\/embed\/abc123XYZ_-"/);
     assert.doesNotMatch(home, /compass-promo\.mp4|<video/);
     assert.doesNotMatch(home, banned);

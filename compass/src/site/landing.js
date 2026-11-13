@@ -444,7 +444,7 @@ function mountEmbed(host, src) {
     frame.controls = true
     frame.playsInline = true
     frame.preload = 'metadata'
-    frame.poster = '/assets/promo/compass-promo.jpg'
+    frame.poster = '/assets/promo/compass-promo.webp'
     frame.src = src
   } else {
     frame.src = src
@@ -468,9 +468,16 @@ function mountFilm(raw) {
   if (/\.(mp4|webm|ogv)(?:$|\?)/i.test(src)) { mountEmbed(player, src); return }
   player.dataset.state = 'ready'
   player.replaceChildren()
-  const poster = el('img', 'poster')
-  poster.src = '/assets/promo/compass-promo.jpg'
-  poster.alt = ''
+  const poster = el('picture')
+  const webp = document.createElement('source')
+  webp.type = 'image/webp'
+  webp.srcset = '/assets/promo/compass-promo.webp'
+  const img = el('img', 'poster')
+  img.src = '/assets/promo/compass-promo.jpg'
+  img.alt = ''
+  img.width = 1920
+  img.height = 1080
+  poster.append(webp, img)
   const play = el('a', 'play', 'Play the film')
   play.href = raw
   play.dataset.embed = src

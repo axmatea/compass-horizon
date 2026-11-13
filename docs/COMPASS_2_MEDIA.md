@@ -13,6 +13,7 @@ it is not presented as a recording of the current builder.
 | --- | ---: | --- |
 | `compass-promo.mp4` | 8,033,810 | `a648caecce6408b2d39201aad307921e004b7cf8cfa4dea002355835c1b9d4c3` |
 | `compass-promo.jpg` | 95,735 | `cb57650280cb79cba2637d49e28e728a3f2312ef00ef509db20d016719f588ac` |
+| `compass-promo.webp` | 60,720 | `bf612919e27a2510f56ea15c7cd6f8db5ed66f80c7e86ab57d2708bdc322fbbf` |
 | `compass-promo.en.vtt` | 395 | `7e04cfc1cfc46e9d5c6e700fde4699ca610a466fb82f106e98b52678a4481b33` |
 
 The exact public YouTube ID and title were checked with official yt-dlp. Only

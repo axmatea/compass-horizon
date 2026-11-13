@@ -94,4 +94,7 @@ test('approved promo is a bounded faststart file with a poster and captions', as
   const jpg = await fetch(origin + '/assets/promo/compass-promo.jpg');
   assert.equal(jpg.status, 200);
   assert.match(jpg.headers.get('content-type'), /^image\/jpeg/);
+  const webp = await fetch(origin + '/assets/promo/compass-promo.webp');
+  assert.equal(webp.status, 200);
+  assert.match(webp.headers.get('content-type'), /^image\/webp/);
 });

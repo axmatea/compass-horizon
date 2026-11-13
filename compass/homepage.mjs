@@ -1,9 +1,11 @@
 import { demoVideoUrl } from './demo-api.mjs';
 
 const HERO_POSTER = '/assets/promo/compass-promo.jpg';
+const HERO_POSTER_WEBP = '/assets/promo/compass-promo.webp';
 export const BUNDLED_PROMO = {
   src: '/assets/promo/compass-promo.mp4',
-  poster: '/assets/promo/compass-promo.jpg',
+  poster: HERO_POSTER_WEBP,
+  posterJpeg: HERO_POSTER,
   captions: '/assets/promo/compass-promo.en.vtt',
 };
 
@@ -38,8 +40,12 @@ function playerFor(raw) {
   return { kind: 'frame', src: url.toString() };
 }
 
+function posterPicture(className) {
+  return `<picture><source type="image/webp" srcset="${esc(HERO_POSTER_WEBP)}"><img class="${className}" src="${esc(HERO_POSTER)}" alt="" width="1920" height="1080"></picture>`;
+}
+
 function fileMedia(player) {
-  const poster = player.bundled ? BUNDLED_PROMO.poster : HERO_POSTER;
+  const poster = player.bundled ? BUNDLED_PROMO.poster : HERO_POSTER_WEBP;
   const track = player.bundled
     ? `<track kind="captions" src="${esc(BUNDLED_PROMO.captions)}" srclang="en" label="English" default>`
     : '';
@@ -54,7 +60,7 @@ export function videoBlock(raw) {
     : 'Product recording';
   const media = player.kind === 'file'
     ? fileMedia(player)
-    : `<img class="poster" src="${HERO_POSTER}" alt="" width="1920" height="1080"><a class="play" href="${esc(raw)}" data-embed="${esc(player.src)}">Play the film</a>`;
+    : `${posterPicture('poster')}<a class="play" href="${esc(raw)}" data-embed="${esc(player.src)}">Play the film</a>`;
   return `<section class="watch" id="watch" aria-labelledby="watch-title"><div class="wrap"><div class="watch-heading"><div><h2 id="watch-title">Meet COMPASS.</h2></div><p class="watch-note" id="watch-note">${note}</p></div><div class="player" id="watch-player" data-state="ready">${media}</div></div></section>`;
 }
 
