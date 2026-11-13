@@ -93,11 +93,14 @@ unknown cost. Do not treat a Codex subscription as production Anthropic API cred
 
 ## Streaming boundary
 
-Provider requests retain the existing bounded JSON response path. The builder's
-SSE remains application progress/render events, not raw provider token streaming.
-No new Anthropic SSE parser or unverified streaming claim is introduced. A future
-parser must handle cumulative usage, interrupted streams, response size/deadline
-limits and terminal validation without duplicate receipts.
+Anthropic uses real bounded upstream SSE when `ANTHROPIC_STREAMING=on`.
+The parser validates message lifecycle, fragmented UTF-8, cumulative counters,
+terminal completion, byte/event limits, deadlines and cancellation. Incomplete
+streams are rejected even when partial text happens to be valid JSON. Missing
+terminal usage is marked `usageComplete:false` and leaves billing in review.
+The browser receives validated application progress/results; raw model tokens
+and hidden reasoning are not forwarded. The default JSON path and other
+providers remain supported. No paid live Anthropic call was made in development.
 
 ## Verification
 

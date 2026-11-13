@@ -75,6 +75,7 @@ let soundOn = false
 let listening = null
 let remotePreviewCurrent = false
 const previewTools = createPreviewTools({
+  document,
   root: stage?.querySelector('[data-preview-tools]'),
   surface: stage?.querySelector('.canvas'),
   getPlan: () => state.plan,

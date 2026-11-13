@@ -4,6 +4,10 @@ const PROVIDERS = ['email','google','github','apple']
 // the normal creation path; it is never replaced by a fabricated prompt.
 export function resolveCreateEntry({search = '',hasDraft = false,config = {},signedIn = false} = {}) {
   const query = new URLSearchParams(search)
+  const view = query.get('view')
+  if (['recover','reset','verify'].includes(view)) return {mode:view,step:'manage'}
+  if (view === 'account') return {mode:'account',step:config.enabled && config.configured && signedIn ? 'manage' : 'auth'}
+  if (view === 'preferences' && config.enabled && config.configured) return {mode:'profile',step:signedIn ? 'onboarding' : 'auth'}
   if (!hasDraft && config.enabled && config.configured) {
     if (query.get('edit') === '1') return {mode:'profile',step:signedIn ? 'onboarding' : 'auth'}
     if (query.get('signin') === '1') return {mode:'signin',step:signedIn ? 'workspace' : 'auth'}
@@ -17,7 +21,11 @@ export function normalizeAccountConfig(value) {
   return {enabled,configured,providers:configured && Array.isArray(value?.providers)
     ? [...new Set(value.providers.filter(provider => PROVIDERS.includes(provider)))] : [],
   emailMode:['verification','verified'].includes(value?.emailMode) ? 'verified' : 'test',
-  persistence:value?.persistence === 'durable' ? 'durable' : 'ephemeral-preview'}
+  persistence:value?.persistence === 'durable' ? 'durable' : 'ephemeral-preview',
+  features:{accountManagement:configured && value?.features?.accountManagement === true,
+    passwordRecovery:configured && value?.features?.passwordRecovery === true,
+    emailVerification:configured && value?.features?.emailVerification === true,
+    accountLinking:configured && value?.features?.accountLinking === true}}
 }
 
 export function allowedEmail(value, config) {
@@ -44,7 +52,7 @@ export function createAccountApi({fetch:request = globalThis.fetch,origin = glob
   const callbackURL = base.origin + '/create'
   let boundUserId = null
   let returnMode = 'project'
-  const callback = () => callbackURL + (returnMode === 'profile' ? '?edit=1' : returnMode === 'signin' ? '?signin=1' : '')
+  const callback = () => callbackURL + (returnMode === 'profile' ? '?view=preferences' : returnMode === 'account' ? '?view=account' : returnMode === 'signin' ? '?signin=1' : '')
   async function send(path,method = 'GET',body,expectedUserId = null) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(),timeoutMs)
@@ -76,17 +84,28 @@ export function createAccountApi({fetch:request = globalThis.fetch,origin = glob
       boundUserId = userId
     },
     setReturnMode(value) {
-      if (!['project','signin','profile'].includes(value)) throw new TypeError('Invalid return mode')
+      if (!['project','signin','profile','account','recover','reset','verify'].includes(value)) throw new TypeError('Invalid return mode')
       returnMode = value
     },
     config:async () => normalizeAccountConfig(await send('/api/account/config')),
     session:() => send('/api/auth/get-session'),
     profile:() => privateRequest('/api/account/profile'),
     saveProfile:preferences => privateRequest('/api/account/profile','PUT',{preferences}),
-    signUp:({name,email,password}) => send('/api/auth/sign-up/email','POST',{name,email,password,callbackURL:callback()}),
+    signUp:({name,email,password}) => send('/api/auth/sign-up/email','POST',{name,email,password,callbackURL:base.origin+'/create?view=verify'}),
     signIn:({email,password}) => send('/api/auth/sign-in/email','POST',{email,password,callbackURL:callback()}),
     social:provider => send('/api/auth/sign-in/social','POST',{provider,callbackURL:callback()}),
-    signOut:() => send('/api/auth/sign-out','POST',{}),
+    signOut:() => boundUserId ? privateRequest('/api/auth/sign-out','POST',{}) : send('/api/auth/sign-out','POST',{}),
+    updateName:name => privateRequest('/api/auth/update-user','POST',{name}),
+    changePassword:({currentPassword,newPassword}) => privateRequest('/api/auth/change-password','POST',{currentPassword,newPassword,revokeOtherSessions:true}),
+    sessions:() => privateRequest('/api/auth/list-sessions'),
+    revokeOtherSessions:() => privateRequest('/api/auth/revoke-other-sessions','POST',{}),
+    accounts:() => privateRequest('/api/auth/list-accounts'),
+    linkSocial:provider => privateRequest('/api/auth/link-social','POST',{provider,callbackURL:base.origin+'/create?view=account'}),
+    unlinkAccount:accountId => privateRequest('/api/auth/unlink-account','POST',{accountId}),
+    changeEmail:newEmail => privateRequest('/api/auth/change-email','POST',{newEmail,callbackURL:base.origin+'/create?view=verify'}),
+    requestPasswordReset:email => send('/api/auth/request-password-reset','POST',{email,redirectTo:base.origin+'/create?view=reset'}),
+    resetPassword:({token,newPassword}) => send('/api/auth/reset-password','POST',{token,newPassword}),
+    resendVerification:email => send('/api/auth/send-verification-email','POST',{email,callbackURL:base.origin+'/create?view=verify'},boundUserId),
   }
 }
 
@@ -96,6 +115,12 @@ export function accountErrorText(error, action = 'sign-in') {
   if (error?.code === 'network' || error?.code === 'invalid-response') return 'We couldn’t connect. Your idea is still here. Try again.'
   if (error?.status === 429) return 'Too many attempts. Wait a moment, then try again.'
   if (error?.code === 'EMAIL_NOT_VERIFIED') return 'Verify your email, then sign in to continue.'
+  if (['INVALID_TOKEN','TOKEN_EXPIRED','INVALID_VERIFICATION_TOKEN','INVALID_TOKEN_SIGNATURE'].includes(error?.code)) return 'This link is invalid or expired. Request a new one.'
+  if (['INVALID_PASSWORD','INVALID_EMAIL_OR_PASSWORD'].includes(error?.code)) return 'Check your password and try again.'
+  if (error?.code === 'STAGING_ACCOUNT_LIMIT') return 'This preview has reached its test-account limit.'
+  if (['PASSWORD_TOO_SHORT','PASSWORD_TOO_LONG'].includes(error?.code)) return 'Use a password between 12 and 128 characters.'
+  if (error?.code === 'PASSWORD_MISMATCH') return 'The passwords must match.'
+  if (action === 'manage') return 'That request could not finish. Check your account and try again.'
   if (['USER_ALREADY_EXISTS','USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL'].includes(error?.code)) return 'An account already uses this email. Sign in to continue.'
   return action === 'profile' ? 'We couldn’t save your choices. Your idea is still here. Try again.'
     : action === 'signup' ? 'We couldn’t create your account. Check your details and try again.'

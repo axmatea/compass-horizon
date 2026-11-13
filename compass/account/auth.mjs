@@ -1,6 +1,43 @@
-import { isAbsolute } from 'node:path';
-import { open, chmod } from 'node:fs/promises';
+import { isAbsolute,resolve,relative,sep,dirname,basename } from 'node:path';
+import {fileURLToPath} from 'node:url';
+import { open, chmod,realpath } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
+
+
+// Resolve existing ancestors as well as the final file. Startup must reject a
+// public destination before creating it, including symlinked parent directories.
+async function canonicalLocation(value) {
+  // Preserve .. until realpath resolves symlinks, matching fs.open semantics.
+  let current=isAbsolute(value)?value:resolve(value);const suffix=[];
+  while(true){
+    try{return resolve(await realpath(current),...suffix.reverse())}
+    catch(error){
+      if(!['ENOENT','ENOTDIR'].includes(error?.code)||dirname(current)===current)throw error;
+      suffix.push(basename(current));current=dirname(current);
+    }
+  }
+}
+const inside=(root,file)=>{const part=relative(root,file);return part===''||part!=='..'&&!part.startsWith('..'+sep)&&!isAbsolute(part)};
+const staticRoot=env=>resolve(env.STATIC_ROOT||fileURLToPath(new URL('../dist/',import.meta.url)));
+async function privateDatabasePath(env,path) {
+  try{return !inside(await canonicalLocation(staticRoot(env)),await canonicalLocation(path))}
+  catch{return false}
+}
+// Static delivery checks the actual target, not its basename or extension. A
+// legitimate public JSON asset can share the private database's filename.
+export async function isAccountDatabaseAsset(file,env={}) {
+  if(typeof env.COMPASS_ACCOUNT_DATABASE!=='string'||!isAbsolute(env.COMPASS_ACCOUNT_DATABASE))return false;
+  try {
+    const target=await canonicalLocation(file);
+    const database=await canonicalLocation(env.COMPASS_ACCOUNT_DATABASE).catch(()=>resolve(env.COMPASS_ACCOUNT_DATABASE));
+    for(const suffix of ['', '-wal','-shm','-journal']) {
+      if(target===database+suffix)return true;
+      const configured=await canonicalLocation(env.COMPASS_ACCOUNT_DATABASE+suffix).catch(()=>resolve(env.COMPASS_ACCOUNT_DATABASE+suffix));
+      if(target===configured)return true;
+    }
+    return false;
+  }catch{return true}
+}
 
 const AUTH_PATH = '/api/auth';
 const MAX_BODY = 16 * 1024;
@@ -10,10 +47,14 @@ const MAX_STAGING_USERS = 50;
 const METHODS = new Map([
   ['/sign-up/email', ['POST']], ['/sign-in/email', ['POST']],
   ['/sign-out', ['POST']], ['/get-session', ['GET']], ['/ok', ['GET']],
+  ['/update-user', ['POST']], ['/change-password', ['POST']],
+  ['/list-sessions', ['GET']], ['/revoke-session', ['POST']], ['/revoke-other-sessions', ['POST']],
+  ['/list-accounts', ['GET']],
 ]);
 const MAIL_METHODS = new Map([
   ['/send-verification-email', ['POST']], ['/verify-email', ['GET']],
   ['/request-password-reset', ['POST']], ['/reset-password', ['POST']],
+  ['/change-email', ['POST']],
 ]);
 const fail = (status, code) => ({ ok: false, status, code });
 
@@ -110,7 +151,7 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
   const attempts = new Map();
 
   const ready = (async () => {
-    if (!valid) return;
+    if (!valid || !await privateDatabasePath(env,path)) return;
     try {
       const [{ betterAuth }, { getMigrations }, { DatabaseSync }, { APIError }] = await Promise.all([
         import('better-auth'), import('better-auth/db/migration'), import('node:sqlite'), import('better-auth/api'),
@@ -157,7 +198,11 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
           }
           return { data: user };
         } } } },
-        user: { modelName: 'compass_account_user' },
+        user: { modelName: 'compass_account_user', changeEmail: { enabled: Boolean(mail), ...(mail ? {
+          sendChangeEmailConfirmation: async ({user,url}) => {
+            await mail({kind:'confirm-email-change',to:user.email,subject:'Confirm your COMPASS email change',text:`Confirm your email change: ${url}`});
+          },
+        } : {}) } },
         // Keep Better Auth's verified-email requirement for implicit linking.
         // trustedProviders would bypass that check for unverified identities.
         account: { modelName: 'compass_account_identity', encryptOAuthTokens: true, accountLinking: { enabled: true } },
@@ -197,7 +242,9 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
     return { enabled, configured: readyState && !closed, provider: 'better-auth',
       providers: readyState && !closed ? ['email', ...Object.keys(socialProviders)] : [],
       emailMode: mail ? 'verification' : 'test', origin: origin || null,
-      secretMode: readyState && !closed ? ephemeralSecret ? 'ephemeral' : 'configured' : null };
+      secretMode: readyState && !closed ? ephemeralSecret ? 'ephemeral' : 'configured' : null,
+      features: {accountManagement:readyState && !closed,passwordRecovery:readyState && !closed && Boolean(mail),
+        emailVerification:readyState && !closed && Boolean(mail),accountLinking:readyState && !closed && Boolean(Object.keys(socialProviders).length)} };
   }
 
   async function getIdentity(input) {
@@ -241,6 +288,7 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
       && (relative === '/verify-email' || /^\/reset-password\/[^/]{1,200}$/.test(relative));
     let methods = METHODS.get(relative) || (mail ? MAIL_METHODS.get(relative) : undefined);
     if (relative === '/sign-in/social' && Object.keys(socialProviders).length) methods = ['POST'];
+    if (['/link-social','/unlink-account'].includes(relative) && Object.keys(socialProviders).length) methods = ['POST'];
     if (validCallback) methods = callback[1] === 'apple' ? ['GET', 'POST'] : ['GET'];
     if (mail && /^\/reset-password\/[^/]{1,200}$/.test(relative)) methods = ['GET'];
     if (!methods) { reply(res, 404, { error: 'Authentication endpoint not available.', code: 'AUTH_ROUTE_BLOCKED' }); return true; }
@@ -258,11 +306,26 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
     }
     if (req.method === 'POST' && !limit(req)) { reply(res, 429, { error: 'Too many attempts.', code: 'RATE_LIMITED' }); return true; }
     try {
+      if (req.headers['x-compass-user'] !== undefined) {
+        const headers = new Headers();
+        for (const name of ['cookie','origin','sec-fetch-site']) if (typeof req.headers[name] === 'string') headers.set(name,req.headers[name]);
+        const identity = await getIdentity(headers);
+        if (!identity) { reply(res,401,{error:'Sign in again.',code:'SIGN_IN_REQUIRED'}); return true; }
+        if (identity.userId !== req.headers['x-compass-user']) { reply(res,403,{error:'The account changed.',code:'account_changed'}); return true; }
+      }
       const input = req.method === 'POST' ? await readBody(req, validCallback && callback[1] === 'apple') : null;
       if (input && !input.ok) { reply(res, input.status, { error: 'Invalid authentication request.', code: input.code }); return true; }
-      if (relative === '/sign-in/social' && !Object.hasOwn(socialProviders, input?.value?.provider)) {
+      if (['/sign-in/social','/link-social'].includes(relative) && !Object.hasOwn(socialProviders, input?.value?.provider)) {
         reply(res, 400, { error: 'Sign-in provider is not configured.', code: 'PROVIDER_UNAVAILABLE' }); return true;
       }
+      if (relative === '/update-user') {
+        const name = input?.value?.name;
+        if (Object.keys(input?.value || {}).some(key=>key!=='name') || typeof name!=='string' || !name.trim() || name.trim().length>80 || /[\x00-\x1f\x7f]/.test(name)) {
+          reply(res,400,{error:'Enter a name of up to 80 characters.',code:'INVALID_NAME'}); return true;
+        }
+        input.body = JSON.stringify({name:name.trim()});
+      }
+      if (relative === '/change-password') input.body = JSON.stringify({...input.value,revokeOtherSessions:true});
       const headers = new Headers();
       for (const name of ['cookie', 'origin', 'sec-fetch-site', 'user-agent', 'content-type']) {
         if (typeof req.headers[name] === 'string') headers.set(name, req.headers[name]);

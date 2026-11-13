@@ -4,15 +4,17 @@ Public pages: index.html, demo.html, plan.html, studio.html and create.html.
 /create preserves the prompt through optional onboarding. The account workspace
 is an isolated, default-off staging feature; see ../docs/ACCOUNT_FOUNDATION.md.
 Production has no account or cloud persistence.
-The homepage hero runs the site builder inline (voice or text, brief, build,
-page preview on web and phone). /demo is the full-screen builder.
+The homepage preserves a typed or dictated prompt through /create and optional
+onboarding. /demo is the full-screen website builder. A separate explicitly
+labelled app-preview entry opens the existing isolated account service.
 /voice-demo serves that same builder. /plan is the product-plan preview.
 /studio holds the studio, confirmed team information and approved statements.
 Old Studio subroutes and other retired sections return 410.
 /api/config, /api/demo, /api/site/turn, and /api/early-access are the application APIs.
-Other API URLs return 404.
+Private account/auth routes are default-off outside the configured preview.
+Unrecognized API URLs return 404.
 
-Both builders include desktop, phone and combined preview controls. A completed
+The website builder includes desktop, phone and combined preview controls. A completed
 render enables Copy brief and Download HTML. The download is a self-contained
 website preview; it does not publish a site or create application services.
 The full builder explicitly saves projects and revision snapshots in local
@@ -25,7 +27,7 @@ only after the native recognition start event. The browser may use a speech
 service; COMPASS receives submitted text. Real microphone transcription must
 still be checked manually on the live site.
 
-Node 22.13+. npm ci, npm run build, npm start. Open localhost:8770.
+Node 22.16+. npm ci, npm run build, npm start. Open localhost:8770.
 npm run dev serves frontend development; npm run preview serves built output.
 Both commands include the application APIs and session pages on the same URL,
 so the homepage builder, /demo, and /plan work without a second server. Local
@@ -53,3 +55,17 @@ Keep font attribution with retained assets. See DEPLOYMENT.md for the existing
 Railway target and release gates, and ../docs/RELEASE.md for media provenance.
 Studio testimonials remain hidden until approved quotes, names and public sources
 exist in src/site/testimonials.mjs. Earlier product code remains in Git history.
+
+
+The complete supported application workspace is available only in the configured
+account preview at `/workspace`. It generates bounded tracker, CRM, booking and
+inventory applications with owner-scoped records, revisions, design controls and
+source export. Model output is a validated manifest, never executable source.
+The opaque preview iframe executes only a fixed, hash-allowlisted client script
+and uses an owner-checked parent bridge to access records. Standalone exported
+source includes Better Auth, SQLite, tests and a container build definition.
+See `../docs/GENERATION_COMPLETE.md`, `AUTH_COMPLETE.md`, `BILLING_COMPLETE.md`,
+`INTEGRATIONS_COMPLETE.md` and `DELIVERY_STATUS.md` for verified boundaries.
+Runtime dependencies are Better Auth, oauth4webapi and Stripe. Billing and tool
+integrations remain off unless their explicit staging configuration is valid.
+No live billing or production accounts are activated by deployment.

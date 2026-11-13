@@ -37,12 +37,20 @@ export function previewDownload(plan, render) {
   }
 }
 
-export function createPreviewTools({ root, surface, getPlan, getRender, isBusy = () => false }) {
+export function createPreviewTools({ root, surface, getPlan, getRender, isBusy = () => false, document:doc = root?.ownerDocument || globalThis.document }) {
   if (!root || !surface) return { update() {} }
   const views = [...root.querySelectorAll('[data-preview-view-button]')]
   const copy = root.querySelector('[data-preview-copy]')
   const download = root.querySelector('[data-preview-download]')
   const status = root.querySelector('[data-preview-status]')
+  const source=doc.createElement('button');source.type='button';source.textContent='View code'
+  const codePanel=doc.createElement('section');codePanel.className='preview-code';codePanel.hidden=true;codePanel.setAttribute('aria-label','Website source')
+  const codeTitle=doc.createElement('h3');codeTitle.textContent='HTML source'
+  const closeCode=doc.createElement('button');closeCode.type='button';closeCode.textContent='Close code'
+  const pre=doc.createElement('pre'),code=doc.createElement('code');pre.tabIndex=0;pre.append(code);codePanel.append(codeTitle,closeCode,pre);surface.append(codePanel)
+  root.querySelector('.preview-actions')?.prepend(source)
+  source.addEventListener('click',()=>{if(!canExportPreview(getRender(),isBusy(),getPlan()))return;code.textContent=getRender().html;codePanel.hidden=false;closeCode.focus()})
+  closeCode.addEventListener('click',()=>{codePanel.hidden=true;source.focus()})
   const say = text => { if (status) status.textContent = text }
   let lastHtml = ''
   let copying = false
@@ -78,11 +86,11 @@ export function createPreviewTools({ root, surface, getPlan, getRender, isBusy =
     if (!file) return
     try {
       const url = URL.createObjectURL(new Blob([file.html], { type: file.type }))
-      const link = document.createElement('a')
+      const link = doc.createElement('a')
       link.href = url
       link.download = file.filename
       link.hidden = true
-      document.body.append(link)
+      doc.body.append(link)
       link.click()
       link.remove()
       setTimeout(() => URL.revokeObjectURL(url), 1500)
@@ -97,6 +105,9 @@ export function createPreviewTools({ root, surface, getPlan, getRender, isBusy =
     const ready = canExportPreview(render, isBusy(), getPlan())
     if (copy) copy.disabled = copying || !ready || !briefText(getPlan())
     if (download) download.disabled = !ready
+    source.disabled=!ready
+    if(!ready)codePanel.hidden=true
+    if(!codePanel.hidden)code.textContent=render.html
     if ((render?.html || '') !== lastHtml) {
       lastHtml = render?.html || ''
       say('')

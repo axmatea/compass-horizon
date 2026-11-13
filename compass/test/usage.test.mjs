@@ -29,6 +29,7 @@ test('Anthropic accounting preserves actual cache categories and a single accept
   assert.equal(event.model, 'anthropic-usage-model');
   assert.equal(event.reportedModel, 'claude-response-model-version');
   assert.equal(event.status, 'accepted');
+  assert.equal(event.usageComplete, true);
   assert.equal(event.httpStatus, 200);
   assert.equal(event.inputTokenBasis, 'excludes_cache');
   assert.equal(event.inputTokens, 91);
@@ -45,6 +46,160 @@ test('Anthropic accounting preserves actual cache categories and a single accept
   assert.doesNotMatch(JSON.stringify(events), new RegExp([key, prompt, answer].join('|')));
   assert.equal('private_extra' in event, false);
   assert.equal('cost' in event, false);
+});
+
+function sseFrame(type, value = {}) { return `event: ${type}\ndata: ${JSON.stringify({ type, ...value })}\n\n`; }
+function sseDocument(text = '{"valid":true}', { thinking = false, terminal = true, finalUsage = true, error = false } = {}) {
+  let value = sseFrame('message_start', { message: { id: 'msg_fixture', type: 'message', role: 'assistant', content: [], model: 'claude-stream-version', usage: {
+    input_tokens: 24, output_tokens: 1, cache_read_input_tokens: 12, cache_creation_input_tokens: 4,
+    cache_creation: { ephemeral_5m_input_tokens: 3, ephemeral_1h_input_tokens: 1 },
+  } } });
+  value += sseFrame('ping');
+  value += sseFrame('future_protocol_notice', { future: true });
+  let index = 0;
+  if (thinking) {
+    value += sseFrame('content_block_start', { index, content_block: { type: 'thinking', thinking: '', signature: '' } });
+    value += sseFrame('content_block_delta', { index, delta: { type: 'thinking_delta', thinking: 'private-thinking-sentinel' } });
+    value += sseFrame('content_block_delta', { index, delta: { type: 'signature_delta', signature: 'private-signature-sentinel' } });
+    value += sseFrame('content_block_stop', { index }); index += 1;
+  }
+  value += sseFrame('content_block_start', { index, content_block: { type: 'text', text: '' } });
+  const middle = Math.floor(text.length / 2);
+  value += sseFrame('content_block_delta', { index, delta: { type: 'text_delta', text: text.slice(0, middle) } });
+  value += sseFrame('content_block_delta', { index, delta: { type: 'text_delta', text: text.slice(middle) } });
+  if (error) return value + sseFrame('error', { error: { type: 'overloaded_error', message: key + prompt } });
+  value += sseFrame('content_block_stop', { index });
+  value += sseFrame('message_delta', { delta: { stop_reason: null }, ...(finalUsage ? { usage: { output_tokens: 7 } } : {}) });
+  value += sseFrame('message_delta', { delta: { stop_reason: 'end_turn' }, ...(finalUsage ? { usage: { output_tokens: 9, output_tokens_details: { thinking_tokens: thinking ? 3 : 0 } } } : {}) });
+  if (terminal) value += sseFrame('message_stop');
+  return value;
+}
+function streamResponse(text, { chunks = [1, 7, 23], canceled } = {}) {
+  const bytes = new TextEncoder().encode(text);
+  let offset = 0, count = 0;
+  return new Response(new ReadableStream({
+    pull(controller) {
+      if (offset >= bytes.length) { controller.close(); return; }
+      const end = Math.min(bytes.length, offset + chunks[count++ % chunks.length]);
+      controller.enqueue(bytes.slice(offset, end)); offset = end;
+    },
+    cancel() { canceled?.(); },
+  }), { headers: { 'content-type': 'text/event-stream; charset=utf-8' } });
+}
+
+test('opt-in Anthropic provider SSE handles real fragmented UTF-8 frames and cumulative usage', async () => {
+  const events = [], bodies = [];
+  const loaded = loadLlm({ ANTHROPIC_API_KEY: key, ANTHROPIC_MODEL: 'claude-fixture', ANTHROPIC_STREAMING: 'on' }, async (_url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return streamResponse(sseDocument('{"valid":true,"label":"Café 🧭"}'));
+  });
+  const result = await withUsageTracking(event => events.push(event), () => request(loaded.clients));
+  assert.equal(result.json.label, 'Café 🧭');
+  assert.equal(bodies[0].stream, true);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].status, 'accepted');
+  assert.equal(events[0].usageComplete, true);
+  assert.equal(events[0].inputTokens, 24);
+  assert.equal(events[0].outputTokens, 9, 'cumulative deltas are not added together');
+  assert.equal(events[0].cacheReadTokens, 12);
+  assert.equal(events[0].cacheWriteTokens, 4);
+  assert.equal(events[0].cacheWrite5mTokens, 3);
+  assert.equal(events[0].cacheWrite1hTokens, 1);
+  assert.equal(events[0].reportedModel, 'claude-stream-version');
+  assert.doesNotMatch(JSON.stringify(events), /Café|usage-private-key|private-prompt/);
+});
+
+test('thinking and signature deltas stay out of usage receipts while structured text is validated', async () => {
+  const events = [];
+  const result = await withUsageTracking(event => events.push(event), () => request([
+    makeClient('anthropic', async () => streamResponse(sseDocument('{"valid":true}', { thinking: true })), { streaming: true }),
+  ]));
+  assert.equal(result.json.valid, true);
+  assert.equal(events[0].reasoningTokens, 3);
+  assert.equal(events[0].outputTokens, 9);
+  assert.doesNotMatch(JSON.stringify(events), /private-thinking|private-signature/);
+});
+
+test('an interrupted provider stream cannot complete even when its partial text is valid JSON', async () => {
+  const events = [];
+  const result = await withUsageTracking(event => events.push(event), () => request([
+    makeClient('anthropic', async () => streamResponse(sseDocument('{"valid":true}', { terminal: false })), { streaming: true }),
+  ]));
+  assert.equal(result.json, null);
+  assert.equal(result.failures[0].code, 'parse');
+  assert.equal(events[0].status, 'parse_error');
+  assert.equal(events[0].usageComplete, false);
+  assert.equal(events[0].outputTokens, 9, 'reported partial counters are retained without claiming finality');
+});
+
+test('provider SSE error frames preserve partial usage and trigger the existing next-provider fallback', async () => {
+  const events = [];
+  const result = await withUsageTracking(event => events.push(event), () => request([
+    makeClient('anthropic', async () => streamResponse(sseDocument('{"valid":true}', { error: true })), { streaming: true }),
+    makeClient('generalcompute', async (_url, options) => {
+      assert.equal(JSON.parse(options.body).stream, undefined);
+      return compatible('{"valid":true}', { prompt_tokens: 5, completion_tokens: 6 });
+    }),
+  ]));
+  assert.equal(result.provider, 'generalcompute');
+  assert.deepEqual(events.map(event => event.status), ['error', 'accepted']);
+  assert.deepEqual(events.map(event => event.usageComplete), [false, true]);
+  assert.doesNotMatch(JSON.stringify(events), new RegExp([key, prompt].join('|')));
+});
+
+test('provider stream cancellation and timeout interrupt pending body reads without waiting for EOF', async t => {
+  for (const mode of ['aborted', 'timeout']) await t.test(mode, async () => {
+    const events = [], controller = new AbortController(); let canceled = 0, emitted = false;
+    const prefix = sseFrame('message_start', { message: { type: 'message', role: 'assistant', content: [], model: 'claude-fixture', usage: { input_tokens: 20, output_tokens: 1 } } });
+    const client = makeClient('anthropic', async () => new Response(new ReadableStream({
+      pull(stream) { if (!emitted) { emitted = true; stream.enqueue(new TextEncoder().encode(prefix)); } },
+      cancel() { canceled += 1; },
+    }), { headers: { 'content-type': 'text/event-stream' } }), { streaming: true, timeoutMs: 100 });
+    const keepAlive = setTimeout(() => {}, 1000);
+    const abortTimer = mode === 'aborted' ? setTimeout(() => controller.abort(), 20) : null;
+    try {
+      await assert.rejects(withUsageTracking(event => events.push(event), () => client.chat({ messages: [], signal: controller.signal })), error => error.code === mode);
+    } finally { clearTimeout(keepAlive); if (abortTimer) clearTimeout(abortTimer); }
+    assert.equal(events[0].status, mode); assert.equal(events[0].usageComplete, false);
+    assert.equal(events[0].httpStatus, 200); assert.equal(events[0].inputTokens, 20);
+    assert.ok(canceled > 0);
+  });
+});
+
+test('provider streams enforce byte limits and reject malformed lifecycle events', async () => {
+  for (const [payload, extra] of [
+    [sseDocument('{"valid":true,"large":"' + 'x'.repeat(4000) + '"}'), { maxResponseBytes: 512 }],
+    [sseDocument().replace('"index":0,"content_block"', '"index":2,"content_block"'), {}],
+    [sseDocument().replace(sseFrame('content_block_stop', { index: 0 }), ''), {}],
+  ]) {
+    const events = [];
+    const result = await withUsageTracking(event => events.push(event), () => request([
+      makeClient('anthropic', async () => streamResponse(payload), { streaming: true, ...extra }),
+    ]));
+    assert.equal(result.json, null); assert.equal(events[0].usageComplete, false);
+  }
+});
+
+test('a complete stream without final usage delivers content but never labels partial usage as final', async () => {
+  const events = [];
+  const result = await withUsageTracking(event => events.push(event), () => request([
+    makeClient('anthropic', async () => streamResponse(sseDocument('{"valid":true}', { finalUsage: false })), { streaming: true }),
+  ]));
+  assert.equal(result.json.valid, true);
+  assert.equal(events[0].usageComplete, false);
+  assert.equal(events[0].outputTokens, 1);
+});
+
+test('unexpected streamed tool blocks are not executed or accepted as page output', async () => {
+  const events = [];
+  const value = sseFrame('message_start', { message: { type: 'message', role: 'assistant', content: [], usage: { input_tokens: 10, output_tokens: 1 } } })
+    + sseFrame('content_block_start', { index: 0, content_block: { type: 'tool_use', name: 'execute_shell', input: { command: 'private-command-sentinel' } } }) + sseFrame('message_stop');
+  const result = await withUsageTracking(event => events.push(event), () => request([
+    makeClient('anthropic', async () => streamResponse(value), { streaming: true }),
+  ]));
+  assert.equal(result.json, null);
+  assert.equal(events[0].usageComplete, false);
+  assert.doesNotMatch(JSON.stringify(events), /execute_shell|private-command/);
 });
 
 test('compatible providers retain inclusive input counts without adding cache tokens twice', async () => {

@@ -1,6 +1,6 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { normalizeProject } from '../src/builder/project-store.mjs';
-import { normalizePreferences, PROJECT_TYPES, VISUAL_DIRECTIONS } from '../src/create/draft.mjs';
+import { validateProfilePreferences } from './profile.mjs';
 
 export class AccountDataError extends Error {
   constructor(status, code) { super(code); this.status = status; this.code = code; }
@@ -35,11 +35,8 @@ export function createAccountStore(database) {
   }
   function saveProfile(owner, value) {
     const prefs = value?.preferences;
-    if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)
-      || Object.keys(prefs).some(key => !['projectType', 'visualDirection'].includes(key))
-      || (prefs.projectType !== undefined && !PROJECT_TYPES.includes(prefs.projectType))
-      || (prefs.visualDirection !== undefined && !VISUAL_DIRECTIONS.includes(prefs.visualDirection))) reject(400, 'invalid_preferences');
-    const preferences = normalizePreferences(prefs);
+    const preferences=validateProfilePreferences(prefs);
+    if(!preferences)reject(400,'invalid_preferences');
     database.prepare('INSERT INTO compass_profile(owner, preferences, updated_at) VALUES (?, ?, ?) ON CONFLICT(owner) DO UPDATE SET preferences=excluded.preferences, updated_at=excluded.updated_at')
       .run(owner, JSON.stringify(preferences), stamp());
     return { preferences };

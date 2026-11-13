@@ -1,0 +1,9 @@
+{
+  "name":"compass-generated-application",
+  "version":"1.0.0",
+  "private":true,
+  "type":"module",
+  "engines":{"node":">=22.13.0"},
+  "scripts":{"start":"node server.mjs","test":"node --test test/smoke.test.mjs","check":"node --check server.mjs && node --check public/client-core.js && node --check public/app.js"},
+  "dependencies":{"better-auth":"1.7.23"}
+}

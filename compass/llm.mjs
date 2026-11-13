@@ -128,6 +128,7 @@ export function loadLlm(env = process.env, fetchImpl = fetch) {
     model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
     timeoutMs: Math.min(Number(env.ANTHROPIC_TIMEOUT_MS || 8000) || 8000, 12000),
     thinking: false,
+    streaming: env.ANTHROPIC_STREAMING === 'on',
   };
   const forced = env.LLM_PROVIDER === 'nebius' ? 'nebius'
     : /^general[_-]?compute$/i.test(env.LLM_PROVIDER || '') ? 'generalcompute'
@@ -147,7 +148,7 @@ export function loadLlm(env = process.env, fetchImpl = fetch) {
   };
 }
 
-export function createClient({ apiKey, baseUrl, model, backupModel = '', provider, timeoutMs = 8000, thinking = false, fetchImpl = fetch }) {
+export function createClient({ apiKey, baseUrl, model, backupModel = '', provider, timeoutMs = 8000, thinking = false, streaming = false, maxResponseBytes = 512 * 1024, fetchImpl = fetch }) {
   async function send(modelId, messages, temperature, maxTokens, signal, timeout, providerCaps) {
     return trackProviderAttempt({ provider, model: modelId, secret: apiKey }, async usage => {
       const body = { model: modelId, messages, temperature, max_tokens: maxTokens };
@@ -227,7 +228,7 @@ export function createClient({ apiKey, baseUrl, model, backupModel = '', provide
     const limit = Math.min(timeoutMs, Math.max(1, Number(timeoutOverride) || timeoutMs));
     const timeout = AbortSignal.timeout(limit);
     const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
-    if (provider === 'anthropic') return anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, fetchImpl });
+    if (provider === 'anthropic') return anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, streaming, maxResponseBytes, fetchImpl });
     const attempt = modelId => send(modelId, messages, temperature, maxTokens, combined, timeout, providerCaps);
     try {
       return await attempt(model);
@@ -253,7 +254,7 @@ export function createClient({ apiKey, baseUrl, model, backupModel = '', provide
   return { chat, provider, model, timeoutMs };
 }
 
-async function anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, fetchImpl }) {
+async function anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal, messages, temperature, maxTokens, streaming, maxResponseBytes, fetchImpl }) {
   return trackProviderAttempt({ provider: 'anthropic', model, secret: apiKey }, async usage => {
     const system = messages.filter(item => item.role === 'system').map(item => contentToString(item.content)).filter(Boolean).join('\n\n');
     const dialogue = messages.filter(item => item.role !== 'system').map(item => ({
@@ -262,6 +263,7 @@ async function anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal
     }));
     const body = { model, max_tokens: maxTokens, temperature, messages: dialogue.length ? dialogue : [{ role: 'user', content: 'Respond with one JSON object.' }] };
     if (system) body.system = system;
+    if (streaming) body.stream = true;
     let res;
     try {
       res = await fetchImpl(new URL('messages', baseUrl), {
@@ -282,18 +284,131 @@ async function anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal
       throw new LlmError(`LLM HTTP ${res.status}`, { status: res.status, code: 'http', providerCode: readProviderCode(text, apiKey), model });
     }
     let json;
-    try { json = await res.json(); }
+    try { json = streaming ? await readAnthropicStream(res, { signal: combined, usage, model, apiKey, maxResponseBytes }) : await res.json(); }
     catch (err) {
       if (signal?.aborted) throw new LlmError('LLM request cancelled', { code: 'aborted', cause: err, model });
       if (timeout.aborted) throw new LlmError('LLM request timed out', { code: 'timeout', cause: err, model });
+      if (err instanceof LlmError) throw err;
       throw new LlmError('LLM response was not JSON', { code: 'parse', cause: err, model });
     }
-    usage.usage(json?.usage, json?.model);
+    usage.usage(json?.usage, json?.model, !streaming || json.usageComplete);
     const blocks = Array.isArray(json?.content) ? json.content : [];
     const text = blocks.filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n');
     const thinking = blocks.filter(block => block?.type === 'thinking' && typeof block.thinking === 'string').map(block => block.thinking).join('\n');
     return { message: { content: text, reasoning_content: thinking }, provider: 'anthropic', model, finishReason: typeof json?.stop_reason === 'string' ? json.stop_reason : '' };
   });
+}
+
+function readStreamChunk(reader, signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      Promise.resolve(reader.cancel()).catch(() => {});
+      reject(Object.assign(new Error('Model stream canceled'), { name: 'AbortError' }));
+    };
+    if (signal?.aborted) { abort(); return; }
+    signal?.addEventListener('abort', abort, { once: true });
+    reader.read().then(value => { signal?.removeEventListener('abort', abort); resolve(value); }, error => { signal?.removeEventListener('abort', abort); reject(error); });
+  });
+}
+
+// Provider SSE is accumulated server-side into the same validated JSON contract.
+// No partial JSON, thinking text, signatures, or tool arguments are executed or
+// exposed as a completed page. The request's original deadline covers reads.
+async function readAnthropicStream(response, { signal, usage, model, apiKey, maxResponseBytes }) {
+  if (!/^text\/event-stream(?:\s*;|$)/i.test(response.headers?.get('content-type') || '') || !response.body?.getReader) throw new LlmError('LLM stream response was invalid', { code: 'parse', model });
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  const limit = Number.isSafeInteger(maxResponseBytes) && maxResponseBytes > 0 ? Math.min(maxResponseBytes, 1024 * 1024) : 512 * 1024;
+  const blocks = new Map();
+  const measured = {};
+  let started = false, stopReason = '', reportedModel = null, finalUsage = false;
+  let buffer = '', eventName = '', data = [], bytes = 0, eventCount = 0;
+  const invalid = () => { throw new LlmError('LLM stream was incomplete or invalid', { code: 'parse', model }); };
+  function mergeCounts(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+    function values(from, into, fields) {
+      if (!from || typeof from !== 'object' || Array.isArray(from)) return;
+      for (const field of fields) {
+        const value = from[field];
+        if (value === undefined || value === null) continue;
+        if (!Number.isSafeInteger(value) || value < 0 || (Number.isSafeInteger(into[field]) && value < into[field])) invalid();
+        into[field] = value;
+      }
+    }
+    values(raw, measured, ['input_tokens', 'output_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens']);
+    if (raw.cache_creation) {
+      measured.cache_creation ||= {};
+      values(raw.cache_creation, measured.cache_creation, ['ephemeral_5m_input_tokens', 'ephemeral_1h_input_tokens']);
+    }
+    if (raw.output_tokens_details) {
+      measured.output_tokens_details ||= {};
+      values(raw.output_tokens_details, measured.output_tokens_details, ['thinking_tokens']);
+    }
+    usage.usage(measured, reportedModel, false);
+  }
+  function dispatch() {
+    const name = eventName, payload = data.join('\n');
+    eventName = ''; data = [];
+    if (!payload) return null;
+    if (++eventCount > 16384) throw new LlmError('LLM stream exceeded its event limit', { code: 'response_size', model });
+    let event;
+    try { event = JSON.parse(payload); } catch { invalid(); }
+    if (!event || typeof event !== 'object' || Array.isArray(event) || typeof event.type !== 'string' || (name && name !== event.type)) invalid();
+    if (event.type === 'ping') return null;
+    if (event.type === 'error') throw new LlmError('LLM stream reported a provider error', { code: 'stream', model, providerCode: readProviderCode(payload, apiKey) });
+    if (event.type === 'message_start') {
+      if (started || event.message?.type !== 'message' || event.message?.role !== 'assistant' || !Array.isArray(event.message.content) || event.message.content.length) invalid();
+      started = true;
+      if (typeof event.message.model === 'string') reportedModel = event.message.model;
+      mergeCounts(event.message.usage);
+    } else if (event.type === 'content_block_start') {
+      const block = event.content_block;
+      if (!started || !Number.isInteger(event.index) || event.index !== blocks.size || blocks.size >= 32 || !block || !['text','thinking','redacted_thinking'].includes(block.type)) invalid();
+      if ((block.type === 'text' && typeof block.text !== 'string') || (block.type === 'thinking' && typeof block.thinking !== 'string')) invalid();
+      blocks.set(event.index, { type: block.type, text: typeof block.text === 'string' ? block.text : '', thinking: typeof block.thinking === 'string' ? block.thinking : '', closed: false });
+    } else if (event.type === 'content_block_delta') {
+      const block = blocks.get(event.index), delta = event.delta;
+      if (!started || !block || block.closed || !delta) invalid();
+      if (delta.type === 'text_delta' && block.type === 'text' && typeof delta.text === 'string') block.text += delta.text;
+      else if (delta.type === 'thinking_delta' && block.type === 'thinking' && typeof delta.thinking === 'string') block.thinking += delta.thinking;
+      else if (delta.type !== 'signature_delta' || block.type !== 'thinking') invalid();
+    } else if (event.type === 'content_block_stop') {
+      const block = blocks.get(event.index);
+      if (!block || block.closed) invalid();
+      block.closed = true;
+    } else if (event.type === 'message_delta') {
+      if (!started || [...blocks.values()].some(block => !block.closed)) invalid();
+      if (typeof event.delta?.stop_reason === 'string' && event.delta.stop_reason) stopReason = event.delta.stop_reason;
+      mergeCounts(event.usage);
+      if (Number.isSafeInteger(event.usage?.output_tokens) && event.usage.output_tokens >= 0) finalUsage = true;
+    } else if (event.type === 'message_stop') {
+      if (!started || !stopReason || [...blocks.values()].some(block => !block.closed)) invalid();
+      usage.usage(measured, reportedModel, finalUsage);
+      return { model: reportedModel, content: [...blocks.values()].map(block => ({ type: block.type, ...(block.type === 'text' ? { text: block.text } : block.type === 'thinking' ? { thinking: block.thinking } : {}) })),
+        stop_reason: stopReason, usage: measured, usageComplete: finalUsage };
+    }
+    // Unknown event types are ignored for documented forward compatibility.
+    return null;
+  }
+  try {
+    while (true) {
+      const chunk = await readStreamChunk(reader, signal);
+      if (chunk.done) invalid(); // message_stop must have been dispatched first.
+      bytes += chunk.value.byteLength;
+      if (bytes > limit) throw new LlmError('LLM stream exceeded its byte limit', { code: 'response_size', model });
+      buffer += decoder.decode(chunk.value, { stream: true });
+      let end;
+      while ((end = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, end).replace(/\r$/, ''); buffer = buffer.slice(end + 1);
+        if (!line) { const result = dispatch(); if (result) return result; }
+        else if (line.startsWith('event:')) eventName = line.slice(6).trim();
+        else if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
+      }
+    }
+  } finally {
+    Promise.resolve(reader.cancel()).catch(() => {});
+    try { reader.releaseLock(); } catch { /* an aborted mock reader may still be pending */ }
+  }
 }
 
 export function createChain(clients, budgetMs = 8000) {

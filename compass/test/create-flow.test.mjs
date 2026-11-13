@@ -1,8 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
-import {DRAFT_KEY,DRAFT_TTL,readDraft,writeDraft,clearDraft,onboardingIntent,normalizePreferences,validPrompt} from '../src/create/draft.mjs'
+import {DRAFT_KEY,DRAFT_TTL,readDraft,writeDraft,clearDraft,onboardingIntent,normalizePreferences,validPrompt,draftCanAutoBuild,disarmDraft} from '../src/create/draft.mjs'
 import {createAccountApi,normalizeAccountConfig,allowedEmail,safeSocialRedirect,AccountRequestError,accountErrorText,isAccountChanged,resolveCreateEntry} from '../src/create/flow.mjs'
+import {accountEntry} from '../src/create/manage.mjs'
 
 const at = Date.parse('2026-11-13T12:00:00Z')
 function memory() {
@@ -157,7 +158,7 @@ test('account requests use same-origin HttpOnly cookies and keep passwords and p
   api.bindUser('u_1')
   await api.saveProfile({projectType:'website',visualDirection:'minimal'})
   const signup = calls.find(call => call.url === '/api/auth/sign-up/email')
-  assert.deepEqual(JSON.parse(signup.options.body),{name:'Test founder',email:'founder@example.test',password:'not-a-real-password',callbackURL:'https://preview.example/create'})
+  assert.deepEqual(JSON.parse(signup.options.body),{name:'Test founder',email:'founder@example.test',password:'not-a-real-password',callbackURL:'https://preview.example/create?view=verify'})
   assert.ok(calls.every(call => !call.url.includes('?') && call.options.credentials === 'same-origin' && call.options.cache === 'no-store'))
   assert.ok(calls.every(call => !('authorization' in call.options.headers)))
   const profile = calls.find(call => call.url === '/api/account/profile')
@@ -202,7 +203,7 @@ test('returning authentication callbacks retain only controlled mode flags, neve
   api.setReturnMode('project')
   await api.social('github')
   assert.deepEqual(calls.map(call => call.body.callbackURL),[
-    'https://preview.example/create?signin=1','https://preview.example/create?edit=1','https://preview.example/create',
+    'https://preview.example/create?signin=1','https://preview.example/create?view=preferences','https://preview.example/create',
   ])
   assert.throws(() => api.setReturnMode('https://example.com'),TypeError)
   assert.ok(calls.every(call => !('prompt' in call.body)))
@@ -239,3 +240,67 @@ test('social redirects accept only the configured provider HTTPS origin, excludi
   for (const value of ['javascript:alert(1)','http://accounts.google.com/auth','https://accounts.google.com.example.com/auth','https://accounts.google.com:8443/auth','https://user:secret@accounts.google.com/auth','https://github.com/login/oauth/authorize']) assert.equal(safeSocialRedirect(value,'google'),null)
   assert.equal(safeSocialRedirect('https://github.com/login/oauth/authorize','github'),'https://github.com/login/oauth/authorize')
 })
+
+test('account settings and recovery entry preserve pending ideas without triggering generation',()=>{
+  const config={enabled:true,configured:true}
+  assert.deepEqual(resolveCreateEntry({search:'?view=account',hasDraft:true,config,signedIn:true}),{mode:'account',step:'manage'})
+  assert.deepEqual(resolveCreateEntry({search:'?view=account',hasDraft:true,config}),{mode:'account',step:'auth'})
+  assert.deepEqual(resolveCreateEntry({search:'?view=preferences',hasDraft:true,config,signedIn:true}),{mode:'profile',step:'onboarding'})
+  for(const view of ['recover','reset','verify'])assert.deepEqual(resolveCreateEntry({search:'?view='+view,hasDraft:true,config}),{mode:view,step:'manage'})
+})
+
+test('reset entry removes transient tokens and raw errors from the browser URL',()=>{
+  const token='synthetic_reset_token_123456789'
+  const entry=accountEntry('https://preview.example/create?view=reset&token='+token+'&error=INVALID_TOKEN')
+  assert.equal(entry.resetToken,token);assert.equal(entry.linkError,true)
+  assert.equal(entry.cleanURL,'/create?view=reset')
+  assert.equal(accountEntry('https://preview.example/create?view=reset&token=%3Cscript%3E').resetToken,null)
+  assert.equal(accountEntry('https://preview.example/create?view=account&token='+token).resetToken,null)
+})
+
+test('account management uses bound HttpOnly sessions and reset tokens stay in POST bodies',async()=>{
+  const calls=[]
+  const api=createAccountApi({origin:'https://preview.example',fetch:async(path,options)=>{calls.push({path,options});return {ok:true,status:200,json:async()=>({})}}})
+  await assert.rejects(api.updateName('Founder'),error=>error.status===401)
+  api.bindUser('user_verified')
+  await api.updateName('Founder')
+  await api.changePassword({currentPassword:'old-synthetic-password',newPassword:'new-synthetic-password'})
+  await api.sessions();await api.revokeOtherSessions();await api.accounts()
+  await api.linkSocial('github');await api.unlinkAccount('identity_synthetic')
+  await api.changeEmail('new@example.test')
+  await api.requestPasswordReset('new@example.test')
+  await api.resetPassword({token:'synthetic_reset_token_12345',newPassword:'replacement-synthetic-password'})
+  await api.resendVerification('new@example.test')
+  const reset=calls.find(call=>call.path==='/api/auth/reset-password')
+  assert.deepEqual(JSON.parse(reset.options.body),{token:'synthetic_reset_token_12345',newPassword:'replacement-synthetic-password'})
+  assert.equal(JSON.parse(calls.find(call=>call.path==='/api/auth/request-password-reset').options.body).redirectTo,'https://preview.example/create?view=reset')
+  assert.ok(calls.every(call=>!call.path.includes('?')&&call.options.credentials==='same-origin'))
+  for(const call of calls.filter(call=>!['/api/auth/request-password-reset','/api/auth/reset-password'].includes(call.path)))assert.equal(call.options.headers['x-compass-user'],'user_verified')
+  assert.equal(JSON.parse(calls.find(call=>call.path==='/api/auth/change-password').options.body).revokeOtherSessions,true)
+})
+
+
+test('a ready authenticated handoff stays bound to its verified owner through reload and rejects a different account',()=>{
+  const options=fixture();
+  const a=writeDraft({prompt:'A private CRM for Alpha',ready:true,ownerId:'owner_a'},options).draft;
+  const reload=readDraft(options);assert.equal(reload.ownerId,'owner_a');
+  assert.equal(draftCanAutoBuild(reload,{accountMode:true,userId:'owner_a'}),true);
+  assert.equal(draftCanAutoBuild(reload,{accountMode:true,userId:'owner_b'}),false);
+  assert.equal(draftCanAutoBuild(reload,{accountMode:true}),false);
+  assert.equal(draftCanAutoBuild(reload),false,'private handoff never autoruns as public guest');
+  const paused=disarmDraft({id:a.id},options);assert.equal(paused.ok,true);assert.equal(paused.draft.ready,false);assert.equal(paused.draft.ownerId,'owner_a');assert.equal(paused.draft.prompt,a.prompt);assert.notEqual(paused.draft.id,a.id);
+  assert.equal(clearDraft({...options,id:a.id}),false,'late completion cannot delete paused handoff');
+  assert.equal(draftCanAutoBuild(paused.draft,{accountMode:true,userId:'owner_b'}),false);
+  // Only a later explicit Start in /create supplies this new verified owner.
+  const b=writeDraft({...paused.draft,ownerId:'owner_b',ready:true},options).draft;
+  assert.notEqual(b.id,paused.draft.id);assert.equal(draftCanAutoBuild(b,{accountMode:true,userId:'owner_b'}),true);
+});
+
+test('guest and legacy ownerless drafts cannot autorun in an authenticated account, and stale disarm never replaces a new idea',()=>{
+  const options=fixture(),guest=writeDraft({prompt:'A guest bakery page',ready:true},options).draft;
+  assert.equal(draftCanAutoBuild(guest),true);assert.equal(draftCanAutoBuild(guest,{accountMode:true,userId:'owner_a'}),false);
+  const next=writeDraft({prompt:'A different private idea',ownerId:'owner_a',ready:true},options).draft;
+  assert.equal(disarmDraft({id:guest.id},options).ok,false);assert.equal(readDraft(options).id,next.id);
+  const publicDraft=writeDraft({...next,ready:true,ownerId:null},options).draft;assert.notEqual(publicDraft.id,next.id);assert.equal(publicDraft.ownerId,undefined);assert.equal(draftCanAutoBuild(publicDraft),true);
+  assert.equal(writeDraft({...publicDraft,ownerId:'<invalid>',ready:true},options).ok,false);
+});

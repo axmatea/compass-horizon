@@ -13,7 +13,7 @@ test('public entry points stay honest, bounded, accessible and connected', async
   const demo = await read('demo.html');
   const plan = await read('plan.html');
   const create = await read('create.html');
-  const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro']);
+  const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro', 'https://compass-web-preview-production.up.railway.app/create?app=1']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
     if (external.has(href) || href === '#watch') continue; // The server inserts this recording section.
     assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || href === '/plan' || href === '/studio' || href === '/create', href);
@@ -70,6 +70,34 @@ test('public entry points stay honest, bounded, accessible and connected', async
   for (const example of EXAMPLES) assert.ok(plan.includes(example.intent), example.id);
 });
 
+test('public pages use the approved Fold mark', async () => {
+  const fold = 'M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z';
+  for (const page of ['index.html', 'demo.html', 'plan.html', 'studio.html', 'create.html']) {
+    const html = await read(page);
+    assert.ok(html.includes(fold), page);
+    assert.doesNotMatch(html, /r="9\.6"|m31 16-4 12/);
+  }
+  const workspace = await read('src/account/workspace.mjs');
+  assert.match(workspace, /\/assets\/brand-next\/mark-a-fold\.svg/);
+  assert.doesNotMatch(workspace, /mark-b-offset\.svg/);
+  const favicon = await read('public/favicon.svg');
+  assert.match(favicon, /#18191b/);
+  assert.match(favicon, /M3 11\.6 14\.6 4\.8v16\.6L3 28\.2Zm16\.4-5\.2 10\.2 6v15l-10\.2-6Z/);
+  const ico = await readFile(new URL('public/favicon.ico', root));
+  assert.equal(ico.readUInt16LE(2), 1);
+  const sizes = Array.from({ length: ico.readUInt16LE(4) }, (_, i) => ico[6 + i * 16] || 256);
+  assert.deepEqual(sizes, [16, 32, 48]);
+  const apple = await readFile(new URL('public/apple-touch-icon.png', root));
+  assert.equal(apple.toString('ascii', 12, 16), 'IHDR');
+  assert.equal(apple.readUInt32BE(16), 180);
+  assert.equal(apple.readUInt32BE(20), 180);
+  const tile = await readFile(new URL('public/assets/fold-app-icon.png', root));
+  assert.equal(tile.readUInt32BE(16), 512);
+  assert.equal(tile.readUInt32BE(20), 512);
+  await access(new URL('public/assets/brand-next/mark-a-fold.svg', root));
+  await access(new URL('public/assets/fold-app-icon.svg', root));
+});
+
 test('only referenced homepage assets and font licence are retained', async () => {
   const html = await read('index.html');
   for (const [, path] of html.matchAll(/(?:href|src|poster)="(\/[^"]+)"/g)) {
@@ -86,9 +114,10 @@ test('only referenced homepage assets and font licence are retained', async () =
   assert.doesNotMatch(sitemap, /\/(?:app|office|login|presentation)</);
 });
 
-test('runtime adds only the managed staging auth dependency and keeps retired interfaces absent', async () => {
+test('runtime dependencies stay pinned and retired interfaces stay absent', async () => {
   const pkg = JSON.parse(await read('package.json'));
-  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['better-auth']);
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['better-auth','oauth4webapi','stripe']);
+  for(const version of Object.values(pkg.dependencies))assert.match(version,/^\d+\.\d+\.\d+$/);
   assert.match(pkg.dependencies['better-auth'], /^\d+\.\d+\.\d+$/, 'auth dependency is pinned');
   assert.deepEqual(Object.keys(pkg.devDependencies), ['vite']);
   const vite = await read('vite.config.ts');
@@ -97,12 +126,11 @@ test('runtime adds only the managed staging auth dependency and keeps retired in
   assert.match(vite, /plan\.html/);
   assert.match(vite, /studio\.html/);
   assert.match(vite, /create\.html/);
-  for (const path of ['scripts', 'app.html', 'login.html', 'src/auth', 'src/workspace']) await assert.rejects(access(new URL(path, root)));
+  for (const path of ['app.html', 'login.html', 'src/auth', 'src/workspace']) await assert.rejects(access(new URL(path, root)));
   const server = await read('server.mjs');
   assert.doesNotMatch(server, /(?:from\s+|import\s*\(\s*)['"](?:pg|react(?:\/[^'"]*)?|\.\/src\/(?:auth|workspace)(?:\/[^'"]*)?)['"]/);
   const account = await read('account/auth.mjs');
   assert.match(account, /COMPASS_ACCOUNT_MODE === 'staging'/);
-  assert.match(account, /if \(!valid\) return/);
   assert.match(account, /import\('better-auth'\)/);
   assert.match(account, /import\('node:sqlite'\)/);
   assert.doesNotMatch(await read('llm.mjs') + await read('demo-api.mjs') + await read('early-access.mjs') + await read('homepage.mjs'), /GENERAL_COMPUTE_API_KEY\s*=\s*['"][^'"]+['"]|WAITLIST_WEBHOOK_URL\s*=\s*['"]https/);

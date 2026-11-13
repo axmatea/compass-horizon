@@ -2,7 +2,7 @@ import { createDictation } from '../demo/voice.mjs'
 import { createPreviewTools } from '../site/preview-tools.mjs'
 import { parseSse, cleanText, previewDoc } from '../site/studio.mjs'
 import { createProjectStore, completedRevision, appendRevision, restoredProject } from './project-store.mjs'
-import { readDraft, clearDraft, writeDraft } from '../create/draft.mjs'
+import { readDraft, clearDraft, writeDraft, draftCanAutoBuild, disarmDraft } from '../create/draft.mjs'
 import { mountAccountWorkspace } from '../account/workspace.mjs'
 import { operationKey, clearOperation } from '../account/operation.mjs'
 import '../account/workspace.css'
@@ -105,12 +105,26 @@ const STARTERS = {
 }
 const REFINEMENTS = { minimal:'Make this website more minimal. Give the content more room to breathe.', type:'Change the typography to an elegant serif.', mobile:'Improve the mobile layout. Use comfortable spacing and larger touch targets.' }
 const previewTools = createPreviewTools({
+  document,
   root: document.querySelector('[data-preview-tools]'),
   surface: document.querySelector('#stage'),
   getPlan: () => previewPlan(),
   getRender: () => previewRender(),
   isBusy: () => selectedRevision ? false : state.busy,
 })
+
+const designControls=document.createElement('details');designControls.className='website-design'
+const designTitle=document.createElement('summary');designTitle.textContent='Design';designControls.append(designTitle)
+const visualFields=[['Theme',[['Light','Make it lighter'],['Dark','Make it darker']]],['Accent',[['Blue','Make it blue'],['Green','Make it green'],['Violet','Make it purple'],['Rose','Make it pink'],['Amber','Make it orange'],['Slate','Make it gray']]],['Type',[['Sans','Use sans font'],['Serif','Use serif font'],['Display','Use display font']]],['Spacing',[['Airy','Make it airy'],['Compact','Make it compact']]]]
+for(const [name,options] of visualFields){
+  const label=document.createElement('label');label.append(name)
+  const select=document.createElement('select');select.dataset.designField=name
+  const placeholder=document.createElement('option');placeholder.textContent='Choose…';placeholder.value='';select.append(placeholder)
+  for(const [text,value] of options){const option=document.createElement('option');option.textContent=text;option.value=value;select.append(option)}
+  select.addEventListener('change',()=>{if(select.value && previewRender()?.html && !state.busy && !selectedRevision)void submit(select.value);select.value=''})
+  label.append(select);designControls.append(label)
+}
+form.after(designControls)
 
 function previewPlan() {
   return selectedRevision?.plan || (state.source === 'saved' && !state.busy ? history.at(-1)?.plan : null) || state.plan
@@ -276,6 +290,8 @@ function paintComposer() {
 function paint() {
   paintBrief(); paintBuild(); paintStage(); paintComposer()
   previewTools.update()
+  designControls.hidden=!previewRender()?.html
+  for(const select of designControls.querySelectorAll('select'))select.disabled=state.busy || Boolean(selectedRevision)
   paintProject()
 }
 
@@ -604,6 +620,12 @@ function storageMessage(error) {
   }[error] || 'The project could not be saved on this device.'
 }
 function paintProject() {
+  const hasWork=Boolean(history.length || previewRender()?.html)
+  const projectBar=document.querySelector('.project-bar'),historyDetails=document.querySelector('.history-details'),context=document.querySelector('.context-row')
+  if(projectBar)projectBar.hidden=!hasWork
+  if(historyDetails)historyDetails.hidden=!history.length
+  if(context)context.hidden=!hasWork && !state.busy
+  const counter=document.querySelector('.count');if(counter)counter.hidden=!input.value.length
   const readOnly = Boolean(selectedRevision)
   input.disabled = readOnly
   sendButton.disabled = readOnly || state.busy || !input.value.trim()
@@ -752,11 +774,14 @@ const accountReady = accountMode ? mountAccountWorkspace({
   },
   onClear:({accountChanged}={})=>{if(accountChanged && handoffDraft)clearDraft({id:handoffDraft.id}); clearCurrent()},
   onMessage:message=>tell(message),
+  initialDraft:handoffDraft,
+  onDraftBuilt:id=>{if(handoffDraft?.id===id){clearDraft({id});handoffDraft=null;initialPreferences=null}},
 }).then(api=>{accountWorkspace=api; paint(); return api}) : Promise.resolve(null)
 
 async function startDraft() {
   if (accountMode && !await accountReady) return
-  if (!handoffDraft?.ready || state.turns || requestedProject) return
+  if (accountWorkspace?.handlesDraft || !handoffDraft?.ready || state.turns || requestedProject) return
+  if(!draftCanAutoBuild(handoffDraft,{accountMode,userId:accountWorkspace?.userId})){disarmDraft({id:handoffDraft.id});location.replace('/create');return}
   input.value=handoffDraft.prompt
   count.textContent=String(input.value.length)
   paintProject()

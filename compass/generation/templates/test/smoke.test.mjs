@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomBytes} from 'node:crypto';
+import {startApplication} from '../server.mjs';
+
+test('trusted application supports real registration, owner-isolated CRUD, validation and logout',async t => {
+  const dir = await mkdtemp(join(tmpdir(),'compass-app-test-'));
+  const env = {PORT:'0',APP_DATABASE:join(dir,'app.sqlite'),BETTER_AUTH_SECRET:randomBytes(32).toString('hex')};
+  let app = await startApplication({env});
+  t.after(async () => {await app.close();await rm(dir,{recursive:true,force:true});});
+  const request = (path,{method = 'GET',data,cookie,expectedUser} = {}) => fetch(app.origin + path,{method,headers:{origin:app.origin,...(data ? {'content-type':'application/json'} : {}),...(cookie ? {cookie} : {}),...(expectedUser ? {'x-compass-app-user':expectedUser} : {})},...(data ? {body:JSON.stringify(data)} : {})});
+  const signup = async email => {
+    const response = await request('/api/auth/sign-up/email',{method:'POST',data:{name:'Test user',email,password:'test-only-long-password'}});
+    assert.equal(response.status,200);
+    const cookie = response.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
+    assert.match(response.headers.getSetCookie().join(';'),/HttpOnly/i);
+    return cookie;
+  };
+  assert.equal((await request('/api/records')).status,401);
+  const first = await signup('first@example.test'), second = await signup('second@example.test');
+  const firstUser = (await (await request('/api/auth/get-session',{cookie:first})).json()).user.id;
+  assert.equal((await request('/api/records',{method:'POST',data:{},cookie:second,expectedUser:firstUser})).status,403,'a stale tab cannot write under another shared cookie');
+  assert.equal((await request('/api/auth/sign-out',{method:'POST',data:{},cookie:second,expectedUser:firstUser})).status,403,'a stale tab cannot sign out another shared cookie');
+  const manifest = JSON.parse(await readFile(new URL('../manifest.json',import.meta.url),'utf8'));
+  const data = Object.fromEntries(manifest.entity.fields.map(field => [field.key,field.type === 'number' ? 3 : field.type === 'date' ? '2026-01-15' : field.type === 'select' ? field.options[0] : 'Test ' + field.label]));
+  const created = await request('/api/records',{method:'POST',data:{data},cookie:first});
+  assert.equal(created.status,201);
+  const {record} = await created.json();
+  assert.deepEqual((await (await request('/api/records',{cookie:second})).json()).records,[]);
+  assert.equal((await request('/api/records/' + record.id,{method:'PUT',data:{data},cookie:second})).status,404);
+  assert.equal((await request('/api/records',{method:'POST',data:{data:{...data,owner_id:'other'}},cookie:first})).status,400);
+  await app.close();
+  app = await startApplication({env});
+  const reopened = await request('/api/records',{cookie:first});
+  assert.equal(reopened.status,200);
+  assert.equal((await reopened.json()).records[0].id,record.id,'records and the verified session survive a server restart');
+  const updated = await request('/api/records/' + record.id,{method:'PUT',data:{data},cookie:first});
+  assert.equal(updated.status,200);
+  assert.equal((await request('/api/records/' + record.id,{method:'DELETE',cookie:first})).status,200);
+  assert.deepEqual((await (await request('/api/records',{cookie:first})).json()).records,[]);
+  assert.equal((await request('/api/auth/sign-out',{method:'POST',data:{},cookie:first})).status,200);
+  assert.equal((await request('/api/records',{cookie:first})).status,401);
+});

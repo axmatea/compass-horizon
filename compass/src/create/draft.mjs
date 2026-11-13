@@ -4,7 +4,13 @@ export const DRAFT_TTL = 30 * 60 * 1000
 export const MAX_PROMPT = 500
 export const PROJECT_TYPES = ['website','saas','internal-tool','client-portal','other']
 export const VISUAL_DIRECTIONS = ['minimal','editorial','bold','professional','custom']
+export const EXPERIENCE_LEVELS = ['beginner','designer','developer','founder']
+export const INTENDED_USES = ['personal','startup','agency','business']
+export const WORKSPACE_LAYOUTS = ['balanced','preview','conversation']
+export const PREFERENCE_OPTIONS = {projectType:PROJECT_TYPES,visualDirection:VISUAL_DIRECTIONS,
+  experience:EXPERIENCE_LEVELS,intendedUse:INTENDED_USES,workspaceLayout:WORKSPACE_LAYOUTS}
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
+const validOwner = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value)
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value)
 const getStorage = storage => {
   if (storage !== undefined) return storage
@@ -19,8 +25,7 @@ export function validPrompt(value) {
 export function normalizePreferences(value) {
   const out = {}
   if (!plain(value)) return out
-  if (PROJECT_TYPES.includes(value.projectType)) out.projectType = value.projectType
-  if (VISUAL_DIRECTIONS.includes(value.visualDirection)) out.visualDirection = value.visualDirection
+  for (const [field,choices] of Object.entries(PREFERENCE_OPTIONS)) if (choices.includes(value[field])) out[field] = value[field]
   return out
 }
 
@@ -29,7 +34,8 @@ function normalizeDraft(value, now) {
   if (!Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.expiresAt)
     || value.createdAt > now || value.expiresAt <= now
     || value.expiresAt - value.createdAt !== DRAFT_TTL) return null
-  return {schema:1,id:value.id,prompt:value.prompt,createdAt:value.createdAt,expiresAt:value.expiresAt,
+  if(value.ownerId !== undefined && !validOwner(value.ownerId))return null
+  return {schema:1,...(value.ownerId === undefined ? {} : {ownerId:value.ownerId}),id:value.id,prompt:value.prompt,createdAt:value.createdAt,expiresAt:value.expiresAt,
     preferences:normalizePreferences(value.preferences),ready:value.ready === true}
 }
 
@@ -56,14 +62,30 @@ export function writeDraft(value, {storage,now = Date.now,id = () => globalThis.
   // clear a newer request. Preference edits retain the original lifetime.
   const previous = current?.prompt === value.prompt ? current : null
   const preferences = normalizePreferences(value.preferences ?? previous?.preferences)
-  const unchanged = previous && JSON.stringify(preferences) === JSON.stringify(previous.preferences)
+  const ownerId=value.ownerId === null ? undefined : value.ownerId ?? previous?.ownerId
+  const unchanged = previous && ownerId === previous.ownerId && JSON.stringify(preferences) === JSON.stringify(previous.preferences)
     && !(previous.ready && value.ready !== true)
   const draft = normalizeDraft({schema:1,id:unchanged ? previous.id : id(),prompt:value.prompt,
     createdAt:previous?.createdAt ?? at,expiresAt:previous?.expiresAt ?? at + DRAFT_TTL,
-    preferences,ready:value.ready === true},at)
+    preferences,ready:value.ready === true,...(ownerId === undefined ? {} : {ownerId})},at)
   if (!draft) return {ok:false,error:'invalid-draft'}
   try { target.setItem(DRAFT_KEY,JSON.stringify(draft)); return {ok:true,draft} }
   catch { return {ok:false,error:'storage-unavailable'} }
+}
+
+// This is a continuity check only. A private API still verifies the HttpOnly
+// server session. Ownerless legacy/guest handoffs never autorun in an account.
+export function draftCanAutoBuild(draft,{accountMode=false,userId=null}={}) {
+  return draft?.ready === true && (accountMode
+    ? validOwner(userId) && draft.ownerId === userId
+    : draft.ownerId === undefined)
+}
+
+export function disarmDraft({id}={},options={}) {
+  if(!validId(id))return {ok:false,error:'invalid-draft'}
+  const current=readDraft(options)
+  if(!current || current.id!==id)return {ok:false,error:'draft-changed'}
+  return writeDraft({...current,ready:false},options)
 }
 
 export function clearDraft({storage,id} = {}) {
