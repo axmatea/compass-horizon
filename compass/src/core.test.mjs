@@ -86,9 +86,10 @@ test('only referenced homepage assets and font licence are retained', async () =
   assert.doesNotMatch(sitemap, /\/(?:app|office|login|presentation)</);
 });
 
-test('runtime adds only the managed staging auth dependency and keeps retired interfaces absent', async () => {
+test('runtime dependencies stay pinned and retired interfaces stay absent', async () => {
   const pkg = JSON.parse(await read('package.json'));
-  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['better-auth']);
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['better-auth','oauth4webapi','stripe']);
+  for(const version of Object.values(pkg.dependencies))assert.match(version,/^\d+\.\d+\.\d+$/);
   assert.match(pkg.dependencies['better-auth'], /^\d+\.\d+\.\d+$/, 'auth dependency is pinned');
   assert.deepEqual(Object.keys(pkg.devDependencies), ['vite']);
   const vite = await read('vite.config.ts');
@@ -97,7 +98,7 @@ test('runtime adds only the managed staging auth dependency and keeps retired in
   assert.match(vite, /plan\.html/);
   assert.match(vite, /studio\.html/);
   assert.match(vite, /create\.html/);
-  for (const path of ['scripts', 'app.html', 'login.html', 'src/auth', 'src/workspace']) await assert.rejects(access(new URL(path, root)));
+  for (const path of ['app.html', 'login.html', 'src/auth', 'src/workspace']) await assert.rejects(access(new URL(path, root)));
   const server = await read('server.mjs');
   assert.doesNotMatch(server, /(?:from\s+|import\s*\(\s*)['"](?:pg|react(?:\/[^'"]*)?|\.\/src\/(?:auth|workspace)(?:\/[^'"]*)?)['"]/);
   const account = await read('account/auth.mjs');

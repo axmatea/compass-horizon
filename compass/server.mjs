@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import {createHash} from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -61,6 +62,13 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
   const site = createSiteBuilder({ env, fetchImpl });
   const accounts = createAccountAuth({env});
   const accountApi = createAccountApi({auth:accounts,env,fetchImpl});
+  let previewScriptPolicy;
+  const allowTrustedPreview=async res=>{
+    await accounts.ready;if(!accounts.publicConfig().configured)return;
+    previewScriptPolicy ||= Promise.all(['client-core.js','bridge.js'].map(name=>readFile(new URL('./generation/templates/public/'+name,import.meta.url),'utf8')))
+      .then(parts=>"'sha256-"+createHash('sha256').update(parts.join('\n')).digest('base64')+"'");
+    res.setHeader('Content-Security-Policy',csp.replace("script-src 'self'","script-src 'self' "+await previewScriptPolicy));
+  };
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -157,13 +165,15 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
       if (pathname === '/api' || pathname.startsWith('/api/')) { text(404, 'No application API is available.'); return; }
       if (!['GET', 'HEAD'].includes(req.method)) { res.setHeader('Allow', 'GET, HEAD'); text(405, 'Method not allowed'); return; }
       const normalized = pathname.replace(/\/$/, '') || '/';
-      if (normalized === '/demo' || normalized === '/voice-demo') { await serveFile(req, res, root, '/demo.html', text); return; }
+      if (normalized === '/demo' || normalized === '/voice-demo') { await allowTrustedPreview(res); await serveFile(req, res, root, '/demo.html', text); return; }
       if (normalized === '/plan') { await serveFile(req, res, root, '/plan.html', text); return; }
       if (normalized === '/studio') { await serveFile(req, res, root, '/studio.html', text); return; }
       if (normalized === '/create') { await serveFile(req,res,root,'/create.html',text); return; }
       if (normalized === '/workspace') {
-        if (!accounts.enabled) { text(404,'Account preview is not enabled.'); return; }
+        await accounts.ready;
+        if (!accounts.publicConfig().configured) { text(404,'Account preview is not enabled.'); return; }
         res.setHeader('X-Robots-Tag','noindex');
+        await allowTrustedPreview(res);
         await serveFile(req,res,root,'/demo.html',text); return;
       }
       if (normalized === '/assets/brand-next/studies' && accounts.enabled) {

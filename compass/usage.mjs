@@ -85,16 +85,18 @@ export async function trackProviderAttempt({ provider, model, secret }, run) {
       status: 'pending',
       httpStatus: null,
       durationMs: null,
+      usageComplete: false,
       ...normalizeProviderUsage(provider, null),
     },
   } : null;
   if (ticket) scope.attempts.push(ticket);
   const report = {
     http(status) { if (ticket && Number.isInteger(status) && status >= 100 && status <= 599) ticket.event.httpStatus = status; },
-    usage(raw, reportedModel) {
+    usage(raw, reportedModel, complete = true) {
       if (ticket) {
         Object.assign(ticket.event, normalizeProviderUsage(provider, raw));
         ticket.event.reportedModel = modelName(reportedModel, secret);
+        ticket.event.usageComplete = complete === true;
       }
     },
   };

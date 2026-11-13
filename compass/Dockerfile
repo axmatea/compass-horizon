@@ -8,6 +8,11 @@ COPY public ./public
 COPY server.mjs llm.mjs demo-api.mjs early-access.mjs homepage.mjs ./
 COPY builder ./builder
 COPY account ./account
+COPY platform ./platform
+COPY generation ./generation
+COPY sandbox ./sandbox
+COPY integrations ./integrations
+COPY billing ./billing
 COPY usage.mjs ./
 RUN npm run build
 RUN npm prune --omit=dev
@@ -23,6 +28,11 @@ COPY --from=build /app/node_modules ./node_modules
 COPY server.mjs llm.mjs demo-api.mjs early-access.mjs homepage.mjs ./
 COPY builder ./builder
 COPY account ./account
+COPY platform ./platform
+COPY generation ./generation
+COPY sandbox ./sandbox
+COPY integrations ./integrations
+COPY billing ./billing
 COPY usage.mjs ./
 USER node
 EXPOSE 8080

@@ -1,5 +1,17 @@
 # COMPASS Agent Guide
 
+The founder's current complete-product mandate supersedes the previous limited
+slice: implement the complete supported builder, account lifecycle, trusted
+application generation, isolated previews, owner-scoped storage, cost/credit
+ledger, test billing, integrations, publishing, and operational controls. Keep
+all existing public functionality. Use modules; no framework rewrite. Production
+auth/data migrations, new paid infrastructure, live charges and external provider
+consent still require their verified test configuration and explicit authorization.
+Never execute arbitrary generated code on the delivery server. Engineer-authored
+templates driven only by validated manifests may use the trusted runtime; arbitrary
+code requires a separate resource-limited execution service. Record each external
+dependency honestly rather than claiming a mock is a working provider connection.
+
 Read README.md, then compass/README.md. Canonical repo: axmatea/compass-horizon.
 
 The public homepage, the site builder at /demo, the plan preview at /plan,
@@ -21,12 +33,11 @@ Model order in live mode is Anthropic, then General Compute, then Nebius, and on
 providers whose keys are set. ANTHROPIC_MODEL defaults to claude-haiku-5-5.
 
 Root commands forward to compass/. Use product:install, check, test, build,
-start and dev. Better Auth is the sole added runtime dependency. Tests create
+start and dev. Better Auth owns identity; oauth4webapi validates tool OAuth, and the Stripe SDK verifies test billing. Tests create
 isolated disposable SQLite fixtures; no external database or paid provider is needed.
 Keep each actual asset and its license while referenced by a maintained page.
 
-The builder produces a scriptless HTML website preview, not a deployed full-stack
-or native mobile application. Explicit Save stores bounded projects and revision
+The public website builder produces a scriptless HTML preview. The staging account workspace additionally supports manifest-driven trusted CRUD applications; see docs/GENERATION_COMPLETE.md. Arbitrary generated source and native apps are not executed on the main server. Explicit Save stores bounded projects and revision
 snapshots in this browser on this device; no account, cloud backup or autosave is
 implied. Restoring a local project makes no model request. On the user's next
 submission, resumeIntent may seed only validated brief fields in a fresh server

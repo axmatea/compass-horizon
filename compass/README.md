@@ -25,7 +25,7 @@ only after the native recognition start event. The browser may use a speech
 service; COMPASS receives submitted text. Real microphone transcription must
 still be checked manually on the live site.
 
-Node 22.13+. npm ci, npm run build, npm start. Open localhost:8770.
+Node 22.16+. npm ci, npm run build, npm start. Open localhost:8770.
 npm run dev serves frontend development; npm run preview serves built output.
 Both commands include the application APIs and session pages on the same URL,
 so the homepage builder, /demo, and /plan work without a second server. Local
@@ -53,3 +53,17 @@ Keep font attribution with retained assets. See DEPLOYMENT.md for the existing
 Railway target and release gates, and ../docs/RELEASE.md for media provenance.
 Studio testimonials remain hidden until approved quotes, names and public sources
 exist in src/site/testimonials.mjs. Earlier product code remains in Git history.
+
+
+The complete supported application workspace is available only in the configured
+account preview at `/workspace`. It generates bounded tracker, CRM, booking and
+inventory applications with owner-scoped records, revisions, design controls and
+source export. Model output is a validated manifest, never executable source.
+The opaque preview iframe executes only a fixed, hash-allowlisted client script
+and uses an owner-checked parent bridge to access records. Standalone exported
+source includes Better Auth, SQLite, tests and a container build definition.
+See `../docs/GENERATION_COMPLETE.md`, `AUTH_COMPLETE.md`, `BILLING_COMPLETE.md`,
+`INTEGRATIONS_COMPLETE.md` and `DELIVERY_STATUS.md` for verified boundaries.
+Runtime dependencies are Better Auth, oauth4webapi and Stripe. Billing and tool
+integrations remain off unless their explicit staging configuration is valid.
+No live billing or production accounts are activated by deployment.

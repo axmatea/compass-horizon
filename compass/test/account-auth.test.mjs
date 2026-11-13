@@ -95,7 +95,8 @@ test('missing/unsafe staging config fails closed without touching a file', async
 
 test('real Better Auth registration uses private DB, hashed passwords and HttpOnly host-only cookies', async t => {
   const { auth, request, env } = await fixture(t);
-  assert.deepEqual(auth.publicConfig(), { enabled: true, configured: true, provider: 'better-auth', providers: ['email'], emailMode: 'test', origin: env.COMPASS_ACCOUNT_ORIGIN, secretMode: 'configured' });
+  assert.deepEqual(auth.publicConfig(), { enabled: true, configured: true, provider: 'better-auth', providers: ['email'], emailMode: 'test', origin: env.COMPASS_ACCOUNT_ORIGIN, secretMode: 'configured',
+    features:{accountManagement:true,passwordRecovery:false,emailVerification:false,accountLinking:false} });
   const { response, cookie, body } = await register(request);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   const sessionCookie = response.headers.getSetCookie().find(value => value.includes('session_token='));
@@ -278,7 +279,7 @@ test('an explicitly ephemeral QA secret rotates across instances without exposin
   const login = await context.request('/api/auth/sign-in/email', { method: 'POST', body: { email: 'one@compass.test', password } });
   assert.equal(login.status, 200);
   assert.ok(await next.getIdentity(new Headers({ cookie: cookieFor(login) })), 'stored synthetic account can sign in again');
-  assert.deepEqual(Object.keys(next.publicConfig()).sort(), ['configured', 'emailMode', 'enabled', 'origin', 'provider', 'providers', 'secretMode']);
+  assert.deepEqual(Object.keys(next.publicConfig()).sort(), ['configured', 'emailMode', 'enabled', 'features', 'origin', 'provider', 'providers', 'secretMode']);
 });
 
 test('an explicitly configured fixed secret wins and retains its session after restart', async t => {
@@ -312,4 +313,70 @@ test('ephemeral opt-in cannot enable a missing-secret real-provider or primary-d
     assert.equal(auth.database, null);
     await auth.close();
   }
+});
+
+test('real account management updates the verified owner and revokes other sessions on password change', async t => {
+  const {auth,request}=await fixture(t);
+  const one=await register(request,'One'),two=await register(request,'Two');
+  const owner=one.body.user.id;
+  const wrongOwner=await request('/api/auth/update-user',{method:'POST',cookie:one.cookie,headers:{'x-compass-user':two.body.user.id},body:{name:'Wrong owner'}});
+  assert.equal(wrongOwner.status,403);
+  assert.equal((await wrongOwner.json()).code,'account_changed');
+  const update=await request('/api/auth/update-user',{method:'POST',cookie:one.cookie,headers:{'x-compass-user':owner},body:{name:'Updated founder'}});
+  assert.equal(update.status,200);
+  assert.equal((await (await request('/api/auth/get-session',{cookie:one.cookie})).json()).user.name,'Updated founder');
+  assert.equal((await request('/api/auth/update-user',{method:'POST',cookie:one.cookie,body:{name:'No extra authority',emailVerified:true}})).status,400);
+  assert.equal((await request('/api/auth/update-user',{method:'POST',body:{name:'Anonymous'}})).status,401);
+  const login=await request('/api/auth/sign-in/email',{method:'POST',body:{email:'one@compass.test',password}});
+  const otherSession=cookieFor(login);
+  const sessions=await request('/api/auth/list-sessions',{cookie:one.cookie});
+  assert.equal(sessions.status,200);assert.equal((await sessions.json()).length,2);
+  const accounts=await request('/api/auth/list-accounts',{cookie:one.cookie});
+  assert.equal(accounts.status,200);
+  const methods=await accounts.json();assert.equal(methods.length,1);assert.equal(methods[0].providerId,'credential');
+  assert.ok(!JSON.stringify(methods).includes(password));
+  const changed=await request('/api/auth/change-password',{method:'POST',cookie:one.cookie,headers:{'x-compass-user':owner},
+    body:{currentPassword:password,newPassword:'New synthetic password 927!',revokeOtherSessions:false}});
+  assert.equal(changed.status,200,await changed.clone().text());
+  assert.equal(await auth.getIdentity(new Headers({cookie:otherSession})),null,'the server enforces revoking other sessions');
+  assert.equal(await auth.getIdentity(new Headers({cookie:one.cookie})),null,'password change rotates the original session token');
+  assert.ok(await auth.getIdentity(new Headers({cookie:cookieFor(changed)})),'the replacement HttpOnly cookie authenticates the current device');
+  assert.ok(await auth.getIdentity(new Headers({cookie:two.cookie})),'a different account is unaffected');
+  assert.equal((await request('/api/auth/sign-in/email',{method:'POST',body:{email:'one@compass.test',password}})).status,401);
+  assert.equal((await request('/api/auth/sign-in/email',{method:'POST',body:{email:'one@compass.test',password:'New synthetic password 927!'}})).status,200);
+  assert.equal((await request('/api/auth/change-email',{method:'POST',cookie:one.cookie,body:{newEmail:'unverified@example.test'}})).status,404,'email changes require delivery');
+  assert.equal((await request('/api/auth/link-social',{method:'POST',cookie:one.cookie,body:{provider:'google'}})).status,404,'missing OAuth credentials do not create a fake connection');
+});
+
+test('signed-in users can revoke other devices with actual database session revocation', async t=>{
+  const {auth,request}=await fixture(t);
+  const one=await register(request);
+  const login=await request('/api/auth/sign-in/email',{method:'POST',body:{email:'one@compass.test',password}});
+  const second=cookieFor(login);
+  assert.ok(await auth.getIdentity(new Headers({cookie:second})));
+  assert.equal((await request('/api/auth/revoke-other-sessions',{method:'POST',cookie:one.cookie,body:{}})).status,200);
+  assert.equal(await auth.getIdentity(new Headers({cookie:second})),null);
+  assert.ok(await auth.getIdentity(new Headers({cookie:one.cookie})));
+});
+
+test('email changes require actual old-address confirmation and managed verification links', async t=>{
+  const messages=[];
+  const {auth,request,origin}=await fixture(t,{options:{sendEmail:async message=>{messages.push(message)}}});
+  await request('/api/auth/sign-up/email',{method:'POST',body:{name:'Mail founder',email:'original@example.test',password}});
+  const follow=async message=>{const url=new URL(message.text.match(/https?:\/\/\S+/)[0]);return request(url.pathname+url.search,{headers:{'sec-fetch-site':'cross-site'}})};
+  assert.ok(messages.some(item=>item.kind==='verify-email'));
+  await follow(messages.find(item=>item.kind==='verify-email'));
+  const login=await request('/api/auth/sign-in/email',{method:'POST',body:{email:'original@example.test',password}});
+  assert.equal(login.status,200);const cookie=cookieFor(login);
+  const change=await request('/api/auth/change-email',{method:'POST',cookie,body:{newEmail:'updated@example.test',callbackURL:origin+'/create?view=verify'}});
+  assert.equal(change.status,200,await change.clone().text());
+  const confirmation=messages.find(item=>item.kind==='confirm-email-change');
+  assert.ok(confirmation);assert.equal(confirmation.to,'original@example.test');
+  assert.equal((await (await request('/api/auth/get-session',{cookie})).json()).user.email,'original@example.test');
+  await follow(confirmation);
+  const verification=messages.find(item=>item.kind==='verify-email'&&item.to==='updated@example.test');
+  if(verification)await follow(verification);
+  const session=await(await request('/api/auth/get-session',{cookie})).json();
+  assert.equal(session.user.email,'updated@example.test');assert.equal(session.user.emailVerified,true);
+  assert.ok(await auth.getIdentity(new Headers({cookie})));
 });

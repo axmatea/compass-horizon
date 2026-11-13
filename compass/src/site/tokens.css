@@ -2,3 +2,5 @@
 @font-face{font-family:Inter;src:url(./fonts/inter-var-latin.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
 @font-face{font-family:'Inter Fallback';src:local('Arial');size-adjust:107.12%;ascent-override:90.44%;descent-override:22.52%;line-gap-override:0%}
 :root{color-scheme:light;--bg:#fff;--card:#fff;--soft:#f7f7f5;--ink:#17191d;--text:#41454c;--muted:#696e76;--line:#e7e8eb;--line-2:#d2d5da;--accent:#3455e8;--accent-d:#2643c6;--accent-wash:#eef1ff;--gold:#858991;--radius:10px;--ease:cubic-bezier(.2,.7,.2,1);--shadow:0 4px 24px -12px #17191d12;--shadow-lg:0 26px 64px -36px #17191d33;--font:Inter,'Inter Fallback',system-ui,-apple-system,'Segoe UI',sans-serif}
+
+.brand svg[data-identity=offset] path{fill:none;stroke:currentColor;stroke-width:5;stroke-linecap:butt}.brand svg[data-identity=offset]{overflow:visible}

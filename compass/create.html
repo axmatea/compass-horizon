@@ -11,7 +11,7 @@
 </head>
 <body>
 <a class="skip" href="#create-title">Skip to your project</a>
-<header class="bar"><a class="brand" href="/" aria-label="COMPASS homepage"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</a><nav class="create-nav" aria-label="Account and demo"><a id="create-account-link" class="back-home" href="/create?signin=1" hidden>Sign in</a><a class="back-home" href="/demo">Open demo <span aria-hidden="true">↗</span></a></nav></header>
+<header class="bar"><a class="brand" href="/" aria-label="COMPASS homepage"><svg data-identity="offset" viewBox="0 0 32 32" aria-hidden="true"><path d="M17 5A12 12 0 0 0 5 17m10 10a12 12 0 0 0 12-12"/></svg>COMPASS</a><nav class="create-nav" aria-label="Account and demo"><a id="create-account-link" class="back-home" href="/create?signin=1" hidden>Sign in</a><a class="back-home" href="/demo">Open demo <span aria-hidden="true">↗</span></a></nav></header>
 <main class="create-shell">
 <div class="create-heading"><p class="step-label" id="step-label">A new project</p><h1 id="create-title" tabindex="-1">What will you make?</h1><p class="lede" id="create-lede">Start with an idea.</p></div>
 <section class="create-card" id="create-card" aria-labelledby="create-title">
@@ -31,6 +31,7 @@
 <div class="field"><label for="account-email">Email</label><input id="account-email" name="email" type="email" autocomplete="email" maxlength="254" required></div>
 <div class="field"><label for="account-password">Password</label><input id="account-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required aria-describedby="password-note"><p id="password-note" class="field-note">At least 12 characters.</p></div>
 <button type="submit" class="primary full" id="account-submit">Create account <span aria-hidden="true">→</span></button>
+<button type="button" class="text-button" id="forgot-password" hidden>Forgot password?</button>
 </form>
 <p id="auth-unavailable" class="unavailable" hidden>Accounts aren’t available here yet. Your idea is kept in this tab.</p>
 <button type="button" class="guest-button" id="continue-guest">Continue without an account <span aria-hidden="true">→</span></button>
@@ -43,10 +44,16 @@
 <fieldset><legend>Choose a visual direction.</legend><div class="choice-grid" id="visual-choices">
 <label><input type="radio" name="visualDirection" value="minimal"><span>Minimal</span></label><label><input type="radio" name="visualDirection" value="editorial"><span>Editorial</span></label><label><input type="radio" name="visualDirection" value="bold"><span>Bold</span></label><label><input type="radio" name="visualDirection" value="professional"><span>Professional</span></label><label><input type="radio" name="visualDirection" value="custom"><span>From my prompt</span></label>
 </div></fieldset>
+<details class="optional-preferences"><summary>Optional preferences</summary>
+<div class="field"><label for="experience">Your experience</label><select id="experience" name="experience"><option value="">Skip</option><option value="beginner">Beginner</option><option value="designer">Designer</option><option value="developer">Developer</option><option value="founder">Founder</option></select></div>
+<div class="field"><label for="intended-use">How will you use COMPASS?</label><select id="intended-use" name="intendedUse"><option value="">Skip</option><option value="personal">Personal project</option><option value="startup">Startup</option><option value="agency">Agency</option><option value="business">Business</option></select></div>
+<div class="field"><label for="workspace-layout">Workspace layout</label><select id="workspace-layout" name="workspaceLayout"><option value="">Use default</option><option value="balanced">Balanced</option><option value="preview">Preview first</option><option value="conversation">Conversation first</option></select></div>
+</details>
 <p id="capability-note" class="capability-note">Starts with a website preview.</p>
 <div class="finish-actions"><button type="submit" class="primary" id="start-building">Start building <span aria-hidden="true">→</span></button><button type="button" class="text-button" id="skip-onboarding">Skip</button></div>
 <p id="save-scope" class="field-note">Your choices stay in this tab.</p>
 </form>
+<section id="account-tools" class="account-tools" aria-label="Account settings and recovery" hidden></section>
 <p id="create-status" class="create-status" role="status" aria-live="polite">Getting ready…</p>
 <button type="button" class="text-button" id="retry-config" hidden>Try again</button>
 <noscript><p>JavaScript is needed for this flow. Your existing projects are unchanged.</p><a href="/demo">Open the public builder</a></noscript>

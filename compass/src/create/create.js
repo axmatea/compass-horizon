@@ -1,5 +1,6 @@
 import {readDraft,writeDraft,validPrompt,normalizePreferences} from './draft.mjs'
-import {createAccountApi,allowedEmail,safeSocialRedirect,accountErrorText,isAccountChanged,resolveCreateEntry} from './flow.mjs'
+import {createAccountApi,allowedEmail,safeSocialRedirect,accountErrorText,isAccountChanged,resolveCreateEntry,AccountRequestError} from './flow.mjs'
+import {createAccountViews,accountEntry} from './manage.mjs'
 
 const $ = id => document.getElementById(id)
 const api = createAccountApi()
@@ -8,6 +9,9 @@ const providerNames = {google:'Google',github:'GitHub',apple:'Apple'}
 const accountForm = $('account-form')
 const onboardingForm = $('onboarding-form')
 const promptInput = $('create-prompt')
+const entry = accountEntry(location.href)
+if (new URL(location.href).searchParams.has('token') || new URL(location.href).searchParams.has('error')) history.replaceState(null,'',entry.cleanURL)
+const views = createAccountViews({root:$('account-tools'),api,onMessage:message,onExpired:requireAccountChoice,onUser:bindIdentity,onPreferences:openPreferences})
 let epoch = 0
 
 function message(text = '',error = false) {
@@ -16,7 +20,7 @@ function message(text = '',error = false) {
 }
 function busy(value) {
   state.busy = value
-  document.querySelectorAll('.create-card button,.create-card input,.create-card textarea').forEach(control => { control.disabled = value })
+  document.querySelectorAll('.create-card button,.create-card input,.create-card textarea,.create-card select').forEach(control => { control.disabled = value })
   $('account-submit').textContent = value ? 'Continuing…' : state.signup ? 'Create account →' : 'Sign in →'
   $('start-building').textContent = value ? 'Preparing…' : state.flowMode === 'profile' ? 'Save choices →' : 'Start building →'
   $('create-card')?.setAttribute('aria-busy',String(value))
@@ -44,20 +48,21 @@ function requireAccountChoice(error) {
 function count() { $('prompt-count').textContent = `${promptInput.value.length}/500` }
 function preferences() {
   const values = new FormData(onboardingForm)
-  return normalizePreferences({projectType:values.get('projectType'),visualDirection:values.get('visualDirection')})
+  return normalizePreferences(Object.fromEntries(values.entries()))
 }
 function showPreferences(value) {
   const normalized = normalizePreferences(value)
   onboardingForm.querySelectorAll('input[type=radio]').forEach(input => { input.checked = normalized[input.name] === input.value })
+  onboardingForm.querySelectorAll('select').forEach(input => {input.value = normalized[input.name] || ''})
   capability()
 }
 function capability() {
   const value = preferences().projectType
   $('capability-note').textContent = value && value !== 'website'
-    ? 'Your idea is kept. This first build is a website preview.' : 'Starts with a website preview.'
+    ? 'Your idea is kept. Websites and supported data apps.' : 'Websites and supported data apps.'
 }
-function persist({ready = false,choices} = {}) {
-  const result = writeDraft({prompt:promptInput.value,preferences:choices ?? state.draft?.preferences ?? state.profilePreferences,ready})
+function persist({ready = false,choices,ownerId} = {}) {
+  const result = writeDraft({prompt:promptInput.value,preferences:choices ?? state.draft?.preferences ?? state.profilePreferences,ready,ownerId})
   if (!result.ok) {
     message(result.error === 'invalid-prompt' ? 'Describe your idea in 3–500 characters.'
       : 'This browser can’t keep your idea through the next step. Allow session storage or use the public demo.',true)
@@ -71,26 +76,29 @@ function show(step,{focus = true} = {}) {
   $('idea-form').hidden = step !== 'prompt'
   $('auth-step').hidden = step !== 'auth'
   onboardingForm.hidden = step !== 'onboarding'
+  $('account-tools').hidden = step !== 'manage'
+  if(step !== 'manage')views.cancel()
   const returning = state.flowMode !== 'project' && !state.draft
-  const editing = returning && state.flowMode === 'profile'
-  const titles = {prompt:'What will you make?',auth:returning ? 'Welcome back.' : 'Keep your idea.',onboarding:editing ? 'Your direction.' : 'Make it yours.'}
-  const descriptions = {prompt:'Start with an idea.',auth:returning ? 'Sign in to your workspace.' : 'One account. A place to keep building.',onboarding:'Two choices. Both optional.'}
+  const editing = state.flowMode === 'profile'
+  const titles = {prompt:'What will you make?',auth:returning ? 'Welcome back.' : 'Keep your idea.',onboarding:editing ? 'Your direction.' : 'Make it yours.',manage:{account:'Your account.',recover:'Recover your account.',reset:'A new password.',verify:'Verify your email.'}[state.flowMode] || 'Your account.'}
+  const descriptions = {prompt:'Start with an idea.',auth:returning ? 'Sign in to your workspace.' : 'One account. A place to keep building.',onboarding:'Two choices. Both optional.',manage:'Simple, secure account controls.'}
   $('create-title').textContent = titles[step]
   $('create-lede').textContent = descriptions[step]
   $('step-label').textContent = editing ? 'Preferences' : returning ? 'Your workspace' : step === 'onboarding' ? 'A direction for your project' : 'A new project'
   $('auth-prompt').textContent = state.draft?.prompt || ''
   $('onboarding-prompt').textContent = state.draft?.prompt || ''
   $('auth-summary').hidden = !state.draft
-  $('onboarding-summary').hidden = !state.draft
+  $('onboarding-summary').hidden = !state.draft || editing
   $('create-draft-note').hidden = returning
   $('start-building').textContent = editing ? 'Save choices →' : 'Start building →'
   $('skip-onboarding').textContent = editing ? 'Back' : 'Skip'
   $('capability-note').hidden = editing
   if (step === 'onboarding') {
-    showPreferences(state.draft?.preferences ?? state.profilePreferences)
+    showPreferences(editing ? state.profilePreferences : state.draft?.preferences ?? state.profilePreferences)
     $('save-scope').textContent = state.guest || !state.user ? 'Your choices stay in this tab.'
       : state.config?.persistence === 'durable' ? 'Saved with your account when you continue.' : 'Preview account · data may reset.'
   }
+  if(step==='manage')void views.render(state.flowMode,{config:state.config,user:state.user,resetToken:entry.resetToken,linkError:entry.linkError,hasDraft:Boolean(state.draft)})
   if (focus) $('create-title').focus()
 }
 function next() {
@@ -111,6 +119,7 @@ function mode(signup) {
   $('account-password').autocomplete = signup ? 'new-password' : 'current-password'
   $('password-note').hidden = !signup
   $('account-submit').textContent = signup ? 'Create account →' : 'Sign in →'
+  $('forgot-password').hidden = signup || !state.config?.features.passwordRecovery
   message()
 }
 function renderProviders() {
@@ -130,9 +139,10 @@ function renderProviders() {
   $('auth-preview-note').hidden = !email || state.config?.emailMode !== 'test'
   $('auth-unavailable').hidden = providers.length > 0
   $('account-email').placeholder = state.config?.emailMode === 'test' ? 'you@example.test' : 'you@example.com'
+  $('forgot-password').hidden = state.signup || !state.config?.features.passwordRecovery
   $('create-account-link').hidden = !state.config?.configured
-  $('create-account-link').textContent = state.user ? 'Workspace' : 'Sign in'
-  $('create-account-link').href = state.user ? '/workspace' : '/create?signin=1'
+  $('create-account-link').textContent = state.user ? 'Account' : 'Sign in'
+  $('create-account-link').href = state.user ? '/create?view=account' : '/create?signin=1'
 }
 async function initialize() {
   const run = ++epoch
@@ -148,12 +158,12 @@ async function initialize() {
       const session = await api.session()
       if (run !== epoch) return
       bindIdentity(signedIn(session) ? session.user : null)
-      if (state.user && state.flowMode !== 'signin' && !Object.keys(state.draft?.preferences || {}).length) {
+      if (state.user && state.flowMode !== 'signin' && (state.flowMode==='profile' || !Object.keys(state.draft?.preferences || {}).length)) {
         try {
           const profile = await api.profile()
           if (run !== epoch) return
           state.profilePreferences = normalizePreferences(profile?.preferences)
-          if (state.draft) state.draft.preferences = state.profilePreferences
+          if (state.draft && state.flowMode!=='profile') state.draft.preferences = state.profilePreferences
         } catch(error) {
           if (isAccountChanged(error)) { requireAccountChoice(error); return }
           if (state.flowMode === 'profile') {
@@ -195,15 +205,15 @@ async function authenticate(event) {
     const session = await api.session()
     if (run !== epoch) return
     $('account-password').value = ''
-    if (!signedIn(session)) { mode(false); message('Check your email to finish verification, then sign in. Your idea is still here.'); return }
+    if (!signedIn(session)) { state.flowMode='verify';show('manage');message('Verification requested. Your idea is still here.');return }
     bindIdentity(session.user)
     state.guest = false
-    if (state.flowMode !== 'signin' && !Object.keys(state.draft?.preferences || {}).length) {
+    if (state.flowMode !== 'signin' && (state.flowMode==='profile' || !Object.keys(state.draft?.preferences || {}).length)) {
       try {
         const profile = await api.profile()
         if (run !== epoch) return
         state.profilePreferences = normalizePreferences(profile?.preferences)
-        if (state.draft) state.draft.preferences = state.profilePreferences
+        if (state.draft && state.flowMode!=='profile') state.draft.preferences = state.profilePreferences
       } catch(error) {
         if (isAccountChanged(error)) { requireAccountChoice(error); return }
         if (state.flowMode === 'profile') {
@@ -240,7 +250,7 @@ async function social(provider) {
 }
 async function finish(skip = false) {
   if (state.busy) return
-  const profileOnly = state.flowMode === 'profile' && !state.draft
+  const profileOnly = state.flowMode === 'profile'
   if (profileOnly && skip) { location.assign('/workspace'); return }
   const choices = skip ? {} : preferences()
   if (!profileOnly && !persist({choices})) return
@@ -253,7 +263,7 @@ async function finish(skip = false) {
     if (account) await api.saveProfile(choices)
     if (run !== epoch) return
     if (profileOnly) { location.assign('/workspace'); return }
-    const saved = persist({choices,ready:true})
+    const saved = persist({choices,ready:true,ownerId:account?state.user.id:null})
     if (!saved) { busy(false); return }
     location.assign(account ? '/workspace' : '/demo?from=create')
   } catch(error) {
@@ -303,7 +313,22 @@ $('continue-guest').addEventListener('click',() => {
 onboardingForm.addEventListener('change',capability)
 onboardingForm.addEventListener('submit',event => { event.preventDefault(); finish() })
 $('skip-onboarding').addEventListener('click',() => finish(true))
+$('forgot-password').addEventListener('click',()=>{if(!state.busy){state.flowMode='recover';show('manage')}})
 $('retry-config').addEventListener('click',initialize)
+async function openPreferences() {
+  if(state.busy)return
+  busy(true)
+  try {state.profilePreferences=normalizePreferences((await api.profile()).preferences);state.flowMode='profile';api.setReturnMode('profile');show('onboarding')}
+  catch(error){if(isAccountChanged(error)||error?.status===401)requireAccountChoice(error);else message(accountErrorText(error,'profile'),true)}
+  finally{busy(false)}
+}
+function recheckIdentity() {
+  const expected=state.user?.id
+  if(!expected || state.busy || document.visibilityState==='hidden')return
+  void api.session().then(session=>{if(state.user?.id===expected && session?.user?.id!==expected)requireAccountChoice(new AccountRequestError('account_changed',403))}).catch(()=>{})
+}
+window.addEventListener('focus',recheckIdentity)
+document.addEventListener('visibilitychange',recheckIdentity)
 promptInput.value = state.draft?.prompt || ''
 count()
 initialize()

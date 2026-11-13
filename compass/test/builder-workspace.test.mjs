@@ -18,6 +18,8 @@ class Element {
   set textContent(value) { this._text=String(value); this.children=[]; }
   get textContent() { return this._text + this.children.map(child=>child.textContent).join(''); }
   append(...children) { this.children.push(...children); }
+  after(...children) { this.following=children; }
+  prepend(...children) { this.children.unshift(...children); }
   replaceChildren(...children) { this._text=''; this.children=children; }
   setAttribute(name,value) { this.attributes[name]=String(value); }
   removeAttribute(name) { delete this.attributes[name]; }
