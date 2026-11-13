@@ -3,7 +3,7 @@
 Canonical repo: axmatea/compass-horizon. Existing Railway service:
 the COMPASS Railway project (compass-web service), serving mycompass.world.
 Verified source binding: main, root directory /compass, healthcheck /healthz.
-Use the existing Dockerfile. No database or auth setup. Optional environment
+Use the existing Dockerfile. Production accounts remain disabled. Optional environment
 names, values never committed: COMPASS_DEMO_MODE, DEMO_VIDEO_URL, WAITLIST_WEBHOOK_URL, LLM_PROVIDER,
 GENERAL_COMPUTE_API_KEY, GENERALCOMPUTE_API_KEY, GENERAL_COMPUTE_MODEL,
 GENERALCOMPUTE_MODEL, GENERAL_COMPUTE_BASE_URL, GENERALCOMPUTE_BASE_URL,
@@ -17,8 +17,8 @@ claude-haiku-5-5. The same 8 second cap applies, then General Compute, then
 Nebius. A missing key or a failed call keeps the prepared build. /plan is the
 secondary product-plan preview.
 
-Run check, tests, build and audit before merge. Build all four HTML entries,
-including studio.html in the Docker context. Automated HTTP tests cover Vite
+Run check, tests, build and audit before merge. Build all five HTML entries,
+including studio.html and create.html in the Docker context. Automated HTTP tests cover Vite
 development/preview, the Node delivery server, resumeIntent validation and
 examples-mode generation without external calls.
 

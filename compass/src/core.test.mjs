@@ -12,10 +12,11 @@ test('public entry points stay honest, bounded, accessible and connected', async
   const html = await read('index.html');
   const demo = await read('demo.html');
   const plan = await read('plan.html');
+  const create = await read('create.html');
   const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
     if (external.has(href) || href === '#watch') continue; // The server inserts this recording section.
-    assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || href === '/plan' || href === '/studio', href);
+    assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || href === '/plan' || href === '/studio' || href === '/create', href);
     if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
   }
   assert.match(html, /Your idea\./);
@@ -41,7 +42,12 @@ test('public entry points stay honest, bounded, accessible and connected', async
   assert.match(html, /NAŸL · AX Media Global/);
   assert.match(plan, /NAŸL · AX Media Global/);
   assert.doesNotMatch(html, /action="https?:/);
-  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['demo.html', 'index.html', 'plan.html', 'studio.html']);
+  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['create.html', 'demo.html', 'index.html', 'plan.html', 'studio.html']);
+  assert.match(create, /name="robots" content="noindex,nofollow"/);
+  assert.match(create, /id="create-prompt"[^>]*maxlength="500"/);
+  assert.match(create, /<form id="account-form" method="post"/);
+  assert.match(create, /id="continue-guest"/);
+  assert.doesNotMatch(create, /<script\b(?![^>]*\bsrc=)[^>]*>/);
   const landing = await read('src/site/landing.js');
   assert.match(landing, /fetch\('\/api\/config'/);
   assert.match(landing, /\/api\/early-access/);
@@ -80,17 +86,25 @@ test('only referenced homepage assets and font licence are retained', async () =
   assert.doesNotMatch(sitemap, /\/(?:app|office|login|presentation)</);
 });
 
-test('runtime, build and CI have no retired database or React dependencies', async () => {
+test('runtime adds only the managed staging auth dependency and keeps retired interfaces absent', async () => {
   const pkg = JSON.parse(await read('package.json'));
-  assert.deepEqual(pkg.dependencies ?? {}, {});
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['better-auth']);
+  assert.match(pkg.dependencies['better-auth'], /^\d+\.\d+\.\d+$/, 'auth dependency is pinned');
   assert.deepEqual(Object.keys(pkg.devDependencies), ['vite']);
   const vite = await read('vite.config.ts');
   assert.match(vite, /index\.html/);
   assert.match(vite, /demo\.html/);
   assert.match(vite, /plan\.html/);
   assert.match(vite, /studio\.html/);
+  assert.match(vite, /create\.html/);
   for (const path of ['scripts', 'app.html', 'login.html', 'src/auth', 'src/workspace']) await assert.rejects(access(new URL(path, root)));
-  assert.doesNotMatch(await read('server.mjs'), /import.+(?:pg|auth|workspace|react)/i);
+  const server = await read('server.mjs');
+  assert.doesNotMatch(server, /(?:from\s+|import\s*\(\s*)['"](?:pg|react(?:\/[^'"]*)?|\.\/src\/(?:auth|workspace)(?:\/[^'"]*)?)['"]/);
+  const account = await read('account/auth.mjs');
+  assert.match(account, /COMPASS_ACCOUNT_MODE === 'staging'/);
+  assert.match(account, /if \(!valid\) return/);
+  assert.match(account, /import\('better-auth'\)/);
+  assert.match(account, /import\('node:sqlite'\)/);
   assert.doesNotMatch(await read('llm.mjs') + await read('demo-api.mjs') + await read('early-access.mjs') + await read('homepage.mjs'), /GENERAL_COMPUTE_API_KEY\s*=\s*['"][^'"]+['"]|WAITLIST_WEBHOOK_URL\s*=\s*['"]https/);
   assert.match(await read('Dockerfile'), /early-access\.mjs/);
   assert.match(await read('Dockerfile'), /homepage\.mjs/);

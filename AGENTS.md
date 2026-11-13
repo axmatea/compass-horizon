@@ -3,11 +3,13 @@
 Read README.md, then compass/README.md. Canonical repo: axmatea/compass-horizon.
 
 The public homepage, the site builder at /demo, the plan preview at /plan,
-and the studio page at /studio are maintained. Do not restore office, auth, databases, invite tools,
-research, games, or presentations. Browser speech on the demo is in scope.
+and the studio page at /studio are maintained. The founder's 13 November product
+brief additionally authorizes /create and an isolated account/onboarding/workspace
+staging implementation. Do not restore the old office, invite tools, research,
+games or presentations. Browser speech on the demo is in scope.
 Boson, Gradium, and other server voice bridges are not.
-Pages are compass/index.html, compass/demo.html, compass/plan.html and compass/studio.html.
-Vite builds all four. A dependency-free Node server serves dist, /healthz,
+Pages are compass/index.html, compass/demo.html, compass/plan.html, compass/studio.html
+and compass/create.html. Vite builds all five. A Node server serves dist, /healthz,
 /api/config, /api/demo, /api/site/turn, /api/site/session/:id/page, and
 /api/early-access. /demo and /voice-demo return 200 and serve the builder.
 /plan and the exact /studio route return 200. /studio/legacy and other retired sections return 410. Unknown /api routes
@@ -19,7 +21,8 @@ Model order in live mode is Anthropic, then General Compute, then Nebius, and on
 providers whose keys are set. ANTHROPIC_MODEL defaults to claude-haiku-5-5.
 
 Root commands forward to compass/. Use product:install, check, test, build,
-start and dev. No TypeScript/React checking or database fixture is required.
+start and dev. Better Auth is the sole added runtime dependency. Tests create
+isolated disposable SQLite fixtures; no external database or paid provider is needed.
 Keep each actual asset and its license while referenced by a maintained page.
 
 The builder produces a scriptless HTML website preview, not a deployed full-stack
@@ -51,10 +54,11 @@ Preserve concurrent user changes. Delete files only after checking imports,
 build entries, scripts, styles, routes and asset references. Do not rewrite Git
 history, force-push, drop production data, or create archive directories.
 User-requested cleanup can retire source code, not erase an existing database.
-Never read/print secrets or load old .env files to build this static homepage.
+Never read/print secrets or load old .env files to build the product.
 Do not fake live-agent status or working-account claims. Outbound calls are
-limited to the optional server-side model request when a key is configured,
-and the optional WAITLIST_WEBHOOK_URL post of an early-access email. If the
+limited to explicitly configured server-side model requests, account identity/
+verification services in the isolated staging feature, and the optional
+WAITLIST_WEBHOOK_URL post of an early-access email. If the
 model call is missing or fails, serve a prepared example. If the webhook is
 unset or fails, do not claim the email was stored. Never claim metrics,
 customers, prices or team members the founder has not confirmed.
@@ -67,3 +71,15 @@ DEMO_VIDEO_URL, WAITLIST_WEBHOOK_URL and the model key names in
 compass/.env.example, including ANTHROPIC_API_KEY and ANTHROPIC_MODEL.
 Website deploy success is not a Mac factory-reset authorization: local recovery
 requires its own verified backup and restore evidence. Never initiate reset.
+
+Account rules: default off. Only COMPASS_ACCOUNT_MODE=staging plus a valid exact
+origin, absolute isolated database path and secret enables identity. Staging
+auth refuses mycompass.world and www.mycompass.world, even if keys exist. Never
+enable production accounts, persistent customer data, paid billing or new paid
+infrastructure as an incidental release step. Better Auth owns password/session
+security; all private endpoints verify the DB session and owner independently.
+Public and authenticated builder runtimes must remain separate. No-delivery
+email signup accepts only reserved .test addresses. Missing OAuth credentials
+hide the option; mocked tests do not prove live OAuth. SQLite files on a Railway
+container are ephemeral, not cloud backup. Explicitly label preview saves and
+never silently import existing device projects. See docs/ACCOUNT_FOUNDATION.md.

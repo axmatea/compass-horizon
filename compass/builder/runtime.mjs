@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { createState, applyUpdate, hasSite } from './spec.mjs';
 import { renderSite } from './render.mjs';
 import { copyPlan } from './copy.mjs';
+import { onboardingIntent } from '../src/create/draft.mjs';
 
 const CLAIM = /\b(published|deployed|deploying|launched|went live|is live|now live|booked|reserved|paid|booking confirmed|appointment confirmed|payment received|message sent|email sent|request sent)\b/i;
 const shortId = (prefix) => `${prefix}_${randomUUID().slice(0, 8)}`;
@@ -99,7 +100,7 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
     return { id, promise, args };
   }
 
-  async function runTurn(sessionId, text, { onEvent, localOnly = false, resumeIntent = null } = {}) {
+  async function runTurn(sessionId, text, { onEvent, localOnly = false, resumeIntent = null, preferences = null } = {}) {
     const session = getSession(sessionId) || createSession(sessionId || undefined, resumeIntent);
     const turnId = shortId('t');
     const events = [];
@@ -127,6 +128,18 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
         emit('say', { text: ack, final: true });
         emit('done', {});
         return { sessionId: session.id, turnId, reply: ack, patch: [], source: 'prepared', events, page: null };
+      }
+      // Personalization affects actual generated CSS on the first build only.
+      // Keep the original prompt and its business/domain interpretation intact.
+      if (!session.state.version && preferences) {
+        const design = {...onboardingIntent(preferences)};
+        // Explicit words in the original brief take precedence over defaults.
+        if (/\b(?:serif|sans|font|typography|editorial)\b/i.test(text)) delete design.font;
+        if (/\b(?:dark|light|white|black)\b/i.test(text)) delete design.theme;
+        if (/\b(?:compact|airy|minimal|spacious|dense)\b/i.test(text)) delete design.density;
+        if (/\b(?:split|centered|poster)\b/i.test(text)) delete design.hero;
+        if (/\b(?:gold|emerald|green|coral|sky|violet|rose|amber|slate|blue|red|pink|purple)\b/i.test(text)) delete design.accent;
+        interp = {...interp,set:{...interp.set,...design}};
       }
       fromModel = interp.source === 'model';
       const update = applyUpdate(session.state, interp, { turnId, text });

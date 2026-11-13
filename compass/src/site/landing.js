@@ -4,6 +4,7 @@ import { briefMock, ideasMock } from './frames.mjs'
 import { createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows, buildSteps, sourceLabel, previewName, previewDoc, parseSse, cleanText, turnError, PHASE_LABELS } from './studio.mjs'
 import { createDictation } from '../demo/voice.mjs'
 import { createPreviewTools } from './preview-tools.mjs'
+import { writeDraft } from '../create/draft.mjs'
 
 const $ = selector => document.querySelector(selector)
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -348,6 +349,17 @@ function setSound(on) {
   if (!on && window.speechSynthesis) window.speechSynthesis.cancel()
 }
 
+function startCreation(raw) {
+  if (dictation?.active) dictation.stop()
+  const result = writeDraft({prompt:String(raw || '').trim(),ready:false})
+  if (!result.ok) {
+    hint.textContent = result.error === 'invalid-prompt' ? 'Describe your idea in 3–500 characters.' : 'This browser could not keep your draft. Your text is still here.'
+    intent.focus()
+    return
+  }
+  location.assign('/create')
+}
+
 if (stage && composer) {
   changes.replaceChildren(...REVISIONS.map(([label, text]) => {
     const chip = el('button', 'idea', label)
@@ -355,14 +367,14 @@ if (stage && composer) {
     chip.dataset.idea = text
     return chip
   }))
-  composer.addEventListener('submit', event => { event.preventDefault(); submit(intent.value) })
+  composer.addEventListener('submit', event => { event.preventDefault(); startCreation(intent.value) })
   composer.addEventListener('change', event => {
     if (event.target.name !== 'mode') return
     mode = event.target.value
     paintMode()
   })
   intent.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); submit(intent.value) }
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); startCreation(intent.value) }
   })
   reviseInput.addEventListener('keydown', event => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); submit(reviseInput.value) }
@@ -384,7 +396,9 @@ if (stage && composer) {
   revise.addEventListener('submit', event => { event.preventDefault(); submit(reviseInput.value) })
   for (const group of [ideas, changes]) group.addEventListener('click', event => {
     const idea = event.target.closest('[data-idea]')
-    if (idea) submit(idea.dataset.idea)
+    if (!idea) return
+    if (group === ideas) { intent.value = idea.dataset.idea; intent.focus() }
+    else submit(idea.dataset.idea)
   })
   $('#mic').addEventListener('click', event => toggleVoice(event.currentTarget, intent))
   $('#revise-mic').addEventListener('click', event => toggleVoice(event.currentTarget, reviseInput))

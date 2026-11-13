@@ -7,6 +7,19 @@ import {
 import { renderSite } from '../builder/render.mjs';
 
 const stamp = '2026-11-12T20:00:00.000Z';
+test('saved HTML rejects encoded navigation and escaped remote CSS while accepting generated layouts',()=>{
+  for(const html of [
+    '<!doctype html><a href="&#106;avascript:alert(1)">x</a>',
+    '<!doctype html><svg/onload="alert(1)"></svg>',
+    '<!doctype html><style>@\\69mport "https://example.invalid/a.css";</style>',
+    '<!doctype html><div style="background:&#117;rl(https://example.invalid/a)">x</div>',
+    '<!doctype html><style>body{background:image-set("https://example.invalid/a" 1x)}</style>',
+  ])assert.equal(safeSavedHtml(html),null);
+  for(const kind of ['real estate','booking','creative studio','bakery'])for(const font of ['serif','sans','display']){
+    const html=renderSite({spec:{business:'QA',kind,theme:'light',font,accent:'slate',hero:'split',density:'airy',sections:['products','contact']},version:1});
+    assert.equal(safeSavedHtml(html),html,kind+' '+font);
+  }
+});
 function memory() {
   const values = new Map();
   return { getItem:key => values.get(key) ?? null, setItem:(key,value) => values.set(key,value), values };

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><meta name="color-scheme" content="light">
+<title>Create — COMPASS</title>
+<meta name="description" content="Keep your idea. Choose a direction. Build your first website preview with COMPASS.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/src/create/create.css">
+<script type="module" src="/src/create/create.js"></script>
+</head>
+<body>
+<a class="skip" href="#create-title">Skip to your project</a>
+<header class="bar"><a class="brand" href="/" aria-label="COMPASS homepage"><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9.6"/><path d="M11 4.4 13.1 11 11 17.6 8.9 11Z"/></svg>COMPASS</a><nav class="create-nav" aria-label="Account and demo"><a id="create-account-link" class="back-home" href="/create?signin=1" hidden>Sign in</a><a class="back-home" href="/demo">Open demo <span aria-hidden="true">↗</span></a></nav></header>
+<main class="create-shell">
+<div class="create-heading"><p class="step-label" id="step-label">A new project</p><h1 id="create-title" tabindex="-1">What will you make?</h1><p class="lede" id="create-lede">Start with an idea.</p></div>
+<section class="create-card" id="create-card" aria-labelledby="create-title">
+<form id="idea-form" method="post" hidden>
+<label for="create-prompt">Your idea</label><textarea id="create-prompt" name="prompt" rows="4" maxlength="500" placeholder="A minimal website for an architecture studio…" required aria-describedby="prompt-note"></textarea>
+<div class="prompt-meta"><p id="prompt-note">Starts with a website preview.</p><span id="prompt-count" aria-label="Characters used">0/500</span></div>
+<button type="submit" class="primary full" id="idea-next">Continue <span aria-hidden="true">→</span></button>
+</form>
+<div id="auth-step" hidden>
+<div class="idea-summary" id="auth-summary"><p id="auth-prompt"></p><button type="button" class="text-button" id="edit-idea">Edit idea</button></div>
+<p id="auth-preview-note" class="preview-note" hidden>Preview account · use a .test email.</p>
+<div id="social-providers" class="social-providers" aria-label="Sign-in options"></div>
+<p id="email-divider" class="divider" hidden><span>or use email</span></p>
+<form id="account-form" method="post" hidden>
+<div class="auth-tabs" role="group" aria-label="Account action"><button type="button" id="signup-mode" aria-pressed="true">Create account</button><button type="button" id="signin-mode" aria-pressed="false">Sign in</button></div>
+<div id="name-field" class="field"><label for="account-name">Name</label><input id="account-name" name="name" autocomplete="name" maxlength="80" required></div>
+<div class="field"><label for="account-email">Email</label><input id="account-email" name="email" type="email" autocomplete="email" maxlength="254" required></div>
+<div class="field"><label for="account-password">Password</label><input id="account-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required aria-describedby="password-note"><p id="password-note" class="field-note">At least 12 characters.</p></div>
+<button type="submit" class="primary full" id="account-submit">Create account <span aria-hidden="true">→</span></button>
+</form>
+<p id="auth-unavailable" class="unavailable" hidden>Accounts aren’t available here yet. Your idea is kept in this tab.</p>
+<button type="button" class="guest-button" id="continue-guest">Continue without an account <span aria-hidden="true">→</span></button>
+</div>
+<form id="onboarding-form" method="post" hidden>
+<div class="idea-summary" id="onboarding-summary"><p id="onboarding-prompt"></p><button type="button" class="text-button" id="onboarding-edit">Edit idea</button></div>
+<fieldset><legend>What are you building?</legend><div class="choice-grid" id="project-choices">
+<label><input type="radio" name="projectType" value="website"><span>Website</span></label><label><input type="radio" name="projectType" value="saas"><span>SaaS</span></label><label><input type="radio" name="projectType" value="internal-tool"><span>Internal tool</span></label><label><input type="radio" name="projectType" value="client-portal"><span>Client portal</span></label><label><input type="radio" name="projectType" value="other"><span>Other</span></label>
+</div></fieldset>
+<fieldset><legend>Choose a visual direction.</legend><div class="choice-grid" id="visual-choices">
+<label><input type="radio" name="visualDirection" value="minimal"><span>Minimal</span></label><label><input type="radio" name="visualDirection" value="editorial"><span>Editorial</span></label><label><input type="radio" name="visualDirection" value="bold"><span>Bold</span></label><label><input type="radio" name="visualDirection" value="professional"><span>Professional</span></label><label><input type="radio" name="visualDirection" value="custom"><span>From my prompt</span></label>
+</div></fieldset>
+<p id="capability-note" class="capability-note">Starts with a website preview.</p>
+<div class="finish-actions"><button type="submit" class="primary" id="start-building">Start building <span aria-hidden="true">→</span></button><button type="button" class="text-button" id="skip-onboarding">Skip</button></div>
+<p id="save-scope" class="field-note">Your choices stay in this tab.</p>
+</form>
+<p id="create-status" class="create-status" role="status" aria-live="polite">Getting ready…</p>
+<button type="button" class="text-button" id="retry-config" hidden>Try again</button>
+<noscript><p>JavaScript is needed for this flow. Your existing projects are unchanged.</p><a href="/demo">Open the public builder</a></noscript>
+</section>
+<p class="draft-note" id="create-draft-note">This tab keeps your idea for up to 30 minutes.</p>
+</main>
+</body>
+</html>

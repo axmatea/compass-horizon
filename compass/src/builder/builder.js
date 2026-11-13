@@ -2,6 +2,17 @@ import { createDictation } from '../demo/voice.mjs'
 import { createPreviewTools } from '../site/preview-tools.mjs'
 import { parseSse, cleanText, previewDoc } from '../site/studio.mjs'
 import { createProjectStore, completedRevision, appendRevision, restoredProject } from './project-store.mjs'
+import { readDraft, clearDraft, writeDraft } from '../create/draft.mjs'
+import { mountAccountWorkspace } from '../account/workspace.mjs'
+import { operationKey, clearOperation } from '../account/operation.mjs'
+import '../account/workspace.css'
+
+const accountMode = new URL(location.href).pathname.replace(/\/$/,'') === '/workspace'
+const fromCreate = new URL(location.href).searchParams.get('from') === 'create' || accountMode
+let handoffDraft = fromCreate ? readDraft() : null
+let initialPreferences = handoffDraft?.preferences || null
+let accountWorkspace = null
+let pendingOperation = null
 
 const NAMES = { hero: 'Hero', features: 'Features', products: 'Products', gallery: 'Gallery', testimonials: 'Testimonials', pricing: 'Pricing', faq: 'FAQ', contact: 'Contact', signup: 'Signup' }
 const FIELDS = [
@@ -241,7 +252,7 @@ function paintStage() {
   }
   previewSource.hidden = state.sourcePending || (!state.source && !selectedRevision)
   previewSource.textContent = selectedRevision || state.source === 'saved' ? 'Saved preview' : state.source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
-  if (state.sessionId && !selectedRevision && !state.busy && state.remotePreviewCurrent) {
+  if (!accountMode && state.sessionId && !selectedRevision && !state.busy && state.remotePreviewCurrent) {
     open.hidden = false
     open.href = '/api/site/session/' + encodeURIComponent(state.sessionId) + '/page'
   } else {
@@ -366,6 +377,7 @@ async function readSse(response, mine) {
 async function submit(text) {
   const clean = cleanText(text)
   if (!clean || selectedRevision || state.busy) return
+  if (accountMode && (!await accountReady || state.busy)) return
   if (dictation?.active) dictation.stop()
   const mine = epoch
   const previous = { plan:state.plan, render:state.render, source:state.source, sourcePending:state.sourcePending, placeholder:state.placeholder, sessionId:state.sessionId, actions:state.actions }
@@ -404,12 +416,20 @@ async function submit(text) {
   log.append(row)
   paint()
   try {
-    const response = await fetch('/api/site/turn', {
+    const payload = JSON.stringify({ sessionId: state.sessionId || undefined, text: clean, ...(resumeIntent ? {resumeIntent} : {}), ...(!state.sessionId && initialPreferences ? {preferences:initialPreferences} : {}) })
+    if (accountMode && pendingOperation?.payload !== payload) pendingOperation={payload,key:await operationKey({owner:accountWorkspace.userId,payload})}
+    const response = await fetch(accountMode ? '/api/account/turn' : '/api/site/turn', {
       method: 'POST', signal: controller.signal,
-      headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-      body: JSON.stringify({ sessionId: state.sessionId || undefined, text: clean, ...(resumeIntent ? {resumeIntent} : {}) }),
+      headers: { 'content-type': 'application/json', accept: 'text/event-stream', ...(accountMode ? {'idempotency-key':pendingOperation.key,'x-compass-user':accountWorkspace.userId} : {}) },
+      body: payload,
     })
     if (mine !== epoch) return
+    if (accountMode && response.status === 401) {
+      writeDraft({prompt:clean,preferences:initialPreferences || {},ready:false})
+      clearCurrent()
+      location.replace('/create')
+      return
+    }
     if (response.status === 429) {
       const data = await response.json()
       if (mine !== epoch) return
@@ -422,6 +442,13 @@ async function submit(text) {
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
       if (mine !== epoch) return
+      if (accountMode && data.error === 'account_changed') {
+        if(handoffDraft)clearDraft({id:handoffDraft.id})
+        clearCurrent(); location.replace('/create'); return
+      }
+      if (accountMode && ['build_failed','previous_build_failed'].includes(data.error)) {
+        clearOperation({owner:accountWorkspace.userId,key:pendingOperation?.key}); pendingOperation=null
+      }
       recover(data.error === 'text_too_long' ? 'Keep it to 500 characters and try again.' : 'Update interrupted. Try again.')
       return
     }
@@ -448,6 +475,8 @@ async function submit(text) {
         if (state.orb !== 'speaking') setOrb('idle')
         const revision = finished ? completedRevision(state,lastPrompt) : null
         history = appendRevision(history,revision)
+        if (finished && pendingOperation) { clearOperation({owner:accountWorkspace?.userId,key:pendingOperation.key}); pendingOperation=null }
+        if (finished && handoffDraft) { clearDraft({id:handoffDraft.id}); handoffDraft=null; initialPreferences=null }
         if (projectName.value === 'Untitled project' && state.plan?.intent) projectName.value = cap(state.plan.intent.business || state.plan.intent.kind || 'Untitled project').slice(0,64)
       }
       paint()
@@ -515,6 +544,7 @@ function clearCurrent() {
   if (dictation?.active) dictation.stop()
   if (window.speechSynthesis) window.speechSynthesis.cancel()
   state.sessionId = ''
+  pendingOperation = null
   state.plan = null
   state.actions = []
   state.render = null
@@ -533,6 +563,7 @@ function clearCurrent() {
   saveMessage = ''
   lastPrompt = ''
   latestReply = ''
+  accountWorkspace?.reset()
   projectName.value = 'Untitled project'
   input.value = ''
   count.textContent = '0'
@@ -582,6 +613,7 @@ function paintProject() {
   saveButton.textContent = projectId ? 'Save changes' : 'Save on this device'
   saveStatus.textContent = saveMessage || (state.busy ? 'Build in progress' : history.length ? isDirty() ? 'Unsaved changes' : 'Saved on this device' : 'Not saved')
   historyCount.textContent = history.length + (history.length === 1 ? ' revision' : ' revisions')
+  accountWorkspace?.update()
   const nextKey = history.map(item => item.id).join(',') + ':' + (selectedRevision?.id || '')
   if (historyKey === nextKey) return
   historyKey = nextKey
@@ -706,3 +738,28 @@ if (requestedProject) {
 }
 
 paint()
+
+const accountReady = accountMode ? mountAccountWorkspace({
+  getProject:()=>state.busy || !history.length ? null : {name:projectName.value.trim() || 'Untitled project',revisions:history},
+  onLoad:project=>{
+    if (!discardCurrent()) return false
+    loadProject(project)
+    // An account project is not an existing device-local project. A separate
+    // explicit device save creates a new local copy and preserves both stores.
+    projectId=null; lastSavedSignature=''; paintProject()
+    tell('Opened from preview account. Ready to refine.')
+    return true
+  },
+  onClear:({accountChanged}={})=>{if(accountChanged && handoffDraft)clearDraft({id:handoffDraft.id}); clearCurrent()},
+  onMessage:message=>tell(message),
+}).then(api=>{accountWorkspace=api; paint(); return api}) : Promise.resolve(null)
+
+async function startDraft() {
+  if (accountMode && !await accountReady) return
+  if (!handoffDraft?.ready || state.turns || requestedProject) return
+  input.value=handoffDraft.prompt
+  count.textContent=String(input.value.length)
+  paintProject()
+  await submit(handoffDraft.prompt)
+}
+if (handoffDraft?.ready) void startDraft()

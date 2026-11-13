@@ -7,9 +7,9 @@ import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { createCompassServer } from '../server.mjs';
 
-test('homepage-only delivery retires old pages even if stale files exist', async (t) => {
+test('public delivery keeps guest creation available and account access closed by default, despite stale files', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'compass-home-'));
-  for (const name of ['index', 'app', 'login', 'demo', 'plan', 'studio']) await writeFile(join(root, name + '.html'), '<h1>' + name + '</h1>');
+  for (const name of ['index', 'app', 'login', 'demo', 'plan', 'studio', 'create']) await writeFile(join(root, name + '.html'), '<h1>' + name + '</h1>');
   await writeFile(join(root, 'asset.js'), 'abcdefghij');
   await writeFile(join(root, 'sitemap.xml'), '<urlset/>');
   await writeFile(join(root, '.env'), 'not-public');
@@ -34,10 +34,36 @@ test('homepage-only delivery retires old pages even if stale files exist', async
   }
   assert.equal((await fetch(origin + '/studio', { method: 'HEAD' })).status, 200);
   assert.equal((await fetch(origin + '/studio', { method: 'POST' })).status, 405);
+  for (const path of ['/create', '/create/', '/create?from=home']) {
+    const create = await fetch(origin + path);
+    assert.equal(create.status, 200);
+    assert.equal(await create.text(), '<h1>create</h1>');
+  }
+  assert.equal((await fetch(origin + '/create', { method: 'HEAD' })).status, 200);
+  assert.equal((await fetch(origin + '/create', { method: 'POST' })).status, 405);
+  const config = await fetch(origin + '/api/account/config');
+  assert.equal(config.status, 200);
+  assert.equal(config.headers.get('cache-control'), 'no-store');
+  const accountConfig = await config.json();
+  assert.equal(accountConfig.enabled, false);
+  assert.equal(accountConfig.configured, false);
+  assert.deepEqual(accountConfig.providers, []);
+  const session = await fetch(origin + '/api/auth/get-session');
+  assert.equal(session.status, 503);
+  assert.equal(session.headers.get('cache-control'), 'no-store');
+  assert.equal((await session.json()).code, 'AUTH_UNAVAILABLE');
+  assert.equal(session.headers.get('set-cookie'), null);
+  for (const path of ['/api/account/me', '/api/account/projects', '/api/account/profile', '/api/account/usage']) {
+    const privateResponse = await fetch(origin + path);
+    assert.equal(privateResponse.status, 503, path);
+    assert.equal(privateResponse.headers.get('cache-control'), 'no-store', path);
+    assert.deepEqual(await privateResponse.json(), {error:'accounts_unavailable'}, path);
+  }
+  assert.equal((await fetch(origin + '/workspace')).status, 404);
   for (const path of ['/app', '/app.html', '/office', '/office?workspaceInvite=old', '/login', '/login.html', '/demo/workspace', '/demo/remaster/app', '/presentation', '/presentation/finale', '/protect', '/horizon', '/studio/legacy', '/studio/legacy.html', '/studio.html', '/vision', '/acquisition', '/film.html']) {
     assert.equal((await fetch(origin + path)).status, 410, path);
   }
-  for (const path of ['/api', '/api/auth/get-session', '/api/workspaces', '/api/acquisition/state', '/api/remaster/state', '/api/waitlist', '/.env', '/unknown.html', '/unknown']) assert.equal((await fetch(origin + path)).status, 404, path);
+  for (const path of ['/api', '/api/workspaces', '/api/acquisition/state', '/api/remaster/state', '/api/waitlist', '/.env', '/unknown.html', '/unknown']) assert.equal((await fetch(origin + path)).status, 404, path);
   assert.equal((await fetch(origin + '/login', { method: 'POST' })).status, 405);
   const health = await fetch(origin + '/healthz');
   assert.equal(health.headers.get('cache-control'), 'no-store');
