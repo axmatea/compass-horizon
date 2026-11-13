@@ -1,3 +1,4 @@
+import {normalizePreferences} from '../create/draft.mjs'
 // An explicit website choice wins; skipped personalization must still preserve
 // an unmistakable application request instead of turning it into a static page.
 export function applicationDraft(draft) {
@@ -6,4 +7,11 @@ export function applicationDraft(draft) {
   if(type==='website')return false
   if(['saas','internal-tool','client-portal'].includes(type))return true
   return /\b(?:crm|inventory|task tracker|expense tracker|project tracker|database|dashboard|client portal|web app|application|manage (?:contacts|bookings|tasks|stock))\b/i.test(String(draft.prompt || ''))
+}
+
+export function applicationEntryPreferences(value,{appEntry=false,guest=false}={}) {
+  const preferences=normalizePreferences(value)
+  if(appEntry && guest)preferences.projectType='website'
+  else if(appEntry && !preferences.projectType)preferences.projectType='internal-tool'
+  return preferences
 }

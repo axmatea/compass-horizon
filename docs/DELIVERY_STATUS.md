@@ -20,8 +20,8 @@ migration were performed.
 | Work tools | Official OAuth/API adapters for GitHub, Drive, Sheets, Gmail metadata, Calendar, Notion and Slack; encrypted owner tokens, scope review, refresh/disconnect | Real connections need provider apps, exact callbacks, dedicated encryption key, provider capability settings and owner consent. Codex connector credentials are never reused. |
 | Preview/export | Functional isolated CRUD preview, responsive controls, code view, 14-file standalone source ZIP with pinned auth/runtime/tests, private JSON record export | Arbitrary generated source never runs on the main server. Optional external VM adapter remains off/unverified without credentials, approved image and budget. |
 | Publishing | Explicit saved scriptless-page publication to a revocable preview link; reviewed public GitHub feature-branch export with head lease | Preview links are temporary. Full application hosting needs an approved isolated deployment target and durable storage. GitHub publishing needs the explicit public export grant. |
-| Public presentation | White minimal pages, original Offset identity, prompt-first homepage, existing Studio and approved film | No new customers, traction, testimonials or capabilities invented. Film remains labelled as an earlier vision. |
-| Quality | 249 automated tests passed; syntax checks and five-page build passed; actual browser CRM creation/edit/clear/design/restore/source download verified | Automated speech tests do not prove a physical microphone. OAuth/payment/sandbox fixture tests do not prove external live services. |
+| Public presentation | White minimal pages, approved Fold identity, prompt-first homepage, existing Studio and approved film | No new customers, traction, testimonials or capabilities invented. Film remains labelled as an earlier vision. |
+| Quality | 264 automated tests passed; syntax checks and five-page build passed; actual browser CRM creation/edit/clear/design/restore/source download verified | Automated speech tests do not prove a physical microphone. OAuth/payment/sandbox fixture tests do not prove external live services. |
 | Deployment | Existing Railway preview first, reviewed GitHub PR, then reversible release of verified public changes | Exact release revision and post-deploy evidence are recorded separately; no production account/billing configuration change is implicit. |
 | Recovery | Verified private SQLite backup/restore helper, versioned source, no destructive migration, documented rollback | Real cloud backup scheduling/retention needs approved durable storage. |
 
@@ -32,6 +32,9 @@ migration were performed.
   A rollback must be verified by `/healthz` revision plus actual asset hashes.
 - Preview state is disposable. Export source/HTML and business records before
   redeployment. Its in-memory auth secret expires sessions on restart.
+- Every account mode refuses a database in the public static root, including
+  symlink aliases. Static serving independently blocks database artifacts and
+  sidecars.
 - Persistent SQLite requires an actual verified mount, a fixed Better Auth secret,
   private DB path and explicit storage mode. An ordinary container directory
   cannot pass the durable-readiness check.

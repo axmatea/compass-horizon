@@ -1,9 +1,12 @@
+import {applicationEntryPreferences} from '../applications/intent.mjs'
 import {readDraft,writeDraft,validPrompt,normalizePreferences} from './draft.mjs'
 import {createAccountApi,allowedEmail,safeSocialRedirect,accountErrorText,isAccountChanged,resolveCreateEntry,AccountRequestError} from './flow.mjs'
 import {createAccountViews,accountEntry} from './manage.mjs'
 
 const $ = id => document.getElementById(id)
 const api = createAccountApi()
+const appEntry=new URL(location.href).searchParams.get('app')==='1'
+if(appEntry)$('continue-guest').textContent='Try website demo instead'
 const state = {config:null,user:null,draft:readDraft(),profilePreferences:{},guest:false,busy:false,signup:true,step:'prompt',flowMode:'project'}
 const providerNames = {google:'Google',github:'GitHub',apple:'Apple'}
 const accountForm = $('account-form')
@@ -62,7 +65,7 @@ function capability() {
     ? 'Your idea is kept. Websites and supported data apps.' : 'Websites and supported data apps.'
 }
 function persist({ready = false,choices,ownerId} = {}) {
-  const result = writeDraft({prompt:promptInput.value,preferences:choices ?? state.draft?.preferences ?? state.profilePreferences,ready,ownerId})
+  const result = writeDraft({prompt:promptInput.value,preferences:applicationEntryPreferences(choices ?? state.draft?.preferences ?? state.profilePreferences,{appEntry,guest:state.guest}),ready,ownerId})
   if (!result.ok) {
     message(result.error === 'invalid-prompt' ? 'Describe your idea in 3–500 characters.'
       : 'This browser can’t keep your idea through the next step. Allow session storage or use the public demo.',true)
@@ -305,7 +308,7 @@ for (const id of ['edit-idea','onboarding-edit']) $(id).addEventListener('click'
 $('continue-guest').addEventListener('click',() => {
   if (state.busy) return
   if (!state.draft && state.flowMode !== 'project') { location.assign('/demo'); return }
-  if (!persist()) return
+  if (!persist({choices:applicationEntryPreferences(state.draft?.preferences || state.profilePreferences,{appEntry,guest:true}),ownerId:null})) return
   state.guest = true
   message()
   show('onboarding')

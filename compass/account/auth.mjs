@@ -1,6 +1,43 @@
-import { isAbsolute } from 'node:path';
-import { open, chmod } from 'node:fs/promises';
+import { isAbsolute,resolve,relative,sep,dirname,basename } from 'node:path';
+import {fileURLToPath} from 'node:url';
+import { open, chmod,realpath } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
+
+
+// Resolve existing ancestors as well as the final file. Startup must reject a
+// public destination before creating it, including symlinked parent directories.
+async function canonicalLocation(value) {
+  // Preserve .. until realpath resolves symlinks, matching fs.open semantics.
+  let current=isAbsolute(value)?value:resolve(value);const suffix=[];
+  while(true){
+    try{return resolve(await realpath(current),...suffix.reverse())}
+    catch(error){
+      if(!['ENOENT','ENOTDIR'].includes(error?.code)||dirname(current)===current)throw error;
+      suffix.push(basename(current));current=dirname(current);
+    }
+  }
+}
+const inside=(root,file)=>{const part=relative(root,file);return part===''||part!=='..'&&!part.startsWith('..'+sep)&&!isAbsolute(part)};
+const staticRoot=env=>resolve(env.STATIC_ROOT||fileURLToPath(new URL('../dist/',import.meta.url)));
+async function privateDatabasePath(env,path) {
+  try{return !inside(await canonicalLocation(staticRoot(env)),await canonicalLocation(path))}
+  catch{return false}
+}
+// Static delivery checks the actual target, not its basename or extension. A
+// legitimate public JSON asset can share the private database's filename.
+export async function isAccountDatabaseAsset(file,env={}) {
+  if(typeof env.COMPASS_ACCOUNT_DATABASE!=='string'||!isAbsolute(env.COMPASS_ACCOUNT_DATABASE))return false;
+  try {
+    const target=await canonicalLocation(file);
+    const database=await canonicalLocation(env.COMPASS_ACCOUNT_DATABASE).catch(()=>resolve(env.COMPASS_ACCOUNT_DATABASE));
+    for(const suffix of ['', '-wal','-shm','-journal']) {
+      if(target===database+suffix)return true;
+      const configured=await canonicalLocation(env.COMPASS_ACCOUNT_DATABASE+suffix).catch(()=>resolve(env.COMPASS_ACCOUNT_DATABASE+suffix));
+      if(target===configured)return true;
+    }
+    return false;
+  }catch{return true}
+}
 
 const AUTH_PATH = '/api/auth';
 const MAX_BODY = 16 * 1024;
@@ -114,7 +151,7 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
   const attempts = new Map();
 
   const ready = (async () => {
-    if (!valid) return;
+    if (!valid || !await privateDatabasePath(env,path)) return;
     try {
       const [{ betterAuth }, { getMigrations }, { DatabaseSync }, { APIError }] = await Promise.all([
         import('better-auth'), import('better-auth/db/migration'), import('node:sqlite'), import('better-auth/api'),

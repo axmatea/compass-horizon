@@ -4,15 +4,17 @@ Public pages: index.html, demo.html, plan.html, studio.html and create.html.
 /create preserves the prompt through optional onboarding. The account workspace
 is an isolated, default-off staging feature; see ../docs/ACCOUNT_FOUNDATION.md.
 Production has no account or cloud persistence.
-The homepage hero runs the site builder inline (voice or text, brief, build,
-page preview on web and phone). /demo is the full-screen builder.
+The homepage preserves a typed or dictated prompt through /create and optional
+onboarding. /demo is the full-screen website builder. A separate explicitly
+labelled app-preview entry opens the existing isolated account service.
 /voice-demo serves that same builder. /plan is the product-plan preview.
 /studio holds the studio, confirmed team information and approved statements.
 Old Studio subroutes and other retired sections return 410.
 /api/config, /api/demo, /api/site/turn, and /api/early-access are the application APIs.
-Other API URLs return 404.
+Private account/auth routes are default-off outside the configured preview.
+Unrecognized API URLs return 404.
 
-Both builders include desktop, phone and combined preview controls. A completed
+The website builder includes desktop, phone and combined preview controls. A completed
 render enables Copy brief and Download HTML. The download is a self-contained
 website preview; it does not publish a site or create application services.
 The full builder explicitly saves projects and revision snapshots in local

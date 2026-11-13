@@ -3,8 +3,10 @@ import { createAccountStore } from './store.mjs';
 import { withUsageTracking } from '../usage.mjs';
 import {createPlatformApi,readBody as body,readRawBody,integrationCallback,publicationPolicy} from '../platform/http.mjs';
 import {inspectStorage} from './storage.mjs';
+import {createAccountRateLimiter} from './rate-limit.mjs';
 
-export function createAccountApi({ auth, env, fetchImpl }) {
+export function createAccountApi({ auth, env, fetchImpl,rateLimitNow=Date.now }) {
+  const limiter=createAccountRateLimiter({now:rateLimitNow});
   let site;
   const owners = new Map();
   let store,platform;
@@ -58,6 +60,8 @@ export function createAccountApi({ auth, env, fetchImpl }) {
       if (req.headers['x-compass-user'] !== undefined && req.headers['x-compass-user'] !== identity.userId) {
         json(403,{error:'account_changed'}); return true;
       }
+      const gate=limiter.check(identity.userId,{method:req.method,path:url.pathname});
+      if(!gate.allowed){res.setHeader('Retry-After',String(gate.retryAfterSeconds));json(429,{error:'account_rate_limited'});return true;}
       store ||= createAccountStore(auth.database);
       const owner = identity.userId;
       const features=services();

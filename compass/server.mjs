@@ -8,7 +8,7 @@ import { clarifyDemo, planDemo, demoVideoUrl, llmStatus, fallbackRun, MAX_INTENT
 import { submitEarlyAccess } from './early-access.mjs';
 import { applyHomepage } from './homepage.mjs';
 import { createSiteBuilder, publicTurn, sessionIdFrom, validateResumeIntent, MAX_TEXT } from './builder/index.mjs';
-import { createAccountAuth } from './account/auth.mjs';
+import { createAccountAuth,isAccountDatabaseAsset } from './account/auth.mjs';
 import { createAccountApi } from './account/http.mjs';
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -39,7 +39,7 @@ async function readJson(req) {
   catch { return { error: 'bad_json' }; }
 }
 
-export function createCompassServer({ env = process.env, fetchImpl = fetch } = {}) {
+export function createCompassServer({ env = process.env, fetchImpl = fetch,accountRateNow=Date.now } = {}) {
   // A stored provider key is not consent to enable generation. The public
   // application stays on prepared examples until live mode is explicit.
   env = { ...env, COMPASS_DEMO_MODE: env.COMPASS_DEMO_MODE === 'live' ? 'live' : 'examples' };
@@ -61,7 +61,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
   };
   const site = createSiteBuilder({ env, fetchImpl });
   const accounts = createAccountAuth({env});
-  const accountApi = createAccountApi({auth:accounts,env,fetchImpl});
+  const accountApi = createAccountApi({auth:accounts,env,fetchImpl,rateLimitNow:accountRateNow});
   let previewScriptPolicy;
   const allowTrustedPreview=async res=>{
     await accounts.ready;if(!accounts.publicConfig().configured)return;
@@ -165,20 +165,20 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
       if (pathname === '/api' || pathname.startsWith('/api/')) { text(404, 'No application API is available.'); return; }
       if (!['GET', 'HEAD'].includes(req.method)) { res.setHeader('Allow', 'GET, HEAD'); text(405, 'Method not allowed'); return; }
       const normalized = pathname.replace(/\/$/, '') || '/';
-      if (normalized === '/demo' || normalized === '/voice-demo') { await allowTrustedPreview(res); await serveFile(req, res, root, '/demo.html', text); return; }
-      if (normalized === '/plan') { await serveFile(req, res, root, '/plan.html', text); return; }
-      if (normalized === '/studio') { await serveFile(req, res, root, '/studio.html', text); return; }
-      if (normalized === '/create') { await serveFile(req,res,root,'/create.html',text); return; }
+      if (normalized === '/demo' || normalized === '/voice-demo') { await allowTrustedPreview(res); await serveFile(req, res, root, '/demo.html', text,env); return; }
+      if (normalized === '/plan') { await serveFile(req, res, root, '/plan.html', text,env); return; }
+      if (normalized === '/studio') { await serveFile(req, res, root, '/studio.html', text,env); return; }
+      if (normalized === '/create') { await serveFile(req,res,root,'/create.html',text,env); return; }
       if (normalized === '/workspace') {
         await accounts.ready;
         if (!accounts.publicConfig().configured) { text(404,'Account preview is not enabled.'); return; }
         res.setHeader('X-Robots-Tag','noindex');
         await allowTrustedPreview(res);
-        await serveFile(req,res,root,'/demo.html',text); return;
+        await serveFile(req,res,root,'/demo.html',text,env); return;
       }
       if (normalized === '/assets/brand-next/studies' && accounts.enabled) {
         res.setHeader('X-Robots-Tag','noindex');
-        await serveFile(req,res,root,'/assets/brand-next/studies.html',text); return;
+        await serveFile(req,res,root,'/assets/brand-next/studies.html',text,env); return;
       }
       if (retired.test(normalized)) { text(410, 'This section has been retired. Visit the COMPASS homepage at /.'); return; }
       const page = normalized === '/' || normalized === '/index.html';
@@ -186,7 +186,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
       if (pathname.endsWith('.html') || pathname.split('/').some(part => part.startsWith('.')) || !types[extname(pathname)]) {
         text(404, 'Not found'); return;
       }
-      await serveFile(req, res, root, pathname, text);
+      await serveFile(req, res, root, pathname, text,env);
     } catch { if (!res.headersSent) text(404, 'Not found'); else res.destroy(); }
   });
   return { server, async close() {
@@ -198,6 +198,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch } = {
 async function serveHtml(req, res, root, pathname, env, text) {
   const file = resolve(root, '.' + pathname);
   if (!file.startsWith(root + sep) && file !== root) { text(403, 'Forbidden'); return; }
+  if(await isAccountDatabaseAsset(file,env)){text(404,'Not found');return;}
   let html;
   try { html = await readFile(file, 'utf8'); }
   catch { text(404, 'Not found'); return; }
@@ -207,9 +208,10 @@ async function serveHtml(req, res, root, pathname, env, text) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-async function serveFile(req, res, root, pathname, text) {
+async function serveFile(req, res, root, pathname, text,env={}) {
   const file = resolve(root, '.' + pathname);
   if (!file.startsWith(root + sep) && file !== root) { text(403, 'Forbidden'); return; }
+  if(await isAccountDatabaseAsset(file,env)){text(404,'Not found');return;}
   const info = await stat(file);
   if (!info.isFile()) { text(404, 'Not found'); return; }
   const headers = { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=0, must-revalidate',

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
 import { once } from 'node:events';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -13,8 +13,9 @@ const configuredOrigin = 'http://localhost:8779';
 
 async function fixture(t, enabled = true) {
   const root = await mkdtemp(join(tmpdir(), 'compass-account-api-'));
-  await Promise.all(['index', 'demo', 'create', 'studio', 'plan'].map(name => writeFile(join(root, `${name}.html`), `<!doctype html><h1>${name}</h1>`)));
-  const env = { NODE_ENV: 'test', STATIC_ROOT: root, BUILDER_STEP_MS: '0', COMPASS_DEMO_MODE: 'examples',
+  const assets=join(root,'public');await mkdir(assets);
+  await Promise.all(['index', 'demo', 'create', 'studio', 'plan'].map(name => writeFile(join(assets, `${name}.html`), `<!doctype html><h1>${name}</h1>`)));
+  const env = { NODE_ENV: 'test', STATIC_ROOT: assets, BUILDER_STEP_MS: '0', COMPASS_DEMO_MODE: 'examples',
     ...(enabled ? { COMPASS_ACCOUNT_MODE: 'staging', COMPASS_ACCOUNT_ORIGIN: configuredOrigin,
       COMPASS_ACCOUNT_DATABASE: join(root, 'isolated.sqlite'), BETTER_AUTH_SECRET: randomBytes(32).toString('base64url') } : {}),
   };

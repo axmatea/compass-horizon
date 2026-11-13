@@ -10,12 +10,12 @@ import Stripe from 'stripe';
 import {createCompassServer} from '../server.mjs';
 
 const origin='http://localhost:8779',password='Platform secure password 84!';
-async function fixture(t,enabled=true,extra={},fetchImpl) {
+async function fixture(t,enabled=true,extra={},fetchImpl,accountRateNow) {
   const root=await mkdtemp(join(tmpdir(),'compass-platform-api-')),assets=join(root,'public');await mkdir(assets);
   await Promise.all(['index','demo','create','studio','plan'].map(name=>writeFile(join(assets,name+'.html'),'<!doctype html><h1>'+name+'</h1>')));
   const env={NODE_ENV:'test',STATIC_ROOT:assets,BUILDER_STEP_MS:'0',COMPASS_DEMO_MODE:'examples',...(enabled?{COMPASS_ACCOUNT_MODE:'staging',COMPASS_ACCOUNT_ORIGIN:origin,COMPASS_ACCOUNT_DATABASE:join(root,'isolated.sqlite'),BETTER_AUTH_SECRET:randomBytes(32).toString('base64url')}:{}),...extra};
   let app,network;
-  async function start(){app=createCompassServer({env,...(fetchImpl?{fetchImpl}:{})});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');network='http://127.0.0.1:'+app.server.address().port}
+  async function start(){app=createCompassServer({env,...(fetchImpl?{fetchImpl}:{}),...(accountRateNow?{accountRateNow}:{})});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');network='http://127.0.0.1:'+app.server.address().port}
   await start();t.after(async()=>{await app.close();await rm(root,{recursive:true,force:true})});
   function request(path,{method='GET',body,cookie,headers={}}={}) {
     return new Promise((resolve,reject)=>{
@@ -172,4 +172,27 @@ test('application capacity is rejected before any upstream model request',async 
   env.COMPASS_DEMO_MODE='live';env.LLM_PROVIDER='generalcompute';env.GENERALCOMPUTE_API_KEY='synthetic_unusable_fixture_key';await restart();
   const rejected=await request('/api/account/apps',action(a,'POST',{text:'A different application'},'capacity_rejected_1234'));assert.equal(rejected.status,409);assert.equal((await rejected.json()).error,'application_limit');assert.equal(calls,0);
   assert.equal((await json(await request('/api/account/apps',{cookie:a.cookie}))).applications.length,12);
+});
+
+test('actual private API rate limits isolate verified owners, reset windows and preserve stricter setup-blocked actions',async t=>{
+  let clock=1800000000000;const {request,account}=await fixture(t,true,{},undefined,()=>clock),a=await account('rateqa'),b=await account('rateother');
+  // Each registration helper already performed one authenticated /me read.
+  for(let i=0;i<299;i++)assert.equal((await request('/api/account/me',{cookie:a.cookie})).status,200);
+  let limited=await request('/api/account/me',{cookie:a.cookie});assert.equal(limited.status,429);assert.equal(limited.headers.get('retry-after'),'60');assert.equal((await limited.json()).error,'account_rate_limited');
+  assert.equal((await request('/api/account/me',{cookie:b.cookie})).status,200);
+  assert.equal((await request('/api/account/me',{cookie:b.cookie,headers:{'x-compass-user':a.userId}})).status,403);
+  assert.equal((await request('/api/account/me',{cookie:a.cookie,headers:{origin:'https://attacker.test'}})).status,403,'CSRF guard precedes owner quota');
+  clock+=60000;assert.equal((await request('/api/account/me',{cookie:a.cookie})).status,200);
+  for(let i=0;i<60;i++)assert.equal((await request('/api/account/profile',action(a,'PUT',{preferences:{}}))).status,200);
+  limited=await request('/api/account/profile',action(a,'PUT',{preferences:{}}));assert.equal(limited.status,429);assert.equal(limited.headers.get('retry-after'),'60');
+  assert.equal((await request('/api/account/profile',action(b,'PUT',{preferences:{}}))).status,200);
+  clock+=60000;assert.equal((await request('/api/account/profile',action(a,'PUT',{preferences:{}}))).status,200);
+  for(let i=0;i<10;i++)assert.equal((await request('/api/account/integrations/github/connect',action(a,'POST',{}))).status,503);
+  limited=await request('/api/account/integrations/github/connect',action(a,'POST',{}));assert.equal(limited.status,429);assert.equal(limited.headers.get('retry-after'),'600');
+  clock+=60000;limited=await request('/api/account/integrations/github/connect',action(a,'POST',{}));assert.equal(limited.status,429);assert.equal(limited.headers.get('retry-after'),'540');
+  for(let i=0;i<10;i++)assert.equal((await request('/api/account/billing/portal',action(a,'POST',{}))).status,503);
+  limited=await request('/api/account/billing/checkout',action(a,'POST',{offerId:'unconfigured',requestKey:'rate_retry_key_1234'}));assert.equal(limited.status,429);assert.equal(limited.headers.get('retry-after'),'60');
+  // Signed webhooks have their own bounded body/SDK checks, never this owner quota.
+  assert.equal((await request('/api/billing/webhook',{method:'POST',body:{}})).status,503);
+  clock+=600000;assert.equal((await request('/api/account/integrations/github/connect',action(a,'POST',{}))).status,503);
 });

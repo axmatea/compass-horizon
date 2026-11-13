@@ -1,5 +1,6 @@
 # COMPASS account foundation
 
+Current account lifecycle, rate limits and enforced database privacy are documented in [AUTH_COMPLETE.md](AUTH_COMPLETE.md); see [DELIVERY_STATUS.md](DELIVERY_STATUS.md) for current activation boundaries.
 First incremental slice of the founder's 13 November 2026 product brief. Existing
 Vite, vanilla JavaScript and Node delivery remain. This is not full-stack app
 generation, production accounts, activated billing, or cross-device cloud storage.

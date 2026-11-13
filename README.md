@@ -2,25 +2,26 @@
 
 Canonical source: [axmatea/compass-horizon](https://github.com/axmatea/compass-horizon).
 
-COMPASS describes and refines a single HTML website preview. The public
-pages are `/` (product and inline preview), `/demo` (full builder), `/plan`
-(secondary product-plan preview), and `/studio` (AX Media Global, team and
-approved statements). `/create` preserves a prompt through short optional
-onboarding and opens the public builder. `/voice-demo` aliases `/demo`. Legacy office, login,
-registration and presentation pages remain retired.
+COMPASS builds and refines websites, with functional data applications in an
+explicit account preview. The predominantly white public pages are `/`, `/demo`,
+`/plan`, `/studio` and `/create`; `/voice-demo` aliases `/demo`. The homepage
+preserves one prompt through `/create` and optional onboarding. Its separate
+**Try app preview** link opens the existing isolated account preview without
+transferring the original prompt to another origin.
 
-The public builder supports desktop/phone views, brief copying, HTML download,
-and explicit project saving on this device. Saved projects and revision
-snapshots stay in this browser; there is no account, cloud backup or autosave.
-Loading a project makes no model request. Its next submitted refinement can
-restore the validated brief into a fresh server session.
+The public website builder includes responsive previews, visual controls, code
+visibility, HTML export and explicit device-local project/revision saves. Loading
+a saved project makes no model request. The next refinement resumes only its
+validated brief. Failed requests keep the last complete page and retry text.
+Property cards and booking forms in website previews remain illustrative.
 
-The homepage starts with one composer; the canvas appears after a build begins.
-Example prompts replace starter preview cards. The full builder keeps the last
-complete page and retry text if a request fails, and shows source labels on every
-screen size. In-progress renders do not inherit an earlier live-model label.
-Generation uses domain-specific website compositions and supports typography,
-spacing and mobile refinements. Property cards and booking forms remain previews.
+The configured preview workspace additionally supports real owner-scoped tracker,
+CRM, inventory and booking-record applications, with records, design revisions,
+reopen, source ZIP and private data export. A validated manifest drives trusted
+reviewed code; arbitrary generated source never executes on the main server.
+Its current Railway filesystem is temporary, not durable cloud storage. Production
+accounts and billing remain disabled. See [delivery boundaries](docs/DELIVERY_STATUS.md)
+for verified features and exact external activation dependencies.
 
 Dictation appears in an editable prompt. Pause or stop, edit, then submit.
 The browser handles speech recognition and may use its speech service;
@@ -29,7 +30,7 @@ physical microphone capture and transcription remain a live manual check.
 
 ## Run
 
-Use Node 22.13 or newer:
+Use Node 22.16 or newer:
 
 ```sh
 npm run product:install
@@ -78,7 +79,9 @@ limited to the isolated staging implementation described below.
 
 Production is the existing COMPASS Railway project (compass-web service),
 serving mycompass.world. Source: this repository main, root directory /compass.
-Use compass/Dockerfile; Railway supplies PORT; healthcheck is /healthz.
+The existing Railway service uses its configured Railpack build with root /compass.
+compass/Dockerfile is also maintained; this release does not change the builder.
+Railway supplies PORT; healthcheck is /healthz.
 The response records mode=public-demo, demoMode and the deployed Git revision.
 The existing production live setting is preserved. A missing DEMO_VIDEO_URL
 plays the founder-approved promo, labelled as an earlier product vision.

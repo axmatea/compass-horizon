@@ -29,7 +29,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   document.querySelector('h1').textContent = 'Workspace'
   const sidebar = element('aside',null,'workspace-nav')
   sidebar.setAttribute('aria-label','Workspace')
-  const mark = element('img'); mark.src='/assets/brand-next/mark-b-offset.svg'; mark.alt='COMPASS'; mark.width=32; mark.height=32
+  const mark = element('img'); mark.src='/assets/brand-next/mark-a-fold.svg'; mark.alt='COMPASS'; mark.width=32; mark.height=32
   sidebar.append(mark)
   const apps = element('button','Applications'), websites = element('button','Websites'), connections=element('button','Connections'), billing=element('button','Billing'), publishing=element('button','Publish'), admin=element('button','Operations')
   const projects = element('button','Saved websites'), history = element('button','History'), usage = element('button','Usage')
@@ -39,7 +39,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   sidebar.append(apps,websites,projects,history,usage,connections,billing,publishing,admin,settings,logout)
   admin.hidden=true
   document.querySelector('main').before(sidebar)
-  const note = element('p','Account preview · saves can be lost when this preview redeploys. Export work you want to keep.','account-preview-note')
+  const note = element('p','Preview storage is temporary. Export your work.','account-preview-note')
   document.querySelector('.project-heading').after(note)
   const save = element('button','Save to preview account','button')
   save.type='button'; save.disabled=true
@@ -136,7 +136,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
     try {
       const result=await request('projects',{method:'POST',body:JSON.stringify({...project,projectId:cloudId})})
       if(savedEpoch!==projectEpoch)return
-      cloudId=result.project.id; lastSaved=savedSignature; onMessage('Saved to preview account. Export a copy before the preview redeploys.')
+      cloudId=result.project.id; lastSaved=savedSignature; onMessage('Saved. Preview storage is temporary.')
     } catch(error) { if(savedEpoch===projectEpoch)onMessage(error.message) }
     finally { saving=false; api.update() }
   })

@@ -118,3 +118,36 @@ same volume does not protect against losing that volume.
 [social OAuth](https://better-auth.com/docs/concepts/oauth),
 [Railway volumes](https://docs.railway.com/volumes/reference),
 [Node SQLite API](https://github.com/nodejs/node/blob/v22.23.0/doc/api/sqlite.md).
+
+## Private database delivery guard and request bounds
+
+Every account database location must resolve outside the real served static root,
+including disposable preview storage. Startup resolves existing file/parent
+symlinks and filesystem `..` semantics before opening or migrating the database;
+a public destination fails closed. Static HTML/asset delivery independently
+rejects the configured database and its SQLite journal targets, including public
+symlinks to a private file. An unrelated public JSON asset with the same basename
+remains available.
+
+The single-instance preview applies these technical request limits to verified
+owners after origin, session and account-continuity checks:
+
+| Private API category | Fixed window limit |
+| --- | --- |
+| GET/HEAD reads | 300 per minute |
+| Mutations | 60 per minute |
+| Integration connect POSTs | 10 per ten minutes, also counted as mutations |
+| Billing checkout/portal/cancel POSTs | 10 per minute, also counted as mutations |
+
+A blocked request returns 429 with `Retry-After`; rejected attempts do not extend
+the window or consume another category. Retries still retain their application
+or checkout idempotency keys. The existing 30 builds per owner per hour remains
+independent. Counters are process-local, expire, and retain at most 1,000 owners
+using least-recently-used eviction. A restart resets these abuse counters; they
+are not a durable commercial quota or a shared limiter for multiple replicas.
+Better Auth keeps its own authentication limits. Public signed webhooks keep
+their bounded raw body and official signature checks, outside owner counters.
+
+Tests cover owner separation, independent/combined categories, exact window
+reset and retry delay, TTL/LRU bounds, and actual HTTP 429 responses using a
+server-only clock seam. No external service or financial configuration is enabled.
