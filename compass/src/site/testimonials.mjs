@@ -1,6 +1,8 @@
 // Publish only founder-approved statements with a public attribution source.
-// Leave empty until actual names, wording and approval are supplied.
-export const testimonials = Object.freeze([])
+// Quotes live in studio-content.mjs so team and voices stay in one place.
+import { studioQuotes } from './studio-content.mjs'
+
+export const testimonials = studioQuotes
 
 const clean = (value,max) => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max) : ''
 

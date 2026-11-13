@@ -64,7 +64,13 @@ test('homepage tells the verified page-preview story and uses shared neutral fou
   assert.match(visible, /Your idea\.[\s\S]*Its first page\./);
   assert.match(visible, /Preview only;/);
   assert.match(visible, /nothing is published/);
-  assert.doesNotMatch(visible, /recurring revenue|Lovable|Bolt|Replit|production-ready|native apps|unlimited|\bARR\b|\bMRR\b|customers|testimonial|trusted by|backed by|funded|raised/i);
+  assert.match(visible, /Built by a team that already ships/);
+  assert.match(visible, /Nayl Ahmadulin/);
+  assert.match(visible, /\$240K ARR/);
+  assert.match(visible, /Jarrar CPA Pro/);
+  assert.deepEqual(visible.match(/\$[\d,.]+K?\s*ARR/g) || [], ['$240K ARR']);
+  assert.doesNotMatch(visible, /\bACV\b|recurring revenue|Lovable|Bolt|Replit|production-ready|native apps|unlimited|\bMRR\b|customers|testimonial|trusted by|backed by|funded|raised|Vincent/i);
+  assert.match(html, /id="story"/);
   assert.match(html, /<details class="build-details">/);
   assert.doesNotMatch(html, /<details class="build-details" open/);
   assert.equal((html.match(/<iframe\b[^>]*sandbox=""[^>]*hidden/g) || []).length, 2);
@@ -81,6 +87,7 @@ test('homepage tells the verified page-preview story and uses shared neutral fou
   assert.match(css, /prefers-reduced-motion:reduce/);
   assert.match(css, /\.watch\b/);
   assert.match(css, /\.player \.poster/);
+  assert.match(css, /\.story\b/);
   assert.doesNotMatch(css, /https?:\/\//);
   const landing = await read('src/site/landing.js');
   assert.match(landing, /'\/api\/site\/turn'/);
