@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir, access } from 'node:fs/promises';
 import { EXAMPLES } from './demo/catalog.mjs';
 import { team, visibleTeam } from './site/team.mjs';
+import { studioTeam, studioCompany, studioQuotes } from './site/studio-content.mjs';
 
 const root = new URL('../', import.meta.url);
 const read = path => readFile(new URL(path, root), 'utf8');
@@ -11,7 +12,7 @@ test('public entry points stay honest, bounded, accessible and connected', async
   const html = await read('index.html');
   const demo = await read('demo.html');
   const plan = await read('plan.html');
-  const external = new Set(['https://aimedia.global']);
+  const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
     if (external.has(href) || href === '#watch') continue; // The server inserts this recording section.
     assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || href === '/plan' || href === '/studio', href);
@@ -51,7 +52,15 @@ test('public entry points stay honest, bounded, accessible and connected', async
   const sample = visibleTeam([{ name: 'Example Person', role: 'Example role', bio: 'Example bio', logo: 'https://example.com/a.png' }, { name: 'Second', logo: '/assets/logo.svg' }]);
   assert.equal(sample[0].name, 'Example Person');
   assert.equal(sample[0].logo, '');
+  assert.equal(sample[0].initials, 'EP');
   assert.equal(sample[1].logo, '/assets/logo.svg');
+  assert.equal(studioCompany.arr, '$240K ARR');
+  assert.equal(studioTeam.length, 1);
+  assert.equal(studioTeam[0].name, 'Nayl Ahmadulin');
+  assert.equal(studioTeam[0].role, 'Founder');
+  assert.equal(studioTeam[0].photo, '');
+  assert.deepEqual(studioQuotes, []);
+  assert.doesNotMatch(JSON.stringify(studioTeam) + JSON.stringify(studioCompany), /Vincent/i);
   for (const example of EXAMPLES) assert.ok(plan.includes(example.intent), example.id);
 });
 

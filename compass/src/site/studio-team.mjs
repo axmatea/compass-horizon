@@ -1,4 +1,2 @@
-// Name and role confirmed in the founder-provided COMPASS brief.
-export const studioTeam = Object.freeze([
-  Object.freeze({ name: 'Nail Akhmadullin', role: 'Founder', bio: '' }),
-])
+// Re-export the confirmed studio roster from the single content file.
+export { studioTeam, studioCompany, studioQuotes } from './studio-content.mjs'

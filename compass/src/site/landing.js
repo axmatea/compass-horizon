@@ -28,7 +28,7 @@ if (!reduce && 'IntersectionObserver' in window) {
   }), { rootMargin: '0px 0px -8% 0px' })
   document.documentElement.classList.add('motion')
   document.querySelectorAll('main > section:not(.hero)').forEach(section => {
-    section.querySelectorAll('h2, .watch-note, .player, .how-steps > li, .access-form').forEach((el, index) => {
+    section.querySelectorAll('h2, .watch-note, .player, .how-steps > li, .story-founder, .story-proof > li, .access-form').forEach((el, index) => {
       el.classList.add('rise')
       el.style.transitionDelay = Math.min(index, 5) * 60 + 'ms'
       io.observe(el)
