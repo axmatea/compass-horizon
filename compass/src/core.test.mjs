@@ -70,6 +70,34 @@ test('public entry points stay honest, bounded, accessible and connected', async
   for (const example of EXAMPLES) assert.ok(plan.includes(example.intent), example.id);
 });
 
+test('public pages use the approved Fold mark', async () => {
+  const fold = 'M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z';
+  for (const page of ['index.html', 'demo.html', 'plan.html', 'studio.html', 'create.html']) {
+    const html = await read(page);
+    assert.ok(html.includes(fold), page);
+    assert.doesNotMatch(html, /r="9\.6"|m31 16-4 12/);
+  }
+  const workspace = await read('src/account/workspace.mjs');
+  assert.match(workspace, /\/assets\/brand-next\/mark-a-fold\.svg/);
+  assert.doesNotMatch(workspace, /mark-b-offset\.svg/);
+  const favicon = await read('public/favicon.svg');
+  assert.match(favicon, /#18191b/);
+  assert.match(favicon, /M3 11\.6 14\.6 4\.8v16\.6L3 28\.2Zm16\.4-5\.2 10\.2 6v15l-10\.2-6Z/);
+  const ico = await readFile(new URL('public/favicon.ico', root));
+  assert.equal(ico.readUInt16LE(2), 1);
+  const sizes = Array.from({ length: ico.readUInt16LE(4) }, (_, i) => ico[6 + i * 16] || 256);
+  assert.deepEqual(sizes, [16, 32, 48]);
+  const apple = await readFile(new URL('public/apple-touch-icon.png', root));
+  assert.equal(apple.toString('ascii', 12, 16), 'IHDR');
+  assert.equal(apple.readUInt32BE(16), 180);
+  assert.equal(apple.readUInt32BE(20), 180);
+  const tile = await readFile(new URL('public/assets/fold-app-icon.png', root));
+  assert.equal(tile.readUInt32BE(16), 512);
+  assert.equal(tile.readUInt32BE(20), 512);
+  await access(new URL('public/assets/brand-next/mark-a-fold.svg', root));
+  await access(new URL('public/assets/fold-app-icon.svg', root));
+});
+
 test('only referenced homepage assets and font licence are retained', async () => {
   const html = await read('index.html');
   for (const [, path] of html.matchAll(/(?:href|src|poster)="(\/[^"]+)"/g)) {

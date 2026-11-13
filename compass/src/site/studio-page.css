@@ -11,7 +11,7 @@ h1,h2,h3,p,figure,blockquote{margin:0}
 .skip:focus{top:14px}
 .studio-nav{display:flex;align-items:center;justify-content:space-between;gap:24px;height:80px;padding:0 max(28px,calc((100% - 1280px)/2));border-bottom:1px solid var(--line)}
 .brand{display:inline-flex;align-items:center;gap:11px;font-size:14px;letter-spacing:.17em;font-weight:650}
-.brand svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.2}
+.brand svg{width:24px;height:24px;flex:none;fill:currentColor}.brand path{fill:currentColor}
 .studio-nav nav{display:flex;align-items:center;gap:32px;font-size:16px}
 .studio-nav nav a{display:inline-flex;align-items:center;gap:16px;min-height:44px}
 .studio-nav nav a:hover,.section-heading>a:hover,.studio-footer>a:hover{color:var(--accent)}

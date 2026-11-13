@@ -20,7 +20,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   document.querySelector('h1').textContent = 'Workspace'
   const sidebar = element('aside',null,'workspace-nav')
   sidebar.setAttribute('aria-label','Workspace')
-  const mark = element('img'); mark.src='/assets/brand-next/mark-b-offset.svg'; mark.alt='COMPASS preview identity'; mark.width=32; mark.height=32
+  const mark = element('img'); mark.src='/assets/brand-next/mark-a-fold.svg'; mark.alt='COMPASS preview identity'; mark.width=32; mark.height=32
   sidebar.append(mark)
   const projects = element('button','Projects'), history = element('button','History'), usage = element('button','Usage')
   const settings = element('a','Settings'); settings.href='/create?edit=1'

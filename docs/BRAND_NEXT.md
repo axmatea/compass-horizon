@@ -1,7 +1,7 @@
 # COMPASS identity studies
 
 13 November 2026. New original explorations for the account/workspace preview.
-The current public logo, favicon and headers were not modified.
+A · Fold was approved by the founder on Nov 13, 2026 and is now the public mark. These study files stay in place. Public favicon tiles use a slightly wider gap and thicker planes so the mark still reads at 16 pixels.
 
 Review `/assets/brand-next/studies.html` in the local or staging build. It shows
 three native SVG marks at 16, 24 and 32 pixels, reversed app tiles, wordmark
