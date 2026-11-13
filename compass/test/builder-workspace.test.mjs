@@ -5,12 +5,14 @@ import vm from 'node:vm';
 import { createPreviewTools } from '../src/site/preview-tools.mjs';
 import { parseSse, cleanText, previewDoc } from '../src/site/studio.mjs';
 import { createProjectStore, completedRevision, appendRevision, restoredProject } from '../src/builder/project-store.mjs';
+import { mountPaneLayout } from '../src/builder/pane-layout.mjs';
+import { rebaseEditedHtml } from '../html/edit.mjs';
 
 // Run the real client against a small DOM adapter and controllable network.
 // Browser layout and native speech are checked separately; these cases guard
 // request recovery, keyboard submissions and storage wiring without a model.
 const html = await readFile(new URL('../demo.html',import.meta.url),'utf8');
-const client = (await readFile(new URL('../src/builder/builder.js',import.meta.url),'utf8')).replace(/^import .+\n/gm,'');
+const client = (await readFile(new URL('../src/builder/builder.js',import.meta.url),'utf8')).replace(/^import .+\n/gm,'').replace("await import('../../html/edit.mjs')",'await loadEditorPolicy()');
 class Element {
   constructor() { this.value=''; this.dataset={}; this.attributes={}; this.children=[]; this.listeners={}; this.hidden=false; this.disabled=false; this._text=''; this.loads=[]; this.classList={toggle(){}}; }
   set srcdoc(value) { this._srcdoc=value; this.loads.push(value); }
@@ -36,7 +38,7 @@ async function workspace(fetchImpl) {
   }
   const examples=[...html.matchAll(/data-starter="([^"]+)"/g)].map(match=>Object.assign(new Element(),{dataset:{starter:match[1]}}));
   const refinements=[...html.matchAll(/data-refine="([^"]+)"/g)].map(match=>Object.assign(new Element(),{dataset:{refine:match[1]}}));
-  const views=['web','phone','both'].map(value=>Object.assign(new Element(),{dataset:{previewViewButton:value}}));
+  const views=['web','tablet','phone','both'].map(value=>Object.assign(new Element(),{dataset:{previewViewButton:value}}));
   const copy=new Element(),download=new Element(),exportStatus=new Element(),tools=new Element();
   tools.querySelectorAll=()=>views;
   tools.querySelector=selector=>selector==='[data-preview-copy]' ? copy : selector==='[data-preview-download]' ? download : exportStatus;
@@ -46,10 +48,10 @@ async function workspace(fetchImpl) {
   const values=new Map();
   const storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
   const context={document,window:{},location:{href:'https://compass.test/demo'},URL,AbortController,setTimeout,clearTimeout,TextDecoder,fetch:fetchImpl,confirm:()=>true,
-    createDictation:()=>null,createPreviewTools,parseSse,cleanText,previewDoc,completedRevision,appendRevision,restoredProject,
+    createDictation:()=>null,createPreviewTools,mountPaneLayout,parseSse,cleanText,previewDoc,completedRevision,appendRevision,restoredProject,loadEditorPolicy:async()=>({rebaseEditedHtml}),
     createProjectStore:()=>createProjectStore({storage}),
   };
-  vm.runInNewContext(client+'\nglobalThis.workspace={submit,loadProject,getState:()=>state,getHistory:()=>history};',context);
+  vm.runInNewContext(client+'\nglobalThis.workspace={submit,loadProject,applyEditedHtml,restoreRevision,undoRevision,getState:()=>state,getHistory:()=>history};',context);
   return {...context.workspace,nodes,examples,refinements,copy,download,values};
 }
 const page=(version=1,theme='light')=>({sessionId:'s_test',version,source:'model',placeholder:false,intent:{business:'Atelier',kind:'studio',theme,accent:'sky',font:'sans',hero:'centered',sections:['contact']},html:'<!doctype html><html><body>'+theme+' '+version+'</body></html>',pending:[],reply:'Your page is ready.'});
@@ -232,4 +234,39 @@ test('a resumed project retains its seed when the stream fails after its result 
   assert.deepEqual(bodies[1].resumeIntent,saved.revisions[0].plan.intent);
   assert.deepEqual(bodies[2].resumeIntent,saved.revisions[0].plan.intent);
   assert.equal(ui.getHistory().length,2);
+});
+
+test('code editing persists independent chat changes and keeps the last preview on conflict',async()=>{
+  let calls=0;
+  const original={...page(),html:'<!doctype html><html><head><style>body{color:#111}</style></head><body><h1>Atelier</h1><p>Original.</p></body></html>'};
+  const ui=await workspace(()=>json(++calls===1?original:{...original,version:calls,html:original.html.replace('Atelier</h1>',calls===2?'New atelier</h1>':'Another atelier</h1>').replace('Original.</p>',calls===2?'Original.</p>':'Conflicting text.</p>')}));
+  await ui.submit('Create atelier');
+  const edit=ui.applyEditedHtml(original.html.replace('Original.</p>','My text.</p>'));
+  assert.equal(edit.ok,true);assert.equal(ui.getHistory().length,2);
+  assert.equal(ui.nodes.get('#preview-source').textContent,'Edited preview');
+  await ui.submit('Update the headline');
+  assert.match(ui.getState().render.html,/New atelier<\/h1><p>My text\./);
+  assert.equal(ui.getHistory().length,3);
+  const previous=ui.getState().render.html;
+  await ui.submit('Update the text');
+  assert.equal(ui.getState().render.html,previous);
+  assert.equal(ui.getHistory().length,3);
+  assert.match(ui.nodes.get('#notice').textContent,/same content/);
+  assert.equal(ui.nodes.get('#sd-input').value,'Update the text');
+});
+
+test('edited saved projects reopen, accept repeated edits, and undo through earlier revisions',async()=>{
+  const ui=await workspace(()=>json(page()));
+  await ui.submit('Build atelier');
+  assert.equal(ui.applyEditedHtml(page().html.replace('light 1','Manual one')).ok,true);
+  assert.equal(ui.applyEditedHtml(page().html.replace('light 1','Manual two')).ok,true);
+  await ui.nodes.get('#save-project').fire('click');
+  const saved=JSON.parse([...ui.values.values()][0]).projects[0];
+  ui.loadProject(saved);
+  assert.equal(ui.applyEditedHtml(page().html.replace('light 1','Manual three')).ok,true);
+  assert.equal(ui.applyEditedHtml(page().html.replace('light 1','Manual four')).ok,true);
+  ui.undoRevision();assert.match(ui.nodes.get('#frame').srcdoc,/Manual three/);
+  ui.undoRevision();assert.match(ui.nodes.get('#frame').srcdoc,/Manual two/);
+  ui.restoreRevision(ui.getHistory()[0]);assert.match(ui.nodes.get('#frame').srcdoc,/light 1/);
+  assert.equal(ui.nodes.get('#preview-source').textContent,'Saved preview');
 });

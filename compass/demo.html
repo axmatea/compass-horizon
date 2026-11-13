@@ -51,7 +51,7 @@
 <form id="composer">
 <label class="sr" for="sd-input">Type to COMPASS</label>
 <textarea id="sd-input" name="text" maxlength="500" rows="2" autocomplete="off" placeholder="A minimal website for an architecture studio…"></textarea>
-<div class="composer-actions"><button type="button" class="mic" id="mic" aria-pressed="false" aria-describedby="voice-privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><span>Speak</span></button><p class="hint" id="hint">Describe a page, then refine it.</p><span class="count" aria-label="Characters used"><span id="count">0</span>/500</span><button type="submit" id="send" disabled>Build page</button></div>
+<div class="composer-actions"><button type="button" class="mic" id="mic" aria-pressed="false" aria-describedby="voice-privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><span>Speak</span></button><p class="hint" id="hint">Describe a page, then refine it.</p><span class="count" aria-label="Characters used"><span id="count">0</span>/500</span><button type="button" id="cancel-build" hidden>Cancel</button><button type="submit" id="send" disabled>Build page</button></div>
 </form>
 <p class="interim" id="interim" hidden></p>
 <p class="voice-fallback" id="voice-fallback" hidden>Voice input is unavailable here. Type your idea instead.</p>
@@ -60,12 +60,13 @@
 <p class="notice" id="notice" role="status" aria-live="polite"></p>
 <section id="latest-turn" class="latest-turn" aria-label="Latest instruction and response" hidden><p class="last-instruction" id="last-instruction"></p><p id="last-reply" class="last-reply" aria-live="polite"></p></section>
 </section>
+<div class="builder-resize" data-resize-pane="conversation" aria-label="Resize conversation panel"></div>
 <section class="stage" id="stage" data-preview-view="web" aria-label="Page preview">
 <div class="chrome">
 <div class="preview-heading"><span class="preview-dot" aria-hidden="true"></span><span class="url" id="url">Your page preview</span><span class="preview-source" id="preview-source" hidden></span></div>
 <div class="preview-tools" data-preview-tools>
 <div class="viewport-tabs" role="group" aria-label="Preview size">
-<button type="button" data-preview-view-button="web" aria-pressed="true">Desktop</button><button type="button" data-preview-view-button="phone" aria-pressed="false">Mobile</button><button type="button" data-preview-view-button="both" aria-pressed="false">Both</button>
+<button type="button" data-preview-view-button="web" aria-pressed="true">Desktop</button><button type="button" data-preview-view-button="tablet" aria-pressed="false">Tablet</button><button type="button" data-preview-view-button="phone" aria-pressed="false">Mobile</button><button type="button" data-preview-view-button="both" aria-pressed="false">Both</button>
 </div>
 <details class="export-menu"><summary>Export</summary><div class="preview-actions"><button type="button" data-preview-copy disabled>Copy brief</button><button type="button" data-preview-download disabled>Download HTML</button><a class="pill" id="open" hidden target="_blank" rel="noreferrer">Open page</a></div></details>
 <p class="preview-status" data-preview-status role="status" aria-live="polite"></p>
@@ -74,7 +75,7 @@
 <p id="preview-phase" class="preview-phase" role="status" hidden></p>
 <div id="snapshot-note" class="snapshot-note" hidden><p id="snapshot-label"></p><button type="button" id="history-current" class="text-button">Back to current</button></div>
 <div class="empty" id="empty">
-<span class="empty-mark" aria-hidden="true"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z"/></svg></span><p>Your next page starts here.</p><small>One idea. A first version. Room to refine.</small>
+<span class="empty-mark" aria-hidden="true"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z"/></svg></span><p>Your canvas. Your idea.</p>
 </div>
 <div class="preview-devices" id="preview-devices" hidden>
 <div class="preview-web"><iframe class="frame" id="frame" title="Generated page preview" sandbox="" hidden></iframe></div>
@@ -87,7 +88,7 @@
 <section class="card" id="build-card" hidden><header><h2>Watch the build</h2></header><ol class="build" id="build" aria-label="Build"></ol></section>
 <details class="activity"><summary>Conversation</summary><ol class="log" id="log" aria-label="Transcript"></ol></details>
 <button type="button" class="text-button sound" id="sound" aria-pressed="false">Sound off</button>
-<details class="voice-settings"><summary>Voice &amp; shortcuts</summary><p class="voice-privacy" id="voice-privacy">Voice uses your browser’s speech service. COMPASS receives only the text you submit.</p><p class="shortcut-hint">⌘ / Ctrl + Enter to build · Esc stops voice</p></details>
+<details class="voice-settings"><summary>Voice &amp; shortcuts</summary><p class="voice-privacy" id="voice-privacy">Voice uses your browser’s speech service. COMPASS receives only submitted text.</p><p class="shortcut-hint">⌘ / Ctrl + Enter: build · ⌘ / Ctrl + Shift + F: code · Escape: cancel</p></details>
 <p class="project-note">Preview only. Forms do not send data. Save on this device or download HTML. Nothing is published.</p>
 </div></details>
 <details class="history-details"><summary>History <span id="history-count">0 revisions</span></summary><div class="history-content"><p>Earlier previews. Your current page stays intact.</p><ol id="history-list" class="history-list"></ol></div></details>

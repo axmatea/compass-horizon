@@ -16,7 +16,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
     if (!response.ok) {
       const data=await response.json().catch(()=>({}))
       if (response.status===401 || data.error==='account_changed') {onClear({accountChanged:data.error==='account_changed'});location.replace('/create');throw Error('Sign in again to continue.')}
-      const messages={project_limit:'This preview holds up to 20 websites.',application_limit:'This preview holds up to 12 applications.',insufficient_credits:'Not enough available credits.',billing_external_blocked:'Billing needs its verified test configuration.',integration_external_blocked:'This connection needs its provider configuration.',version_conflict:'The project changed. Reopen it before applying this edit.'}
+      const messages={project_limit:'This preview holds up to 20 websites.',application_limit:'This preview holds up to 12 applications.',insufficient_credits:'Not enough available credits.',billing_external_blocked:'Billing needs its verified test configuration.',integration_external_blocked:'This connection needs its provider configuration.',version_conflict:'The project changed. Your edits are kept. Reopen the project before applying them.',asset_in_use:'Remove the image from logo and hero before deleting it.',asset_file_limit:'This project supports 8 active images.',asset_application_quota:'This project reached its 4 MB image limit, including retained revisions.',asset_owner_quota:'This account reached its 16 MB image limit, including retained revisions.',invalid_asset:'Choose a valid PNG or JPEG up to 512 KB and 5 megapixels.',invalid_manifest:'Manifest is invalid. Your edits are kept.'}
       throw Error(messages[data.error] || 'This request could not finish. Try again. Your current work is kept.')
     }
     return response
@@ -32,14 +32,19 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   sidebar.setAttribute('aria-label','Workspace')
   const mark = element('img'); mark.src='/assets/brand-next/mark-a-fold.svg'; mark.alt='COMPASS'; mark.width=32; mark.height=32
   sidebar.append(mark)
-  const apps = element('button','Applications'), websites = element('button','Websites'), connections=element('button','Connections'), billing=element('button','Billing'), publishing=element('button','Publish'), admin=element('button','Operations')
+  const navProjects=element('button','Projects'),studio=element('a','Studio'),apps = element('button','Applications'), websites = element('button','Websites'), connections=element('button','Integrations'), billing=element('button','Billing'), publishing=element('button','Publishing'), admin=element('button','Operations')
+  studio.href='/studio';navProjects.type='button';navProjects.setAttribute('aria-current','page')
   const projects = element('button','Saved websites'), history = element('button','History'), usage = element('button','Usage')
   const settings = element('a','Settings'); settings.href='/create?view=account'
   const logout = element('button','Sign out')
   for (const button of [apps,websites,projects,history,usage,connections,billing,publishing,admin,logout]) button.type='button'
-  sidebar.append(apps,websites,projects,history,usage,connections,billing,publishing,admin,settings,logout)
+  const more=element('details',null,'workspace-more'),moreLabel=element('summary','More')
+  more.append(moreLabel,projects,history,usage,billing,publishing,admin,logout)
+  more.addEventListener('click',event=>{if(event.target?.tagName==='BUTTON')more.open=false})
+  sidebar.append(navProjects,studio,connections,settings,more)
   admin.hidden=true
   document.querySelector('main').before(sidebar)
+  const modes=element('div',null,'workspace-modes');modes.setAttribute('role','group');modes.setAttribute('aria-label','Project type');modes.append(apps,websites);document.querySelector('.project-heading').append(modes)
   const note = element('p','Preview storage is temporary. Export your work.','account-preview-note')
   document.querySelector('.project-heading').after(note)
   const save = element('button','Save to preview account','button')
@@ -64,8 +69,9 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   }
   apps.addEventListener('click',()=>{panel.hidden=true;selectMode(true)})
   websites.addEventListener('click',()=>{panel.hidden=true;selectMode(false)})
+  navProjects.addEventListener('click',()=>{panel.hidden=true;more.open=false;selectMode(applicationMode)})
   let cloudId = null, signature = '', lastSaved = '', saving = false, projectEpoch = 0, loadRequest = 0
-  close.addEventListener('click',()=>{panelEpoch+=1;loadRequest+=1;panel.hidden=true; projects.focus()})
+  close.addEventListener('click',()=>{panelEpoch+=1;loadRequest+=1;panel.hidden=true;navProjects.focus()})
   const api = {
     userId:mountedOwner,
     handlesDraft:applicationDraft(initialDraft),
@@ -153,7 +159,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
         if(provider.limitation)row.append(element('p',provider.limitation))
         connectionActions({provider,row,request,isCurrent:()=>run===panelEpoch,onStatus:message=>{if(run===panelEpoch)status.textContent=message},onRefresh:()=>{if(run===panelEpoch)connections.click()},getSource:async()=>{
           const app=appWorkspace?.currentApplication
-          if(applicationMode){if(!app?.id)throw Error('Open a completed application first.');return appWorkspace.getSource()}
+          if(applicationMode){if(!app?.id)throw Error('Open a completed application first.');const source=await appWorkspace.getSource();if(source.files.some(file=>file.encoding==='base64'))throw Error('This project includes images. Export its complete ZIP from the canvas. Reviewed GitHub export currently supports text files.');return source}
           const project=getProject(),html=project?.revisions.at(-1)?.render?.html
           if(!html)throw Error('Open a completed project first.')
           return {files:[{path:'index.html',content:html}]}

@@ -15,7 +15,8 @@
     else item.reject(Error('Request failed'));
   });
   const request = (action,values) => new Promise((resolve,reject) => {
-    if (!['list','create','update','delete'].includes(action) || pending.size >= 8) { reject(Error('Unavailable')); return; }
+    if (!['list','create','update','delete','asset'].includes(action) || pending.size >= 8) { reject(Error('Unavailable')); return; }
+    if(action==='asset'&&!Object.values(manifest.assets||{}).includes(values?.assetId)){reject(Error('Unavailable'));return}
     const requestId = 'app_' + (++serial) + '_' + crypto.randomUUID();
     const message = {type:'compass-app-request',requestId,action,...values};
     if (JSON.stringify(message).length > 20000) { reject(Error('Request too large')); return; }

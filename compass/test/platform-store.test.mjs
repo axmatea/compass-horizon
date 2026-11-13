@@ -54,3 +54,9 @@ test('portable business data stays capped at 200 owner records',t=>{
   assert.throws(()=>store.saveRecord('owner_a',app.id,{title:'One too many',status:'To do'}),throwsCode('record_limit'));
   assert.throws(()=>store.listRecords('owner_b',app.id),throwsCode('not_found'));
 });
+
+test('direct publication callers still enforce the shared inert HTML policy',t=>{
+  const {store}=fixture(t);
+  assert.throws(()=>store.publish('owner_a',{id:'p_test',name:'Unsafe',revisions:[{render:{html:'<!doctype html><html><body><script>alert(1)</script></body></html>'}}]}),throwsCode('invalid_project_html'));
+  const publication=store.publish('owner_a',{id:'p_test',name:'Safe',revisions:[{render:{html:'<!doctype html><html><head><title>Safe</title></head><body><h1>Safe</h1></body></html>'}}]});assert.match(store.publicPage(publication.id),/<h1>Safe<\/h1>/);
+});

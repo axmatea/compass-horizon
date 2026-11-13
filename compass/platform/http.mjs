@@ -4,6 +4,7 @@ import {createApplicationBundle,exportApplicationZip,renderApplicationPreview,va
 import {createIntegrations} from '../integrations/index.mjs';
 import {createBilling} from '../billing/index.mjs';
 import {inspectStorage} from '../account/storage.mjs';
+import {ASSET_LIMITS} from '../generation/image.mjs';
 import {withUsageTracking} from '../usage.mjs';
 
 const fail=(status,code)=>{throw Object.assign(new Error(code),{status,code})};
@@ -116,12 +117,34 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
       else if(method==='POST')json(200,await generate(owner,req,await readBody(req,12000)));
       else json(405,{error:'method_not_allowed'});return true;
     }
-    const app=path.match(/^\/api\/account\/apps\/([A-Za-z0-9_-]{1,80})(?:\/(refine|design|revisions|restore|records|preview|source|export|data)(?:\/([A-Za-z0-9_-]{1,80}))?)?$/);
+    const app=path.match(/^\/api\/account\/apps\/([A-Za-z0-9_-]{1,80})(?:\/(refine|design|revisions|restore|records|preview|source|export|data|manifest|assets)(?:\/([A-Za-z0-9_-]{1,80}))?)?$/);
     if(!app)return false;
     const [,appId,action,recordId]=app;
     if(action==='refine'&&method==='POST'&&!recordId){json(200,await generate(owner,req,await readBody(req,12000),appId));return true}
     const current=store.getApplication(owner,appId);
     if(!action){if(method==='GET')json(200,{application:current});else if(method==='DELETE'){store.deleteApplication(owner,appId);json(200,{ok:true})}else json(405,{error:'method_not_allowed'});return true}
+    const expectedVersion=()=>{const value=req.headers['x-compass-app-version'];if(typeof value!=='string'||!/^\d{1,10}$/.test(value)||Number(value)<1)fail(400,'version_required');return Number(value)};
+    if(action==='assets'){
+      if(!recordId&&method==='GET'){res.setHeader('X-Compass-App-Version',String(current.version));json(200,store.listAssets(owner,appId))}
+      else if(!recordId&&method==='POST'){
+        const version=expectedVersion();if(version!==current.version)fail(409,'version_conflict');
+        const mime=String(req.headers['content-type']||'').split(';')[0].trim().toLowerCase();
+        if(!['image/png','image/jpeg'].includes(mime))fail(415,'image_type_unsupported');
+        const result=store.saveAsset(owner,appId,await readRawBody(req,ASSET_LIMITS.fileBytes),mime,version);res.setHeader('X-Compass-App-Version',String(result.application.version));json(200,result);
+      }else if(recordId&&method==='GET'){
+        if(req.headers['x-compass-app-version']!==undefined&&expectedVersion()!==current.version)fail(409,'version_conflict');
+        const asset=store.getAsset(owner,appId,recordId);res.writeHead(200,{'Content-Type':asset.mime,'Content-Length':asset.bytes,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Compass-App-Version':String(current.version),'Content-Disposition':'inline; filename="'+asset.id+(asset.mime==='image/png'?'.png':'.jpg')+'"'});res.end(asset.data);
+      }else if(recordId&&method==='DELETE'){const result=store.deleteAsset(owner,appId,recordId,expectedVersion());res.setHeader('X-Compass-App-Version',String(result.application.version));json(200,result)}
+      else json(405,{error:'method_not_allowed'});return true;
+    }
+    if(action==='manifest'&&!recordId&&method==='PUT'){
+      const input=fields(await readBody(req,32768),['manifest','version']);
+      if(!Number.isSafeInteger(input.version)||input.version<1)fail(400,'version_required');
+      const manifest=validateApplicationManifest(input.manifest);if(!manifest)fail(400,'invalid_manifest');
+      const application=store.updateApplication(owner,appId,manifest,'Edit application manifest','prepared',input.version),changed=application.version!==current.version;
+      const files=store.revisions(owner,appId).find(revision=>revision.version===application.version);
+      res.setHeader('X-Compass-App-Version',String(application.version));json(200,{application,changed,changes:changed?files?.changes||[]:[],files:files?.files||[]});return true;
+    }
     if(action==='records'){
       if(!recordId&&method==='GET')json(200,{records:store.listRecords(owner,appId)});
       else if((!recordId&&method==='POST')||(recordId&&method==='PUT')){const input=fields(await readBody(req,20000),['data']);json(200,{record:store.saveRecord(owner,appId,input.data,recordId)})}
@@ -143,13 +166,13 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
       // never executed on the delivery server. The browser adds sandbox.
       res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Robots-Tag':'noindex','Content-Security-Policy':"default-src 'none'; sandbox allow-scripts; frame-ancestors 'self'"});res.end(html);return true;
     }
-    if(action==='source'){json(200,await createApplicationBundle(current.manifest));return true}
+    if(action==='source'){json(200,await createApplicationBundle(current.manifest,{assets:store.activeAssets(owner,appId),trustedAssets:true}));return true}
     if(action==='data'){
       res.setHeader('Content-Disposition','attachment; filename="compass-application-data.json"');
       json(200,{manifest:current.manifest,records:store.listRecords(owner,appId),exportedAt:new Date().toISOString()});return true;
     }
     if(action==='export'){
-      const data=exportApplicationZip(await createApplicationBundle(current.manifest));
+      const data=exportApplicationZip(await createApplicationBundle(current.manifest,{assets:store.activeAssets(owner,appId),trustedAssets:true}));
       res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="compass-application.zip"','Content-Length':data.length,'Cache-Control':'no-store'});res.end(data);return true;
     }
     return false;

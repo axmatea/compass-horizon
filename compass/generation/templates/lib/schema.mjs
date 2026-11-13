@@ -2,19 +2,20 @@ const TYPES = ['text','textarea','number','date','select'];
 const MODES = ['light','dark'], ACCENTS = ['indigo','blue','slate','rose','amber'];
 const RESERVED = new Set(['id','owner','owner_id','userid','user_id','session','password','token','constructor','prototype','__proto__']);
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
+const hasOnlyKeys=(value,allowed)=>Object.keys(value).every(key=>allowed.includes(key));
 const text = (value,max) => typeof value === 'string' && value.trim() && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value) ? value.trim() : null;
 
 export function validateApplicationManifest(value) {
-  if (!plain(value) || value.schema !== 1 || !['tracker','crm','booking','inventory'].includes(value.kind)) return null;
+  if (!plain(value) || !hasOnlyKeys(value,['schema','title','description','kind','theme','entity','assets']) || value.schema !== 1 || !['tracker','crm','booking','inventory'].includes(value.kind)) return null;
   const title = text(value.title,64), description = text(value.description,240);
-  if (!title || !description || !plain(value.theme) || !plain(value.entity)) return null;
+  if (!title || !description || !plain(value.theme) || !hasOnlyKeys(value.theme,['mode','accent','font','density']) || !plain(value.entity) || !hasOnlyKeys(value.entity,['singular','plural','fields'])) return null;
   const theme = value.theme;
   if (!MODES.includes(theme.mode) || !ACCENTS.includes(theme.accent) || !['sans','serif'].includes(theme.font) || !['comfortable','compact'].includes(theme.density)) return null;
   const singular = text(value.entity.singular,32), plural = text(value.entity.plural,40);
   if (!singular || !plural || !Array.isArray(value.entity.fields) || !value.entity.fields.length || value.entity.fields.length > 8) return null;
   const fields = [], keys = new Set();
   for (const field of value.entity.fields) {
-    if (!plain(field) || typeof field.key !== 'string' || !/^[a-z][a-z0-9_]{0,31}$/.test(field.key) || RESERVED.has(field.key) || keys.has(field.key)) return null;
+    if (!plain(field) || !hasOnlyKeys(field,['key','label','type','required','options']) || (field.type!=='select' && field.options!==undefined) || typeof field.key !== 'string' || !/^[a-z][a-z0-9_]{0,31}$/.test(field.key) || RESERVED.has(field.key) || keys.has(field.key)) return null;
     const label = text(field.label,48);
     if (!label || !TYPES.includes(field.type) || typeof field.required !== 'boolean') return null;
     keys.add(field.key);
@@ -26,7 +27,12 @@ export function validateApplicationManifest(value) {
     }
     fields.push(out);
   }
-  return {schema:1,title,description,kind:value.kind,theme:{mode:theme.mode,accent:theme.accent,font:theme.font,density:theme.density},entity:{singular,plural,fields}};
+  let assets;
+  if(value.assets!==undefined){
+    if(!plain(value.assets)||!hasOnlyKeys(value.assets,['logo','hero'])||Object.values(value.assets).some(id=>typeof id!=='string'||!/^asset_[a-zA-Z0-9_-]{1,74}$/.test(id)))return null;
+    if(Object.keys(value.assets).length)assets={...(value.assets.logo?{logo:value.assets.logo}:{}),...(value.assets.hero?{hero:value.assets.hero}:{})};
+  }
+  return {schema:1,...(assets?{assets}:{}),title,description,kind:value.kind,theme:{mode:theme.mode,accent:theme.accent,font:theme.font,density:theme.density},entity:{singular,plural,fields}};
 }
 
 export function validateApplicationRecord(manifest, value) {

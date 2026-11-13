@@ -5,6 +5,7 @@ import { createProjectStore, completedRevision, appendRevision, restoredProject 
 import { readDraft, clearDraft, writeDraft, draftCanAutoBuild, disarmDraft } from '../create/draft.mjs'
 import { mountAccountWorkspace } from '../account/workspace.mjs'
 import { operationKey, clearOperation } from '../account/operation.mjs'
+import { mountPaneLayout } from './pane-layout.mjs'
 import '../account/workspace.css'
 
 const accountMode = new URL(location.href).pathname.replace(/\/$/,'') === '/workspace'
@@ -77,12 +78,15 @@ let projectId = null
 let history = []
 let selectedRevision = null
 let resumeIntent = null
+let documentEdit = null
+let undoQueue = null
 let lastPrompt = ''
 let latestReply = ''
 let lastSavedSignature = ''
 let saveMessage = ''
 let historyKey = ''
 const requestControllers = new Set()
+let websitePaneLayout = accountMode ? null : mountPaneLayout({root:document.querySelector('.sd-shell'),owner:'device',scope:'websites',defaults:{conversation:320}})
 const projectStore = createProjectStore()
 const projectName = document.querySelector('#project-name')
 const saveButton = document.querySelector('#save-project')
@@ -111,7 +115,28 @@ const previewTools = createPreviewTools({
   getPlan: () => previewPlan(),
   getRender: () => previewRender(),
   isBusy: () => selectedRevision ? false : state.busy,
+  onApplyHtml: applyEditedHtml,
+  canEdit: () => !state.busy && !selectedRevision,
+  getDocumentBase: () => documentEdit?.base || '',
 })
+
+function applyEditedHtml(html) {
+  if(state.busy || selectedRevision || !previewRender()?.html)return {ok:false,error:'Return to the current completed revision to edit.'}
+  const plan=previewPlan(),render=previewRender()
+  if(html===render.html)return {ok:true}
+  const base=documentEdit?.base || render.html
+  const revision=completedRevision({plan,render:{...render,html,pending:[]},source:'edited',documentBase:base},'Edited index.html')
+  if(!revision)return {ok:false,error:'This document could not be saved safely. Previous preview kept.'}
+  documentEdit={base,render:{...render,html,key:(state.render?.key || 0)+1}}
+  state.documentBase=base
+  state.render={...state.render,html,pending:[],key:documentEdit.render.key}
+  state.source='edited';state.sourcePending=false;state.remotePreviewCurrent=false
+  history=appendRevision(history,revision)
+  undoQueue=null
+  latestReply='Code changes applied.';saveMessage='';tell('Code applied. Save to keep it on this device.')
+  paint()
+  return {ok:true}
+}
 
 const designControls=document.createElement('details');designControls.className='website-design'
 const designTitle=document.createElement('summary');designTitle.textContent='Design';designControls.append(designTitle)
@@ -127,10 +152,11 @@ for(const [name,options] of visualFields){
 form.after(designControls)
 
 function previewPlan() {
-  return selectedRevision?.plan || (state.source === 'saved' && !state.busy ? history.at(-1)?.plan : null) || state.plan
+  return selectedRevision?.plan || (['saved','edited'].includes(state.source) && !state.busy ? history.at(-1)?.plan : null) || state.plan
 }
 function previewRender() {
-  return selectedRevision?.render || (state.source === 'saved' && !state.busy ? history.at(-1)?.render : null) || state.render
+  if(!selectedRevision && state.busy && documentEdit)return documentEdit.render
+  return selectedRevision?.render || (['saved','edited'].includes(state.source) && !state.busy ? history.at(-1)?.render : null) || state.render
 }
 function setOrb(next) {
   state.orb = next
@@ -265,7 +291,7 @@ function paintStage() {
     }
   }
   previewSource.hidden = state.sourcePending || (!state.source && !selectedRevision)
-  previewSource.textContent = selectedRevision || state.source === 'saved' ? 'Saved preview' : state.source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
+  previewSource.textContent = selectedRevision || state.source === 'saved' ? 'Saved preview' : state.source === 'edited' ? 'Edited preview' : state.source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
   if (!accountMode && state.sessionId && !selectedRevision && !state.busy && state.remotePreviewCurrent) {
     open.hidden = false
     open.href = '/api/site/session/' + encodeURIComponent(state.sessionId) + '/page'
@@ -479,7 +505,7 @@ async function submit(text) {
     }
   } catch {
     if (mine !== epoch) return
-    recover(timedOut ? 'This update took too long. Try again.' : 'Connection lost. Try again.')
+    recover(controller.signal.reason==='user_cancelled' ? 'Stopped waiting. Your instruction is kept; retry to check the result.' : timedOut ? 'This update took too long. Try again.' : 'Connection lost. Try again.')
   } finally {
     clearTimeout(deadline)
     requestControllers.delete(controller)
@@ -489,7 +515,21 @@ async function submit(text) {
         state.actions = state.actions.map(action => action.status === 'running' ? {...action,status:'invalidated'} : action)
         state.busy = false
         if (state.orb !== 'speaking') setOrb('idle')
+        if(finished && documentEdit && state.render?.html) {
+          const generated=state.render.html
+          try {
+            const {rebaseEditedHtml}=await import('../../html/edit.mjs')
+            if(mine!==epoch)return
+            const merged=rebaseEditedHtml({base:documentEdit.base,edited:documentEdit.render.html,next:generated})
+            if(!merged.ok){recover(merged.error);finished=false}
+            else {
+              state.render={...state.render,html:merged.html};state.source='edited';state.remotePreviewCurrent=false
+              documentEdit={base:generated,render:state.render};state.documentBase=generated
+            }
+          } catch {recover('Could not merge the code changes. Try again.');finished=false}
+        }
         const revision = finished ? completedRevision(state,lastPrompt) : null
+        if(revision)undoQueue=null
         history = appendRevision(history,revision)
         if (finished && pendingOperation) { clearOperation({owner:accountWorkspace?.userId,key:pendingOperation.key}); pendingOperation=null }
         if (finished && handoffDraft) { clearDraft({id:handoffDraft.id}); handoffDraft=null; initialPreferences=null }
@@ -560,6 +600,7 @@ function clearCurrent() {
   if (dictation?.active) dictation.stop()
   if (window.speechSynthesis) window.speechSynthesis.cancel()
   state.sessionId = ''
+  documentEdit=null;state.documentBase=null;undoQueue=null
   pendingOperation = null
   state.plan = null
   state.actions = []
@@ -598,10 +639,14 @@ document.addEventListener('keydown', (event) => {
     submit(input.value)
   }
   if (event.key === 'Escape') {
+    if(state.busy)cancelWebsiteBuild()
     if (dictation?.active) dictation.stop()
     if (window.speechSynthesis) window.speechSynthesis.cancel()
   }
+  if((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase()==='f' && !demo.hidden){event.preventDefault();previewTools.openCode?.()}
 })
+function cancelWebsiteBuild(){for(const controller of requestControllers)controller.abort('user_cancelled')}
+document.querySelector('#cancel-build')?.addEventListener('click',cancelWebsiteBuild)
 
 function signature() {
   return projectName.value.trim() + ':' + history.map(item => item.id).join(',')
@@ -630,11 +675,15 @@ function paintProject() {
   input.disabled = readOnly
   sendButton.disabled = readOnly || state.busy || !input.value.trim()
   sendButton.textContent = state.busy ? 'Building…' : previewRender()?.html ? 'Update page' : 'Build page'
+  const cancel=document.querySelector('#cancel-build');if(cancel)cancel.hidden=!state.busy
   mic.disabled = readOnly || !dictation
   saveButton.disabled = readOnly || state.busy || !history.length || !isDirty()
   saveButton.textContent = projectId ? 'Save changes' : 'Save on this device'
   saveStatus.textContent = saveMessage || (state.busy ? 'Build in progress' : history.length ? isDirty() ? 'Unsaved changes' : 'Saved on this device' : 'Not saved')
   historyCount.textContent = history.length + (history.length === 1 ? ' revision' : ' revisions')
+  undoButton.disabled=state.busy || history.length<2 || Boolean(undoQueue && !undoQueue.length)
+  restoreButton.hidden=!selectedRevision
+  restoreButton.disabled=state.busy || !selectedRevision
   accountWorkspace?.update()
   const nextKey = history.map(item => item.id).join(',') + ':' + (selectedRevision?.id || '')
   if (historyKey === nextKey) return
@@ -699,6 +748,7 @@ function loadProject(project) {
   state.plan = restored.plan
   state.render = restored.render
   state.source = 'saved'
+  if(restored.documentBase){documentEdit={base:restored.documentBase,render:history.at(-1).render};state.documentBase=restored.documentBase}
   state.placeholder = restored.placeholder
   state.turns = history.length
   resumeIntent = restored.resumeIntent
@@ -734,6 +784,32 @@ saveButton.addEventListener('click', () => {
   if (!projectsPanel.hidden) paintProjects()
 })
 projectName.addEventListener('input', () => { saveMessage = ''; paintProject() })
+function restoreRevision(revision,{undo=false}={}) {
+  if(state.busy || !revision)return false
+  const restored=completedRevision({plan:revision.plan,render:revision.render,source:revision.source,documentBase:revision.documentBase},'Restored revision '+revision.number)
+  if(!restored){tell('This revision could not be restored safely.','error');return false}
+  state.sessionId='';resumeIntent={...revision.plan.intent}
+  state.plan={...revision.plan,version:0,patch:[]}
+  state.render={...revision.render,version:0,key:(state.render?.key || 0)+1}
+  state.source='saved';state.remotePreviewCurrent=false;state.sourcePending=false;state.actions=[]
+  state.documentBase=revision.documentBase || null
+  documentEdit=revision.documentBase ? {base:revision.documentBase,render:revision.render} : null
+  history=appendRevision(history,restored);selectedRevision=null
+  lastPrompt='Restored revision '+revision.number;latestReply='Revision restored.';saveMessage=''
+  if(!undo)undoQueue=null
+  tell('Revision restored. Save to keep the change.');paint();return true
+}
+function undoRevision(){
+  if(state.busy || history.length<2)return
+  undoQueue ||= history.slice(0,-1).reverse()
+  if(!undoQueue.length)return
+  restoreRevision(undoQueue.shift(),{undo:true})
+}
+const undoButton=document.createElement('button');undoButton.type='button';undoButton.textContent='Undo';undoButton.setAttribute('data-website-undo','')
+const restoreButton=document.createElement('button');restoreButton.type='button';restoreButton.textContent='Restore revision';restoreButton.hidden=true;restoreButton.setAttribute('data-website-restore','')
+document.querySelector('.history-details')?.append(undoButton,restoreButton)
+undoButton.addEventListener('click',undoRevision)
+restoreButton.addEventListener('click',()=>restoreRevision(selectedRevision))
 document.querySelector('#history-current').addEventListener('click', () => { selectedRevision = null; paint(); input.focus() })
 for (const button of document.querySelectorAll('[data-starter]')) button.addEventListener('click', () => {
   if (state.busy || selectedRevision) return
@@ -776,7 +852,7 @@ const accountReady = accountMode ? mountAccountWorkspace({
   onMessage:message=>tell(message),
   initialDraft:handoffDraft,
   onDraftBuilt:id=>{if(handoffDraft?.id===id){clearDraft({id});handoffDraft=null;initialPreferences=null}},
-}).then(api=>{accountWorkspace=api; paint(); return api}) : Promise.resolve(null)
+}).then(api=>{accountWorkspace=api;if(api?.userId){websitePaneLayout?.destroy();websitePaneLayout=mountPaneLayout({root:document.querySelector('.sd-shell'),owner:api.userId,scope:'websites',defaults:{conversation:320}})}paint(); return api}) : Promise.resolve(null)
 
 async function startDraft() {
   if (accountMode && !await accountReady) return
