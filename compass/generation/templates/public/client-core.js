@@ -10,6 +10,14 @@ function mountCrudApplication(manifest,request) {
   $('app-description').textContent = manifest.description;
   $('entity-title').textContent = manifest.entity.plural;
   $('form-title').textContent = 'New ' + manifest.entity.singular.toLowerCase();
+  for(const [slot,assetId]of Object.entries(manifest.assets||{})){
+    const image=document.createElement('img');image.className='app-image app-image-'+slot;image.alt=slot==='logo'?manifest.title+' logo':'';image.decoding='async';
+    if(slot==='logo')document.querySelector('.app-header').firstElementChild.prepend(image);else document.querySelector('.app-header').after(image);
+    request('asset',{assetId}).then(result=>{
+      const asset=result.asset;if(asset?.id!==assetId||!['image/png','image/jpeg'].includes(asset.mime)||typeof asset.dataUri!=='string'||asset.dataUri.length>720000||!new RegExp('^data:'+asset.mime+';base64,[A-Za-z0-9+/]+={0,2}$').test(asset.dataUri))throw Error('Invalid image');
+      image.src=asset.dataUri;
+    }).catch(()=>{image.remove()});
+  }
   const inputs = new Map();
   let records = [], editing = null, busy = false;
   const node = (tag,text,className) => { const element = document.createElement(tag); if (text != null) element.textContent = String(text); if (className) element.className = className; return element; };

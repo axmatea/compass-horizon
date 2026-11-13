@@ -4,12 +4,12 @@
   let manifest;
   let boundUser = null;
   async function api(path,method = 'GET',data) {
-    const privateAction = path.startsWith('/api/records') || path === '/api/auth/sign-out';
+    const privateAction = path.startsWith('/api/records') || path.startsWith('/api/assets') || path === '/api/auth/sign-out';
     const response = await fetch(path,{method,credentials:'same-origin',cache:'no-store',redirect:'error',headers:{accept:'application/json',...(data ? {'content-type':'application/json'} : {}),...(privateAction && boundUser ? {'x-compass-app-user':boundUser} : {})},...(data ? {body:JSON.stringify(data)} : {}),signal:AbortSignal.timeout(15000)});
     if (!response.ok) {const problem = await response.json().catch(() => ({}));if (problem.error === 'account_changed') location.reload();throw Error('Request failed');}
     return response.json();
   }
-  const records = (action,value) => api('/api/records' + (value.id ? '/' + encodeURIComponent(value.id) : ''),{list:'GET',create:'POST',update:'PUT',delete:'DELETE'}[action],['create','update'].includes(action) ? {data:value.data} : undefined);
+  const records = (action,value) => action==='asset'?api('/api/assets/'+encodeURIComponent(value.assetId)):api('/api/records' + (value.id ? '/' + encodeURIComponent(value.id) : ''),{list:'GET',create:'POST',update:'PUT',delete:'DELETE'}[action],['create','update'].includes(action) ? {data:value.data} : undefined);
   function open(session) { boundUser = session.user.id;mountCrudApplication(manifest,records); $('sign-out').hidden = false; }
   try {
     manifest = await api('/api/config');

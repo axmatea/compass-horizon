@@ -9,8 +9,9 @@ preserves one prompt through `/create` and optional onboarding. Its separate
 **Try app preview** link opens the existing isolated account preview without
 transferring the original prompt to another origin.
 
-The public website builder includes responsive previews, visual controls, code
-visibility, HTML export and explicit device-local project/revision saves. Loading
+The public website builder includes desktop/tablet/mobile previews, adjustable
+conversation panels, visual controls, safe HTML/CSS editing, conflict-aware code
+refinement, undo/restore, HTML export and explicit device-local project saves. Loading
 a saved project makes no model request. The next refinement resumes only its
 validated brief. Failed requests keep the last complete page and retry text.
 Property cards and booking forms in website previews remain illustrative.
@@ -19,9 +20,16 @@ The configured preview workspace additionally supports real owner-scoped tracker
 CRM, inventory and booking-record applications, with records, design revisions,
 reopen, source ZIP and private data export. A validated manifest drives trusted
 reviewed code; arbitrary generated source never executes on the main server.
-Its current Railway filesystem is temporary, not durable cloud storage. Production
+It also includes version-checked manifest editing, private PNG/JPEG images,
+actual file hashes and image-complete source ZIPs. Its current Railway filesystem
+is temporary, not durable cloud storage. Production
 accounts and billing remain disabled. See [delivery boundaries](docs/DELIVERY_STATUS.md)
 for verified features and exact external activation dependencies.
+
+Studio now demonstrates one real project through six interactive moments, then
+opens its completed revision history in Builder on the same device. It uses the
+same generation endpoint and never starts a model call merely from scrolling.
+See [the immersive release](docs/IMMERSIVE_STUDIO.md).
 
 Dictation appears in an editable prompt. Pause or stop, edit, then submit.
 The browser handles speech recognition and may use its speech service;

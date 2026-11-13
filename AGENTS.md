@@ -37,6 +37,14 @@ start and dev. Better Auth owns identity; oauth4webapi validates tool OAuth, and
 isolated disposable SQLite fixtures; no external database or paid provider is needed.
 Keep each actual asset and its license while referenced by a maintained page.
 
+The immersive Studio and professional builder supplement are in scope. Studio
+uses the shared generation endpoint only after explicit build/refine actions and
+transfers the exact bounded device project to Builder. Public HTML/CSS edits use
+the shared parse5/css-tree policy, lazy-loaded in the browser and revalidated by
+the server before account save/publication. Keep conflict recovery and last complete
+previews; never silently discard code changes. Account manifests and bounded
+PNG/JPEG assets remain owner/version checked.
+
 The public website builder produces a scriptless HTML preview. The staging account workspace additionally supports manifest-driven trusted CRUD applications; see docs/GENERATION_COMPLETE.md. Arbitrary generated source and native apps are not executed on the main server. Explicit Save stores bounded projects and revision
 snapshots in this browser on this device; no account, cloud backup or autosave is
 implied. Restoring a local project makes no model request. On the user's next

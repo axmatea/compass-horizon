@@ -116,7 +116,7 @@ test('only referenced homepage assets and font licence are retained', async () =
 
 test('runtime dependencies stay pinned and retired interfaces stay absent', async () => {
   const pkg = JSON.parse(await read('package.json'));
-  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['better-auth','oauth4webapi','stripe']);
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['better-auth','css-tree','oauth4webapi','parse5','stripe']);
   for(const version of Object.values(pkg.dependencies))assert.match(version,/^\d+\.\d+\.\d+$/);
   assert.match(pkg.dependencies['better-auth'], /^\d+\.\d+\.\d+$/, 'auth dependency is pinned');
   assert.deepEqual(Object.keys(pkg.devDependencies), ['vite']);

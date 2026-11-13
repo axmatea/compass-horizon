@@ -1,6 +1,6 @@
 import { BRIEF_FIELDS, SECTION_NAMES } from './studio.mjs'
 
-export const PREVIEW_VIEWS = ['web', 'phone', 'both']
+export const PREVIEW_VIEWS = ['web', 'tablet', 'phone', 'both']
 export const previewView = value => PREVIEW_VIEWS.includes(value) ? value : 'both'
 
 const clean = value => String(value ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500)
@@ -37,20 +37,31 @@ export function previewDownload(plan, render) {
   }
 }
 
-export function createPreviewTools({ root, surface, getPlan, getRender, isBusy = () => false, document:doc = root?.ownerDocument || globalThis.document }) {
+export function createPreviewTools({ root, surface, getPlan, getRender, isBusy = () => false, onApplyHtml, getDocumentBase, canEdit = () => !isBusy(), document:doc = root?.ownerDocument || globalThis.document }) {
   if (!root || !surface) return { update() {} }
   const views = [...root.querySelectorAll('[data-preview-view-button]')]
   const copy = root.querySelector('[data-preview-copy]')
   const download = root.querySelector('[data-preview-download]')
   const status = root.querySelector('[data-preview-status]')
-  const source=doc.createElement('button');source.type='button';source.textContent='View code'
+  const source=doc.createElement('button');source.type='button';source.textContent='Code';source.className='preview-code-toggle';source.setAttribute('data-preview-code','');source.setAttribute('aria-expanded','false')
   const codePanel=doc.createElement('section');codePanel.className='preview-code';codePanel.hidden=true;codePanel.setAttribute('aria-label','Website source')
-  const codeTitle=doc.createElement('h3');codeTitle.textContent='HTML source'
-  const closeCode=doc.createElement('button');closeCode.type='button';closeCode.textContent='Close code'
-  const pre=doc.createElement('pre'),code=doc.createElement('code');pre.tabIndex=0;pre.append(code);codePanel.append(codeTitle,closeCode,pre);surface.append(codePanel)
-  root.querySelector('.preview-actions')?.prepend(source)
-  source.addEventListener('click',()=>{if(!canExportPreview(getRender(),isBusy(),getPlan()))return;code.textContent=getRender().html;codePanel.hidden=false;closeCode.focus()})
-  closeCode.addEventListener('click',()=>{codePanel.hidden=true;source.focus()})
+  surface.append(codePanel)
+  let editor=null,loading=false
+  const exportMenu=root.querySelector('.export-menu')
+  if(typeof exportMenu?.before==='function')exportMenu.before(source)
+  else root.prepend(source)
+  async function openCode(){
+    if(!canExportPreview(getRender(),isBusy(),getPlan()) || loading)return
+    loading=true;source.disabled=true
+    try {
+      const {createCodeEditor}=await import('../builder/code-editor.mjs')
+      if(!canExportPreview(getRender(),isBusy(),getPlan()))return
+      editor ||= createCodeEditor({document:doc,container:codePanel,getHtml:()=>getRender()?.html || '',getBase:getDocumentBase,canEdit,onApply:onApplyHtml,onClose:()=>{codePanel.hidden=true;source.setAttribute('aria-expanded','false');source.focus()}})
+      codePanel.hidden=false;source.setAttribute('aria-expanded','true');editor.open()
+    } catch {say('The code editor could not open. Download the HTML or try again.')}
+    finally {loading=false;update()}
+  }
+  source.addEventListener('click',()=>void openCode())
   const say = text => { if (status) status.textContent = text }
   let lastHtml = ''
   let copying = false
@@ -105,14 +116,14 @@ export function createPreviewTools({ root, surface, getPlan, getRender, isBusy =
     const ready = canExportPreview(render, isBusy(), getPlan())
     if (copy) copy.disabled = copying || !ready || !briefText(getPlan())
     if (download) download.disabled = !ready
-    source.disabled=!ready
-    if(!ready)codePanel.hidden=true
-    if(!codePanel.hidden)code.textContent=render.html
+    source.disabled=!ready || loading
+    if(!ready){codePanel.hidden=true;source.setAttribute('aria-expanded','false')}
+    editor?.update()
     if ((render?.html || '') !== lastHtml) {
       lastHtml = render?.html || ''
       say('')
     }
   }
   update()
-  return { update, setView }
+  return { update, setView, openCode }
 }

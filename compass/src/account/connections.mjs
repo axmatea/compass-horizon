@@ -55,6 +55,7 @@ export function connectionActions({provider,row,request,onStatus,onRefresh,getSo
     try{
       const source=await getSource()
       if(!isCurrent())return
+      if(source.files?.some(file=>file.encoding==='base64'))throw Error('This project includes images. Download the complete source ZIP from Projects; GitHub export currently supports text files only.')
       const files=source.files.filter(file=>!/(?:^|\/)(?:Dockerfile|package-lock\.json|\.gitignore|\.dockerignore|\.env[^/]*|railway\.json|vercel\.json)$/i.test(file.path))
       if(!files.length)throw Error('Open a completed application or website first.')
       prepared={repository:repository.value.trim(),branch:branch.value.trim(),expectedHeadSha:head.value.trim(),files,requestKey:crypto.randomUUID()}

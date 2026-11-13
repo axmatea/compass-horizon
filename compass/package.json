@@ -21,7 +21,9 @@
   },
   "dependencies": {
     "better-auth": "1.7.23",
+    "css-tree": "3.2.1",
     "oauth4webapi": "3.8.8",
+    "parse5": "8.1.1",
     "stripe": "23.1.0"
   }
 }

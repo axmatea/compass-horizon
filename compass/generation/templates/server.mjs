@@ -3,7 +3,7 @@ import {createServer} from 'node:http';
 import {readFile,mkdir,chmod} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {betterAuth} from 'better-auth';
 import {getMigrations} from 'better-auth/db/migration';
@@ -29,6 +29,18 @@ async function jsonBody(req) {
 export async function startApplication({env = process.env} = {}) {
   const manifest = validateApplicationManifest(JSON.parse(await readFile(resolve(folder,'manifest.json'),'utf8')));
   if (!manifest) throw Error('Invalid application manifest.');
+  let assetIndex={assets:[]};
+  try{assetIndex=JSON.parse(await readFile(resolve(folder,'assets.json'),'utf8'))}catch(failure){if(failure.code!=='ENOENT')throw Error('Invalid application assets.')}
+  if(!Array.isArray(assetIndex.assets)||assetIndex.assets.length>8)throw Error('Invalid application assets.');
+  const assetImages=new Map();let assetBytes=0;
+  for(const asset of assetIndex.assets){
+    if(typeof asset.id!=='string'||!/^asset_[a-zA-Z0-9_-]{1,74}$/.test(asset.id)||assetImages.has(asset.id)||!['image/png','image/jpeg'].includes(asset.mime))throw Error('Invalid application asset.');
+    const data=await readFile(resolve(folder,'public','assets',asset.id+(asset.mime==='image/png'?'.png':'.jpg')));assetBytes+=data.length;
+    if(!data.length||data.length>524288||assetBytes>4194304||createHash('sha256').update(data).digest('hex')!==asset.sha256)throw Error('Invalid application asset.');
+    assetImages.set(asset.id,{id:asset.id,mime:asset.mime,dataUri:'data:'+asset.mime+';base64,'+data.toString('base64')});
+  }
+  if(Object.values(manifest.assets||{}).some(id=>!assetImages.has(id)))throw Error('Missing application image.');
+
   if (typeof env.BETTER_AUTH_SECRET !== 'string' || env.BETTER_AUTH_SECRET.length < 32) throw Error('Set a BETTER_AUTH_SECRET of at least 32 characters.');
   const production = env.NODE_ENV === 'production';
   const requestedOrigin = env.APP_ORIGIN ? new URL(env.APP_ORIGIN) : null;
@@ -84,12 +96,16 @@ export async function startApplication({env = process.env} = {}) {
         const cookies = response.headers.getSetCookie();if (cookies.length) res.setHeader('Set-Cookie',cookies);
         res.end(await response.text());return;
       }
-      if (path === '/api/records' || path.startsWith('/api/records/')) {
+      if (path === '/api/records' || path.startsWith('/api/records/') || path.startsWith('/api/assets/')) {
         const session = await auth.api.getSession({headers:new Headers({cookie:req.headers.cookie || ''}),query:{disableCookieCache:true,disableRefresh:true}});
         const owner = session?.user?.id;
         if (!owner || session.session.userId !== owner || new Date(session.session.expiresAt).getTime() <= Date.now()) throw error(401,'sign_in_required');
         if (req.headers['x-compass-app-user'] !== undefined && req.headers['x-compass-app-user'] !== owner) throw error(403,'account_changed');
         if (limited('records:' + owner)) throw error(429,'rate_limited');
+        if(path.startsWith('/api/assets/')){
+          const assetId=path.slice('/api/assets/'.length);if(req.method!=='GET'||!Object.values(manifest.assets||{}).includes(assetId)||!assetImages.has(assetId))throw error(404,'not_found');
+          reply(200,{asset:assetImages.get(assetId)});return;
+        }
         const id = path.slice('/api/records/'.length);
         const decode = row => ({id:row.id,data:JSON.parse(row.data),createdAt:row.created_at,updatedAt:row.updated_at});
         if (path === '/api/records' && req.method === 'GET') {

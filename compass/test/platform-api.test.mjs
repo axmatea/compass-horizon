@@ -7,6 +7,8 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {randomBytes} from 'node:crypto';
 import Stripe from 'stripe';
+import {deflateSync} from 'node:zlib';
+import {imageCrc32} from '../generation/image.mjs';
 import {createCompassServer} from '../server.mjs';
 
 const origin='http://localhost:8779',password='Platform secure password 84!';
@@ -24,7 +26,7 @@ async function fixture(t,enabled=true,extra={},fetchImpl,accountRateNow) {
           const headers=new Headers();for(const [key,value] of Object.entries(res.headers))for(const item of Array.isArray(value)?value:value===undefined?[]:[value])headers.append(key,item);
           resolve(new Response(Buffer.concat(chunks),{status:res.statusCode,headers}));
         });
-      });req.on('error',reject);if(body!==undefined)req.write(typeof body==='string'?body:JSON.stringify(body));req.end();
+      });req.on('error',reject);if(body!==undefined)req.write(Buffer.isBuffer(body)||typeof body==='string'?body:JSON.stringify(body));req.end();
     });
   }
   async function account(name){const res=await request('/api/auth/sign-up/email',{method:'POST',body:{name,email:name+'@platform.test',password}});assert.equal(res.status,200,await res.clone().text());const cookie=res.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');const me=await request('/api/account/me',{cookie});assert.equal(me.status,200,await me.clone().text());return {cookie,...await me.json()}}
@@ -195,4 +197,33 @@ test('actual private API rate limits isolate verified owners, reset windows and 
   // Signed webhooks have their own bounded body/SDK checks, never this owner quota.
   assert.equal((await request('/api/billing/webhook',{method:'POST',body:{}})).status,503);
   clock+=600000;assert.equal((await request('/api/account/integrations/github/connect',action(a,'POST',{}))).status,503);
+});
+
+function assetPng(){
+  const chunk=(type,data)=>{const buffer=Buffer.alloc(data.length+12);buffer.writeUInt32BE(data.length);buffer.write(type,4);data.copy(buffer,8);buffer.writeUInt32BE(imageCrc32(buffer.subarray(4,-4)),buffer.length-4);return buffer};
+  const header=Buffer.from([0,0,0,1,0,0,0,1,8,6,0,0,0]);return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(Buffer.from([0,255,0,0,255]))),chunk('IEND',Buffer.alloc(0))]);
+}
+test('real manifest and raw image routes enforce owner/session/CSRF/version, persist hashes and export actual image bytes',async t=>{
+  const {request,account,restart}=await fixture(t),a=await account('assetowner'),b=await account('assetother');
+  const created=await json(await request('/api/account/apps',action(a,'POST',{text:'A task tracker called Orbit'},'asset_create_key_1234'))),path='/api/account/apps/'+created.application.id;
+  assert.equal((await request(path+'/assets')).status,401);assert.equal((await request(path+'/assets',{cookie:b.cookie})).status,404);
+  const upload=(user,version,body=assetPng(),headers={})=>request(path+'/assets',{method:'POST',cookie:user.cookie,body,headers:{'content-type':'image/png','x-compass-app-version':String(version),...headers}});
+  assert.equal((await upload(a,1,assetPng(),{origin:'https://attacker.test'})).status,403);assert.equal((await upload(b,1)).status,404);
+  assert.equal((await upload(a,1,Buffer.from('<svg></svg>'),{'content-type':'image/svg+xml'})).status,415);
+  const uploaded=await json(await upload(a,1)),asset=uploaded.asset;assert.equal(uploaded.application.version,2);assert.equal(asset.mime,'image/png');assert.equal(asset.width,1);
+  assert.equal((await upload(a,1)).status,409);assert.equal((await upload(a,2,Buffer.alloc(524289))).status,413);
+  const chosen={...created.application.manifest,assets:{logo:asset.id,hero:asset.id}};
+  assert.equal((await request(path+'/manifest',action(a,'PUT',{manifest:chosen,version:1}))).status,409);
+  assert.equal((await request(path+'/manifest',action(a,'PUT',{manifest:{...chosen,script:'alert(1)'},version:2}))).status,400);
+  const edited=await json(await request(path+'/manifest',action(a,'PUT',{manifest:chosen,version:2})));assert.equal(edited.changed,true);assert.equal(edited.application.version,3);assert.ok(edited.changes.some(file=>file.path==='manifest.json'&&file.type==='modified'));
+  const nochange=await json(await request(path+'/manifest',action(a,'PUT',{manifest:chosen,version:3})));assert.equal(nochange.changed,false);assert.equal(nochange.application.version,3);
+  const imagePath=path+'/assets/'+asset.id,image=await request(imagePath,{cookie:a.cookie,headers:{'x-compass-app-version':'3'}});assert.equal(image.status,200);assert.equal(image.headers.get('content-type'),'image/png');assert.equal(image.headers.get('cache-control'),'no-store');assert.equal(image.headers.get('x-compass-app-version'),'3');assert.ok(Buffer.from(await image.arrayBuffer()).equals(assetPng()));
+  assert.equal((await request(imagePath,{cookie:b.cookie})).status,404);assert.equal((await request(imagePath)).status,401);assert.equal((await request(imagePath,{cookie:a.cookie,headers:{'x-compass-app-version':'2'}})).status,409);
+  const source=await json(await request(path+'/source',{cookie:a.cookie}));assert.ok(source.files.some(file=>file.encoding==='base64'&&Buffer.from(file.content,'base64').equals(assetPng())));
+  const zip=await request(path+'/export',{cookie:a.cookie});assert.ok(Buffer.from(await zip.arrayBuffer()).includes(assetPng()));
+  const remove=()=>request(imagePath,{method:'DELETE',cookie:a.cookie,headers:{'x-compass-app-version':'3'}});assert.equal((await remove()).status,409);
+  const oldVersion=3;const cleared=await json(await request(path+'/manifest',action(a,'PUT',{manifest:created.application.manifest,version:3})));
+  const deleted=await json(await request(imagePath,{method:'DELETE',cookie:a.cookie,headers:{'x-compass-app-version':String(cleared.application.version)}}));assert.equal(deleted.application.version,5);assert.equal((await request(imagePath,{cookie:a.cookie})).status,404);
+  await restart();const restored=await json(await request(path+'/restore',action(a,'POST',{version:oldVersion})));assert.equal(restored.application.version,6);assert.equal(restored.application.manifest.assets.logo,asset.id);assert.equal((await request(imagePath,{cookie:a.cookie})).status,200);
+  const history=await json(await request(path+'/revisions',{cookie:a.cookie}));assert.ok(history.revisions.find(item=>item.version===2).files.some(file=>file.path.endsWith('.png')&&file.sha256===asset.sha256));
 });

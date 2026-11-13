@@ -72,7 +72,8 @@ export function normalizeRevision(value) {
   return {
     id:value.id, at, prompt:clean(value.prompt,500), number:integer(value.number) || 1,
     plan:{intent,version}, render:{html,version,pending:[]},
-    source:value.source === 'model' ? 'model' : 'prepared', placeholder:Boolean(value.placeholder),
+    source:['model','edited'].includes(value.source) ? value.source : 'prepared', placeholder:Boolean(value.placeholder),
+    ...(value.documentBase && safeSavedHtml(value.documentBase) ? {documentBase:safeSavedHtml(value.documentBase)} : {}),
   }
 }
 
@@ -80,7 +81,7 @@ export function completedRevision(state, prompt = '', { now = () => new Date().t
   if (state.busy || !state.render?.html || state.render.pending?.length || state.plan?.version !== state.render.version) return null
   return normalizeRevision({
     id:id(), at:now(), prompt, number:1, plan:state.plan, render:state.render,
-    source:state.source, placeholder:state.placeholder,
+    source:state.source, placeholder:state.placeholder, documentBase:state.documentBase,
   })
 }
 
@@ -116,6 +117,7 @@ export function restoredProject(project) {
     sessionId:'', plan:{intent:copy(latest.plan.intent),version:0,patch:[]},
     render:{html:latest.render.html,version:0,pending:[],key:1},
     source:'saved', placeholder:latest.placeholder, resumeIntent:copy(latest.plan.intent),
+    documentBase:latest.documentBase || null,
   }
 }
 

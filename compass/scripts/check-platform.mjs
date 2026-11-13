@@ -11,4 +11,4 @@ async function check(path) {
     }
   }
 }
-for(const path of ['account','platform','billing','integrations','generation','sandbox','src/account','src/applications','src/create'])await check(path);
+for(const path of ['account','platform','billing','integrations','generation','sandbox','html','src/account','src/applications','src/create','src/builder','src/studio'])await check(path);

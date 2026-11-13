@@ -25,6 +25,12 @@ test('trusted application supports real registration, owner-isolated CRUD, valid
   assert.equal((await request('/api/records',{method:'POST',data:{},cookie:second,expectedUser:firstUser})).status,403,'a stale tab cannot write under another shared cookie');
   assert.equal((await request('/api/auth/sign-out',{method:'POST',data:{},cookie:second,expectedUser:firstUser})).status,403,'a stale tab cannot sign out another shared cookie');
   const manifest = JSON.parse(await readFile(new URL('../manifest.json',import.meta.url),'utf8'));
+  for(const assetId of new Set(Object.values(manifest.assets||{}))){
+    const path='/api/assets/'+assetId;assert.equal((await request(path)).status,401);
+    const image=await request(path,{cookie:first,expectedUser:firstUser});assert.equal(image.status,200);const payload=await image.json();assert.equal(payload.asset.id,assetId);assert.match(payload.asset.dataUri,/^data:image\/(png|jpeg);base64,/);
+    assert.equal((await request(path,{cookie:second,expectedUser:firstUser})).status,403);
+    assert.equal((await request('/api/assets/asset_missing',{cookie:first})).status,404);
+  }
   const data = Object.fromEntries(manifest.entity.fields.map(field => [field.key,field.type === 'number' ? 3 : field.type === 'date' ? '2026-01-15' : field.type === 'select' ? field.options[0] : 'Test ' + field.label]));
   const created = await request('/api/records',{method:'POST',data:{data},cookie:first});
   assert.equal(created.status,201);

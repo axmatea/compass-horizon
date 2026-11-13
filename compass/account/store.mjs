@@ -1,5 +1,6 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { normalizeProject } from '../src/builder/project-store.mjs';
+import { validateEditableHtml } from '../html/edit.mjs';
 import { validateProfilePreferences } from './profile.mjs';
 
 export class AccountDataError extends Error {
@@ -49,7 +50,9 @@ export function createAccountStore(database) {
     if (!validId(id)) reject(404, 'not_found');
     const row = database.prepare('SELECT document FROM compass_project WHERE id = ? AND owner = ?').get(id, owner);
     if (!row) reject(404, 'not_found');
-    return JSON.parse(row.document);
+    const project=JSON.parse(row.document);
+    if(!project.revisions?.every(revision=>validateEditableHtml(revision.render?.html).ok && (!revision.documentBase || validateEditableHtml(revision.documentBase).ok)))reject(400,'invalid_project');
+    return project;
   }
   function saveProject(owner, input) {
     // New/imported projects always get a server-generated id. Updating another
@@ -60,6 +63,7 @@ export function createAccountStore(database) {
     const at = stamp();
     const project = normalizeProject({ id, name:input?.name, revisions:input?.revisions, createdAt:existing?.createdAt || at, updatedAt:at });
     if (!project) reject(400, 'invalid_project');
+    if(!project.revisions.every(revision=>validateEditableHtml(revision.render.html).ok && (!revision.documentBase || validateEditableHtml(revision.documentBase).ok)))reject(400,'invalid_project');
     database.prepare('INSERT INTO compass_project(id, owner, document, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET document=excluded.document, updated_at=excluded.updated_at WHERE compass_project.owner=excluded.owner')
       .run(id, owner, JSON.stringify(project), at);
     return project;

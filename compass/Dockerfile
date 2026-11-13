@@ -7,6 +7,7 @@ COPY src ./src
 COPY public ./public
 COPY server.mjs llm.mjs demo-api.mjs early-access.mjs homepage.mjs ./
 COPY builder ./builder
+COPY html ./html
 COPY account ./account
 COPY platform ./platform
 COPY generation ./generation
@@ -27,6 +28,7 @@ COPY --from=build /app/src/builder/project-store.mjs ./src/builder/project-store
 COPY --from=build /app/node_modules ./node_modules
 COPY server.mjs llm.mjs demo-api.mjs early-access.mjs homepage.mjs ./
 COPY builder ./builder
+COPY html ./html
 COPY account ./account
 COPY platform ./platform
 COPY generation ./generation
