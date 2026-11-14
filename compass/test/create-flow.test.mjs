@@ -205,6 +205,9 @@ test('returning authentication callbacks retain only controlled mode flags, neve
   assert.deepEqual(calls.map(call => call.body.callbackURL),[
     'https://preview.example/create?signin=1','https://preview.example/create?view=preferences','https://preview.example/create',
   ])
+  assert.deepEqual(calls.filter(call => call.body.provider).map(call => call.body.errorCallbackURL),[
+    'https://preview.example/create?view=preferences&oauth=failed','https://preview.example/create?oauth=failed',
+  ])
   assert.throws(() => api.setReturnMode('https://example.com'),TypeError)
   assert.ok(calls.every(call => !('prompt' in call.body)))
 })
@@ -258,6 +261,15 @@ test('reset entry removes transient tokens and raw errors from the browser URL',
   assert.equal(accountEntry('https://preview.example/create?view=account&token='+token).resetToken,null)
 })
 
+test('OAuth failures keep only controlled return flags and display a safe retry message',()=>{
+  const entry=accountEntry('https://preview.example/create?view=account&oauth=failed&error=access_denied&error_description=private-provider-detail')
+  assert.equal(entry.oauthError,true)
+  assert.equal(entry.cleanURL,'/create?view=account')
+  assert.equal(accountEntry('https://preview.example/create?oauth=untrusted').oauthError,false)
+  assert.equal(accountErrorText(new AccountRequestError('OAUTH_FAILED')),'Sign-in didn’t finish. Try again or choose another method.')
+  assert.equal(accountErrorText(new AccountRequestError('OAUTH_FAILED'),'manage'),'That sign-in method wasn’t connected. Try again.')
+})
+
 test('account management uses bound HttpOnly sessions and reset tokens stay in POST bodies',async()=>{
   const calls=[]
   const api=createAccountApi({origin:'https://preview.example',fetch:async(path,options)=>{calls.push({path,options});return {ok:true,status:200,json:async()=>({})}}})
@@ -277,6 +289,7 @@ test('account management uses bound HttpOnly sessions and reset tokens stay in P
   assert.ok(calls.every(call=>!call.path.includes('?')&&call.options.credentials==='same-origin'))
   for(const call of calls.filter(call=>!['/api/auth/request-password-reset','/api/auth/reset-password'].includes(call.path)))assert.equal(call.options.headers['x-compass-user'],'user_verified')
   assert.equal(JSON.parse(calls.find(call=>call.path==='/api/auth/change-password').options.body).revokeOtherSessions,true)
+  assert.deepEqual(JSON.parse(calls.find(call=>call.path==='/api/auth/link-social').options.body),{provider:'github',callbackURL:'https://preview.example/create?view=account',errorCallbackURL:'https://preview.example/create?view=account&oauth=failed'})
 })
 
 

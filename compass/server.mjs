@@ -12,6 +12,7 @@ import { createAccountAuth,isAccountDatabaseAsset,accountClientAddress } from '.
 import { createAccountApi } from './account/http.mjs';
 import {inspectStorage} from './account/storage.mjs';
 import {createBackupService} from './account/backup.mjs';
+import {startBackupSchedule} from './account/backup-scheduler.mjs';
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -58,14 +59,13 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
   const site = createSiteBuilder({ env, fetchImpl });
   const accounts = createAccountAuth({env});
   const accountApi = createAccountApi({auth:accounts,env,fetchImpl,rateLimitNow:accountRateNow});
-  let backups,backupTimer;
+  let backups,backupSchedule;
   const backupStartup=(async()=>{
     await accounts.ready;
     if(env.COMPASS_ACCOUNT_MODE!=='production'||!accounts.publicConfig().configured)return;
     backups=createBackupService({env,database:accounts.database});
-    await backups.run();
-    backupTimer=setInterval(()=>{backups.run().catch(()=>{})},24*60*60*1000);
-    backupTimer.unref();
+    backupSchedule=startBackupSchedule({service:backups});
+    await backupSchedule.ready;
   })().catch(()=>{});
   let previewScriptPolicy;
   const allowTrustedPreview=async res=>{
@@ -187,6 +187,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
       if (normalized === '/plan') { await serveFile(req, res, root, '/plan.html', text,env); return; }
       if (normalized === '/studio') { await serveFile(req, res, root, '/studio.html', text,env); return; }
       if (normalized === '/create') { await serveFile(req,res,root,'/create.html',text,env); return; }
+      if (normalized === '/privacy') { await serveFile(req,res,root,'/privacy.html',text,env); return; }
       if (normalized === '/workspace') {
         await accounts.ready;
         if (!accounts.publicConfig().configured) { text(404,'Account access is not enabled.'); return; }
@@ -210,7 +211,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
   return { server, async close() {
     const stopped = server.listening ? new Promise(resolve => server.close(resolve)) : Promise.resolve();
     server.closeIdleConnections(); await stopped; await backupStartup;
-    clearInterval(backupTimer);await backups?.close();await accounts.close();
+    await backupSchedule?.close();await backups?.close();await accounts.close();
   } };
 }
 
@@ -253,10 +254,13 @@ async function serveFile(req, res, root, pathname, text,env={}) {
   stream.on('error', () => res.destroy()); res.on('close', () => stream.destroy()); stream.pipe(res);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+export function startCompassServer() {
   const app = createCompassServer();
   app.server.listen(Number(process.env.PORT || 8770), '0.0.0.0', () => console.log('COMPASS ready'));
   let stopping = false;
   const stop = async () => { if (stopping) return; stopping = true; await app.close(); process.exit(0); };
   process.on('SIGTERM', () => void stop()); process.on('SIGINT', () => void stop());
+  return app;
 }
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) startCompassServer();

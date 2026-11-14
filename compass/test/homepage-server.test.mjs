@@ -9,7 +9,7 @@ import { createCompassServer } from '../server.mjs';
 
 test('public delivery keeps guest creation available and account access closed by default, despite stale files', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'compass-home-'));
-  for (const name of ['index', 'app', 'login', 'demo', 'plan', 'studio', 'create']) await writeFile(join(root, name + '.html'), '<h1>' + name + '</h1>');
+  for (const name of ['index', 'app', 'login', 'demo', 'plan', 'studio', 'create', 'privacy']) await writeFile(join(root, name + '.html'), '<h1>' + name + '</h1>');
   await writeFile(join(root, 'asset.js'), 'abcdefghij');
   await writeFile(join(root, 'sitemap.xml'), '<urlset/>');
   await writeFile(join(root, '.env'), 'not-public');
@@ -41,6 +41,14 @@ test('public delivery keeps guest creation available and account access closed b
   }
   assert.equal((await fetch(origin + '/create', { method: 'HEAD' })).status, 200);
   assert.equal((await fetch(origin + '/create', { method: 'POST' })).status, 405);
+  for (const path of ['/privacy', '/privacy/', '/privacy?from=account']) {
+    const privacy = await fetch(origin + path);
+    assert.equal(privacy.status, 200);
+    assert.equal(await privacy.text(), '<h1>privacy</h1>');
+    assert.equal(privacy.headers.get('set-cookie'), null);
+  }
+  assert.equal((await fetch(origin + '/privacy', { method: 'HEAD' })).status, 200);
+  assert.equal((await fetch(origin + '/privacy', { method: 'POST' })).status, 405);
   const config = await fetch(origin + '/api/account/config');
   assert.equal(config.status, 200);
   assert.equal(config.headers.get('cache-control'), 'no-store');

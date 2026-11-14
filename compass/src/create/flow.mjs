@@ -56,6 +56,11 @@ export function createAccountApi({fetch:request = globalThis.fetch,origin = glob
   let boundUserId = null
   let returnMode = 'project'
   const callback = () => callbackURL + (returnMode === 'profile' ? '?view=preferences' : returnMode === 'account' ? '?view=account' : returnMode === 'signin' ? '?signin=1' : '')
+  const errorCallback = callback => {
+    const url = new URL(callback)
+    url.searchParams.set('oauth','failed')
+    return url.href
+  }
   async function send(path,method = 'GET',body,expectedUserId = null) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(),timeoutMs)
@@ -96,14 +101,14 @@ export function createAccountApi({fetch:request = globalThis.fetch,origin = glob
     saveProfile:preferences => privateRequest('/api/account/profile','PUT',{preferences}),
     signUp:({name,email,password}) => send('/api/auth/sign-up/email','POST',{name,email,password,callbackURL:base.origin+'/create?view=verify'}),
     signIn:({email,password}) => send('/api/auth/sign-in/email','POST',{email,password,callbackURL:callback()}),
-    social:provider => send('/api/auth/sign-in/social','POST',{provider,callbackURL:callback()}),
+    social:provider => send('/api/auth/sign-in/social','POST',{provider,callbackURL:callback(),errorCallbackURL:errorCallback(callback())}),
     signOut:() => boundUserId ? privateRequest('/api/auth/sign-out','POST',{}) : send('/api/auth/sign-out','POST',{}),
     updateName:name => privateRequest('/api/auth/update-user','POST',{name}),
     changePassword:({currentPassword,newPassword}) => privateRequest('/api/auth/change-password','POST',{currentPassword,newPassword,revokeOtherSessions:true}),
     sessions:() => privateRequest('/api/auth/list-sessions'),
     revokeOtherSessions:() => privateRequest('/api/auth/revoke-other-sessions','POST',{}),
     accounts:() => privateRequest('/api/auth/list-accounts'),
-    linkSocial:provider => privateRequest('/api/auth/link-social','POST',{provider,callbackURL:base.origin+'/create?view=account'}),
+    linkSocial:provider => privateRequest('/api/auth/link-social','POST',{provider,callbackURL:base.origin+'/create?view=account',errorCallbackURL:errorCallback(base.origin+'/create?view=account')}),
     unlinkAccount:accountId => privateRequest('/api/auth/unlink-account','POST',{accountId}),
     changeEmail:newEmail => privateRequest('/api/auth/change-email','POST',{newEmail,callbackURL:base.origin+'/create?view=verify'}),
     requestPasswordReset:email => send('/api/auth/request-password-reset','POST',{email,redirectTo:base.origin+'/create?view=reset'}),
@@ -114,6 +119,7 @@ export function createAccountApi({fetch:request = globalThis.fetch,origin = glob
 
 export function accountErrorText(error, action = 'sign-in') {
   if (isAccountChanged(error)) return 'The account changed. Sign in again or continue without an account. Your idea is kept.'
+  if (error?.code === 'OAUTH_FAILED') return action === 'manage' ? 'That sign-in method wasn’t connected. Try again.' : 'Sign-in didn’t finish. Try again or choose another method.'
   if (error?.code === 'timeout') return 'That took too long. Your idea is still here. Try again.'
   if (error?.code === 'network' || error?.code === 'invalid-response') return 'We couldn’t connect. Your idea is still here. Try again.'
   if (error?.status === 429) return 'Too many attempts. Wait a moment, then try again.'

@@ -38,6 +38,7 @@ function localApplication(): Plugin {
       else if (/^\/plan\/?$/.test(url.pathname)) req.url = "/plan.html" + url.search;
       else if (/^\/studio\/?$/.test(url.pathname)) req.url = "/studio.html" + url.search;
       else if (/^\/create\/?$/.test(url.pathname)) req.url = "/create.html" + url.search;
+      else if (/^\/privacy\/?$/.test(url.pathname)) req.url = "/privacy.html" + url.search;
       else if (/^\/workspace\/?$/.test(url.pathname)) { app.server.emit("request",req,res); return; }
       next();
     });
@@ -68,6 +69,7 @@ export default defineConfig({
         plan: fileURLToPath(new URL("./plan.html", import.meta.url)),
         studio: fileURLToPath(new URL("./studio.html", import.meta.url)),
         create: fileURLToPath(new URL("./create.html", import.meta.url)),
+        privacy: fileURLToPath(new URL("./privacy.html", import.meta.url)),
       },
     },
   },

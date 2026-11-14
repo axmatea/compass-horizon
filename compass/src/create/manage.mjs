@@ -11,8 +11,9 @@ export function accountEntry(value) {
   const token=url.searchParams.get('token')
   const resetToken=url.searchParams.get('view')==='reset' && typeof token==='string' && /^[A-Za-z0-9_-]{16,512}$/.test(token) ? token : null
   const linkError=url.searchParams.has('error')
-  url.searchParams.delete('token');url.searchParams.delete('error')
-  return {resetToken,linkError,cleanURL:url.pathname+url.search+url.hash}
+  const oauthError=url.searchParams.get('oauth')==='failed'
+  url.searchParams.delete('token');url.searchParams.delete('error');url.searchParams.delete('error_description');url.searchParams.delete('oauth')
+  return {resetToken,linkError,oauthError,cleanURL:url.pathname+url.search+url.hash}
 }
 
 export function createAccountViews({root,api,onMessage,onExpired,onUser,onPreferences}) {

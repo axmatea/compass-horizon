@@ -2,7 +2,7 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY index.html demo.html plan.html studio.html create.html vite.config.ts ./
+COPY index.html demo.html plan.html studio.html create.html privacy.html vite.config.ts ./
 COPY src ./src
 COPY public ./public
 COPY server.mjs llm.mjs demo-api.mjs early-access.mjs homepage.mjs ./
@@ -36,6 +36,10 @@ COPY sandbox ./sandbox
 COPY integrations ./integrations
 COPY billing ./billing
 COPY usage.mjs ./
-USER node
+# Railway attaches a fresh root-owned /data volume only when the container starts.
+COPY scripts/verify-private-storage.mjs ./scripts/verify-private-storage.mjs
+# This built-in-only entry point provisions an absent private child, then drops
+# all supplementary groups and becomes node before importing the server.
+USER root
 EXPOSE 8080
-CMD ["node", "server.mjs"]
+CMD ["node", "account/runtime.mjs"]

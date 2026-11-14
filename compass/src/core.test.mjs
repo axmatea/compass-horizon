@@ -16,7 +16,7 @@ test('public entry points stay honest, bounded, accessible and connected', async
   const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro', 'https://compass-web-preview-production.up.railway.app/create?app=1']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
     if (external.has(href) || href === '#watch') continue; // The server inserts this recording section.
-    assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || href === '/plan' || href === '/studio' || href === '/create', href);
+    assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || href === '/plan' || href === '/studio' || href === '/create' || href === '/privacy', href);
     if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
   }
   assert.match(html, /Your idea\./);
@@ -42,7 +42,7 @@ test('public entry points stay honest, bounded, accessible and connected', async
   assert.match(html, /NAŸL · AX Media Global/);
   assert.match(plan, /NAŸL · AX Media Global/);
   assert.doesNotMatch(html, /action="https?:/);
-  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['create.html', 'demo.html', 'index.html', 'plan.html', 'studio.html']);
+  assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['create.html', 'demo.html', 'index.html', 'plan.html', 'privacy.html', 'studio.html']);
   assert.match(create, /name="robots" content="noindex,nofollow"/);
   assert.match(create, /id="create-prompt"[^>]*maxlength="500"/);
   assert.match(create, /<form id="account-form" method="post"/);
@@ -83,7 +83,7 @@ test('demo builder markup matches the idle client layout', async () => {
 
 test('public pages use the approved Fold mark', async () => {
   const fold = 'M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z';
-  for (const page of ['index.html', 'demo.html', 'plan.html', 'studio.html', 'create.html']) {
+  for (const page of ['index.html', 'demo.html', 'plan.html', 'studio.html', 'create.html', 'privacy.html']) {
     const html = await read(page);
     assert.ok(html.includes(fold), page);
     assert.doesNotMatch(html, /r="9\.6"|m31 16-4 12/);

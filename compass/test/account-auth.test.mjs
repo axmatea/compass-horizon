@@ -6,6 +6,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { createAccountAuth } from '../account/auth.mjs';
+import {createAccountApi,resolveCreateEntry,accountErrorText,AccountRequestError} from '../src/create/flow.mjs';
+import {accountEntry} from '../src/create/manage.mjs';
+import {writeDraft,readDraft} from '../src/create/draft.mjs';
 
 const password = 'Synthetic staging password 42!';
 
@@ -237,6 +240,37 @@ test('provider names require complete server credentials and never expose creden
   assert.ok(!JSON.stringify(auth.publicConfig()).includes('synthetic-google'));
   assert.equal((await request('/api/auth/sign-in/social', { method: 'POST', body: { provider: 'github' } })).status, 400);
   assert.equal((await request('/api/auth/callback/github')).status, 404);
+});
+
+test('actual OAuth cancellation returns to creation or account settings with the pending draft intact',async t=>{
+  for(const linking of [false,true])await t.test(linking?'account linking':'project sign-in',async t=>{
+    const f=await fixture(t,{env:{GOOGLE_CLIENT_ID:'synthetic-google-client',GOOGLE_CLIENT_SECRET:'synthetic-google-secret'}});
+    const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+    const draft=writeDraft({prompt:'A private CRM for my studio',preferences:{visualDirection:'minimal'},ready:false},{storage}).draft;
+    let cookie='';
+    const api=createAccountApi({origin:f.origin,fetch:async(path,options)=>{
+      const response=await f.request(path,{method:options.method,body:options.body,cookie,headers:options.headers});
+      cookie=[cookie,cookieFor(response)].filter(Boolean).join('; ');
+      return response;
+    }});
+    if(linking){const registered=await register(f.request);cookie=registered.cookie;api.bindUser(registered.body.user.id);api.setReturnMode('account')}
+    const started=linking?await api.linkSocial('google'):await api.social('google');
+    const state=new URL(started.url).searchParams.get('state');
+    assert.ok(state);
+    const cancelled=await f.request('/api/auth/callback/google?'+new URLSearchParams({state,error:'access_denied',error_description:'private-provider-detail'}),{cookie,headers:{'sec-fetch-site':'cross-site'}});
+    assert.equal(cancelled.status,302);
+    const returned=new URL(cancelled.headers.get('location'));
+    assert.equal(returned.origin,f.origin);assert.equal(returned.pathname,'/create');
+    assert.equal(returned.searchParams.get('view'),linking?'account':null);
+    const entry=accountEntry(returned.href);
+    assert.equal(entry.oauthError,true);
+    assert.equal(entry.cleanURL,linking?'/create?view=account':'/create');
+    assert.deepEqual(resolveCreateEntry({search:new URL(entry.cleanURL,f.origin).search,hasDraft:true,config:f.auth.publicConfig(),signedIn:linking}),{mode:linking?'account':'project',step:linking?'manage':'auth'});
+    const message=accountErrorText(new AccountRequestError('OAUTH_FAILED'),linking?'manage':'sign-in');
+    assert.match(message,/Try again/);assert.ok(!message.includes('private-provider-detail'));
+    assert.deepEqual(readDraft({storage}),draft);
+    assert.equal((await f.request('/api/auth/error')).status,404,'the blocked auth error endpoint remains blocked');
+  });
 });
 
 test('a failing database is denied instead of becoming a guest session', async t => {
