@@ -2,6 +2,9 @@ import { isAbsolute,resolve,relative,sep,dirname,basename } from 'node:path';
 import {fileURLToPath} from 'node:url';
 import { open, chmod,realpath } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
+import {isIP} from 'node:net';
+import {createEmailDelivery} from './email.mjs';
+import {accountDatabaseLimit,prepareProductionStorage} from './storage.mjs';
 
 
 // Resolve existing ancestors as well as the final file. Startup must reject a
@@ -29,6 +32,10 @@ export async function isAccountDatabaseAsset(file,env={}) {
   if(typeof env.COMPASS_ACCOUNT_DATABASE!=='string'||!isAbsolute(env.COMPASS_ACCOUNT_DATABASE))return false;
   try {
     const target=await canonicalLocation(file);
+    if(env.COMPASS_STORAGE_MODE==='persistent-volume'&&typeof env.RAILWAY_VOLUME_MOUNT_PATH==='string'&&isAbsolute(env.RAILWAY_VOLUME_MOUNT_PATH)){
+      const mount=await canonicalLocation(env.RAILWAY_VOLUME_MOUNT_PATH);
+      if(mount!==sep&&inside(mount,target))return true;
+    }
     const database=await canonicalLocation(env.COMPASS_ACCOUNT_DATABASE).catch(()=>resolve(env.COMPASS_ACCOUNT_DATABASE));
     for(const suffix of ['', '-wal','-shm','-journal']) {
       if(target===database+suffix)return true;
@@ -41,9 +48,8 @@ export async function isAccountDatabaseAsset(file,env={}) {
 
 const AUTH_PATH = '/api/auth';
 const MAX_BODY = 16 * 1024;
-// Technical limits for disposable QA infrastructure, not a commercial plan.
-const MAX_DATABASE_BYTES = 64 * 1024 * 1024;
 const MAX_STAGING_USERS = 50;
+const PRODUCTION_ORIGIN = 'https://mycompass.world';
 const METHODS = new Map([
   ['/sign-up/email', ['POST']], ['/sign-in/email', ['POST']],
   ['/sign-out', ['POST']], ['/get-session', ['GET']], ['/ok', ['GET']],
@@ -58,6 +64,15 @@ const MAIL_METHODS = new Map([
 ]);
 const fail = (status, code) => ({ ok: false, status, code });
 
+export function accountClientAddress(req,env=process.env) {
+  // Enable only for Railway public HTTP ingress, which replaces X-Real-IP.
+  // Private/TCP deployments must leave the opt-in off. Never trust raw XFF.
+  const forwarded=req.headers?.['x-real-ip'];
+  if(env.NODE_ENV==='production' && env.COMPASS_ACCOUNT_TRUST_RAILWAY_PROXY==='1'
+    && env.RAILWAY_PROJECT_ID && env.RAILWAY_SERVICE_ID && typeof forwarded==='string' && isIP(forwarded))return forwarded;
+  return req.socket?.remoteAddress || 'unknown';
+}
+
 function originFrom(value, production) {
   try {
     const url = new URL(value);
@@ -68,20 +83,19 @@ function originFrom(value, production) {
   return null;
 }
 
-function emailDelivery(env, supplied) {
-  if (typeof supplied === 'function') return supplied;
-  let target;
+function currentAppleSecret(value,clientId) {
   try {
-    const url = new URL(env.COMPASS_ACCOUNT_EMAIL_WEBHOOK_URL);
-    if (url.protocol !== 'https:' || url.username || url.password || url.hash) return null;
-    target = url.href;
-  } catch { return null; }
-  return async (message) => {
-    const headers = { 'content-type': 'application/json' };
-    if (env.COMPASS_ACCOUNT_EMAIL_WEBHOOK_TOKEN) headers.authorization = `Bearer ${env.COMPASS_ACCOUNT_EMAIL_WEBHOOK_TOKEN}`;
-    const response = await fetch(target, { method: 'POST', headers, body: JSON.stringify(message), signal: AbortSignal.timeout(8_000), redirect: 'error' });
-    if (!response.ok) throw new Error('Email delivery unavailable.');
-  };
+    if(value.length>16_384 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value))return false;
+    const [header,body]=value.split('.').slice(0,2).map(part=>JSON.parse(Buffer.from(part,'base64url').toString('utf8')));
+    const now=Math.floor(Date.now()/1000);
+    // Apple verifies the ES256 signature and key ownership at token exchange.
+    // Do not advertise a malformed or already expired client assertion locally.
+    return header.alg==='ES256' && typeof header.kid==='string' && Boolean(header.kid.trim())
+      && body.sub===clientId && body.aud==='https://appleid.apple.com'
+      && typeof body.iss==='string' && Boolean(body.iss.trim())
+      && Number.isSafeInteger(body.iat) && body.iat<=now+60
+      && Number.isSafeInteger(body.exp) && body.exp>now+60 && body.exp>body.iat && body.exp-body.iat<=15_777_000;
+  } catch {return false}
 }
 
 function configuredProviders(env, verification) {
@@ -89,7 +103,8 @@ function configuredProviders(env, verification) {
   for (const id of ['google', 'github', 'apple']) {
     const prefix = id.toUpperCase();
     const clientId = env[`${prefix}_CLIENT_ID`], clientSecret = env[`${prefix}_CLIENT_SECRET`];
-    if (typeof clientId === 'string' && clientId.trim() && typeof clientSecret === 'string' && clientSecret.trim()) {
+    if (typeof clientId === 'string' && clientId.trim() && typeof clientSecret === 'string' && clientSecret.trim()
+      && (id!=='apple' || currentAppleSecret(clientSecret,clientId))) {
       providers[id] = { clientId, clientSecret, ...(verification ? { requireEmailVerification: true } : {}) };
     }
   }
@@ -129,53 +144,70 @@ async function readBody(req, form) {
   } catch { return fail(400, 'INVALID_INPUT'); }
 }
 
-/** Isolated staging identity. The factory never opens a database unless explicitly configured. */
-export function createAccountAuth({ env = process.env, sendEmail, database: suppliedDatabase } = {}) {
-  const enabled = env.COMPASS_ACCOUNT_MODE === 'staging';
+/** Explicitly configured identity; production additionally requires a verified private volume. */
+export function createAccountAuth({ env = process.env, sendEmail, database: suppliedDatabase, storageOptions } = {}) {
+  const production = env.COMPASS_ACCOUNT_MODE === 'production';
+  const staging = env.COMPASS_ACCOUNT_MODE === 'staging';
+  const enabled = staging || production;
   const origin = originFrom(env.COMPASS_ACCOUNT_ORIGIN, env.NODE_ENV === 'production');
   const suppliedSecret = env.BETTER_AUTH_SECRET;
   const path = env.COMPASS_ACCOUNT_DATABASE;
-  const mail = emailDelivery(env, sendEmail);
+  const mail = createEmailDelivery(env, {sendEmail});
   const socialProviders = configuredProviders(env, Boolean(mail));
+  const emailEnabled = staging || Boolean(mail);
   const primaryDomain = origin && ['mycompass.world', 'www.mycompass.world'].includes(new URL(origin).hostname.replace(/\.+$/, ''));
-  const stagingLocation = enabled && origin && !primaryDomain && typeof path === 'string' && isAbsolute(path) && path !== '/';
+  const stagingLocation = staging && origin && !primaryDomain && typeof path === 'string' && isAbsolute(path) && path !== '/';
   // Explicit disposable-email QA only. A rotating key must never encrypt real
   // OAuth tokens or issue real verification/reset links that a restart breaks.
   // Generate inside this instance; never persist, log or return the bytes.
   const ephemeralSecret = Boolean(stagingLocation && env.COMPASS_ACCOUNT_EPHEMERAL_SECRET === '1'
     && suppliedSecret === undefined && !mail && !Object.keys(socialProviders).length);
   const secret = ephemeralSecret ? randomBytes(48).toString('base64url') : suppliedSecret;
-  const valid = enabled && origin && !primaryDomain && typeof secret === 'string' && secret.trim().length >= 32
+  const valid = enabled && origin && (production ? origin === PRODUCTION_ORIGIN : !primaryDomain)
+    && (!production || Boolean(mail) || Object.keys(socialProviders).length > 0)
+    && typeof secret === 'string' && secret.trim().length >= 32
     && typeof path === 'string' && isAbsolute(path) && path !== '/';
   let db = null, auth = null, readyState = false, closed = false;
-  const attempts = new Map();
+  const attempts = new Map(),pendingTasks = new Set();
+  let unlinkQueue=Promise.resolve();
 
   const ready = (async () => {
     if (!valid || !await privateDatabasePath(env,path)) return;
     try {
+      // Do not create/migrate identity data until the host proves that this is
+      // the dedicated persistent mount, outside public assets, with a fixed key.
+      if(production && (await prepareProductionStorage(env,storageOptions)).mode!=='durable')return;
       const [{ betterAuth }, { getMigrations }, { DatabaseSync }, { APIError }] = await Promise.all([
         import('better-auth'), import('better-auth/db/migration'), import('node:sqlite'), import('better-auth/api'),
       ]);
-      if (suppliedDatabase) db = suppliedDatabase;
+      if (suppliedDatabase) {
+        db = suppliedDatabase;
+        if(production){
+          const actual=db.prepare('PRAGMA database_list').all().find(item=>item.name==='main')?.file;
+          if(!actual || await realpath(actual)!==await realpath(path))throw new Error('Database location mismatch.');
+        }
+      }
       else {
-        const file = await open(path, 'a', 0o600);
-        await file.close();
-        await chmod(path, 0o600);
+        if(!production){
+          const file = await open(path, 'a', 0o600);
+          await file.close();
+          await chmod(path, 0o600);
+        }
         db = new DatabaseSync(path);
       }
       db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
       const pageSize = Number(db.prepare('PRAGMA page_size').get().page_size);
-      if (!Number.isSafeInteger(pageSize) || pageSize < 512) throw new Error('Unsupported staging database.');
-      const maxPages = Math.floor(MAX_DATABASE_BYTES / pageSize);
+      if (!Number.isSafeInteger(pageSize) || pageSize < 512) throw new Error('Unsupported account database.');
+      const maxPages = Math.floor(accountDatabaseLimit(env) / pageSize);
       const appliedMax = Number(db.prepare(`PRAGMA max_page_count = ${maxPages}`).get().max_page_count);
       // SQLite cannot shrink a limit below an already larger database. Refuse
       // that configuration instead of reporting a resource cap we did not set.
-      if (appliedMax > maxPages) throw new Error('Staging database exceeds its resource limit.');
+      if (appliedMax > maxPages) throw new Error('Account database exceeds its resource limit.');
       const options = {
         appName: 'COMPASS', baseURL: origin, basePath: AUTH_PATH, secret,
-        database: db, trustedOrigins: [origin], socialProviders,
+        database: db, trustedOrigins: [origin, ...(socialProviders.apple ? ['https://appleid.apple.com'] : [])], socialProviders,
         emailAndPassword: {
-          enabled: true, minPasswordLength: 12, maxPasswordLength: 128,
+          enabled: emailEnabled, minPasswordLength: 12, maxPasswordLength: 128,
           requireEmailVerification: Boolean(mail), autoSignIn: !mail,
           ...(mail ? { revokeSessionsOnPasswordReset: true, sendResetPassword: async ({ user, url }) => {
             await mail({ kind: 'reset-password', to: user.email, subject: 'Reset your COMPASS password', text: `Reset your password: ${url}` });
@@ -190,10 +222,10 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
         databaseHooks: { user: { create: { before: async (user, context) => {
           // Without delivery, only reserved test addresses may use email registration.
           // Verified social identities are managed by the configured OAuth provider.
-          if (!mail && context?.path === '/sign-up/email' && !/^[^@\s]+@(?:[a-z0-9-]+\.)*test$/i.test(user.email)) {
+          if (staging && !mail && context?.path === '/sign-up/email' && !/^[^@\s]+@(?:[a-z0-9-]+\.)*test$/i.test(user.email)) {
             throw new APIError('FORBIDDEN', { message: 'Staging email registration requires a .test address.', code: 'TEST_EMAIL_REQUIRED' });
           }
-          if (db.prepare('SELECT count(*) AS count FROM compass_account_user').get().count >= MAX_STAGING_USERS) {
+          if (staging && db.prepare('SELECT count(*) AS count FROM compass_account_user').get().count >= MAX_STAGING_USERS) {
             throw new APIError('TOO_MANY_REQUESTS', { message: 'This isolated preview has reached its test-account limit.', code: 'STAGING_ACCOUNT_LIMIT' });
           }
           return { data: user };
@@ -209,8 +241,17 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
         verification: { modelName: 'compass_account_verification' },
         session: { modelName: 'compass_account_session', expiresIn: 7 * 86400, updateAge: 86400, cookieCache: { enabled: false } },
         advanced: {
-          cookiePrefix: 'compass-account-staging', useSecureCookies: origin.startsWith('https:'),
+          cookiePrefix: production ? 'compass-account' : 'compass-account-staging', useSecureCookies: origin.startsWith('https:'),
           defaultCookieAttributes: { httpOnly: true, secure: origin.startsWith('https:'), sameSite: 'lax', path: '/' },
+          // Apple's form_post callback is a cross-site POST. Only the short-lived
+          // signed state cookies need SameSite=None; session cookies stay Lax.
+          ...(socialProviders.apple ? {cookies:{state:{attributes:{sameSite:'none',secure:true}},oauth_state:{attributes:{sameSite:'none',secure:true}}}} : {}),
+          // Awaiting a provider only for an existing email address leaks delivery
+          // timing. Production sends in the background, drained before shutdown.
+          ...(production && mail ? {backgroundTasks:{handler(promise){
+            const task=Promise.resolve(promise).catch(()=>{});pendingTasks.add(task);
+            task.finally(()=>pendingTasks.delete(task));
+          }}} : {}),
           crossSubDomainCookies: { enabled: false }, trustedProxyHeaders: false,
           disableCSRFCheck: false, disableOriginCheck: false,
         },
@@ -219,14 +260,15 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
         telemetry: { enabled: false }, logger: { disabled: true },
       };
       const migration = await getMigrations(options);
-      if (migration.schemaProblems?.length || migration.unsafeChanges?.length) throw new Error('Incompatible staging schema.');
+      if (migration.schemaProblems?.length || migration.unsafeChanges?.length) throw new Error('Incompatible account schema.');
       await migration.runMigrations();
       // A database trigger also covers simultaneous signups and every provider;
       // the friendlier hook above alone would allow a count/insert race.
-      db.exec(`CREATE TRIGGER IF NOT EXISTS compass_account_staging_user_limit
+      if(staging)db.exec(`CREATE TRIGGER IF NOT EXISTS compass_account_staging_user_limit
         BEFORE INSERT ON compass_account_user
         WHEN (SELECT count(*) FROM compass_account_user) >= ${MAX_STAGING_USERS}
         BEGIN SELECT RAISE(ABORT, 'staging_account_limit'); END;`);
+      else db.exec('DROP TRIGGER IF EXISTS compass_account_staging_user_limit');
       auth = betterAuth(options);
       const context = await auth.$context;
       await context.checkSchema?.();
@@ -240,8 +282,8 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
 
   function publicConfig() {
     return { enabled, configured: readyState && !closed, provider: 'better-auth',
-      providers: readyState && !closed ? ['email', ...Object.keys(socialProviders)] : [],
-      emailMode: mail ? 'verification' : 'test', origin: origin || null,
+      providers: readyState && !closed ? [...(emailEnabled ? ['email'] : []), ...Object.keys(socialProviders)] : [],
+      emailMode: mail ? 'verification' : production ? 'disabled' : 'test', origin: origin || null,
       secretMode: readyState && !closed ? ephemeralSecret ? 'ephemeral' : 'configured' : null,
       features: {accountManagement:readyState && !closed,passwordRecovery:readyState && !closed && Boolean(mail),
         emailVerification:readyState && !closed && Boolean(mail),accountLinking:readyState && !closed && Boolean(Object.keys(socialProviders).length)} };
@@ -265,7 +307,7 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
   }
 
   function limit(req) {
-    const now = Date.now(), key = req.socket?.remoteAddress || 'unknown';
+    const now = Date.now(), key = accountClientAddress(req,env);
     let entry = attempts.get(key);
     if (!entry || entry.until <= now) {
       for (const [ip, item] of attempts) if (item.until <= now) attempts.delete(ip);
@@ -287,6 +329,7 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
     const emailEntry = mail && req.method === 'GET'
       && (relative === '/verify-email' || /^\/reset-password\/[^/]{1,200}$/.test(relative));
     let methods = METHODS.get(relative) || (mail ? MAIL_METHODS.get(relative) : undefined);
+    if(!emailEnabled && ['/sign-up/email','/sign-in/email','/change-password'].includes(relative))methods=undefined;
     if (relative === '/sign-in/social' && Object.keys(socialProviders).length) methods = ['POST'];
     if (['/link-social','/unlink-account'].includes(relative) && Object.keys(socialProviders).length) methods = ['POST'];
     if (validCallback) methods = callback[1] === 'apple' ? ['GET', 'POST'] : ['GET'];
@@ -305,6 +348,7 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
       reply(res, 403, { error: 'A same-origin request is required.', code: 'INVALID_ORIGIN' }); return true;
     }
     if (req.method === 'POST' && !limit(req)) { reply(res, 429, { error: 'Too many attempts.', code: 'RATE_LIMITED' }); return true; }
+    let releaseUnlink;
     try {
       if (req.headers['x-compass-user'] !== undefined) {
         const headers = new Headers();
@@ -318,6 +362,22 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
       if (['/sign-in/social','/link-social'].includes(relative) && !Object.hasOwn(socialProviders, input?.value?.provider)) {
         reply(res, 400, { error: 'Sign-in provider is not configured.', code: 'PROVIDER_UNAVAILABLE' }); return true;
       }
+      if(relative==='/unlink-account'){
+        // Serialize this single-instance operation so two concurrent disconnects
+        // cannot each count the other method and leave the owner locked out.
+        const previous=unlinkQueue;
+        unlinkQueue=new Promise(resolve=>{releaseUnlink=resolve});
+        await previous;
+        const identity=await getIdentity(new Headers({cookie:typeof req.headers.cookie==='string'?req.headers.cookie:''}));
+        if(!identity){reply(res,401,{error:'Sign in again.',code:'SIGN_IN_REQUIRED'});return true}
+        const methods=db.prepare('SELECT id,providerId,password FROM compass_account_identity WHERE userId=?').all(identity.userId);
+        const target=methods.find(method=>method.id===input?.value?.accountId);
+        if(!target||!Object.hasOwn(socialProviders,target.providerId)){reply(res,400,{error:'Sign-in method is not available.',code:'PROVIDER_UNAVAILABLE'});return true}
+        const verified=Boolean(db.prepare('SELECT emailVerified FROM compass_account_user WHERE id=?').get(identity.userId)?.emailVerified);
+        const usable=method=>Object.hasOwn(socialProviders,method.providerId)
+          || method.providerId==='credential'&&emailEnabled&&typeof method.password==='string'&&Boolean(method.password)&&(!mail||verified);
+        if(!methods.some(method=>method.id!==target.id&&usable(method))){reply(res,400,{error:'Keep one working sign-in method.',code:'FAILED_TO_UNLINK_LAST_ACCOUNT'});return true}
+      }
       if (relative === '/update-user') {
         const name = input?.value?.name;
         if (Object.keys(input?.value || {}).some(key=>key!=='name') || typeof name!=='string' || !name.trim() || name.trim().length>80 || /[\x00-\x1f\x7f]/.test(name)) {
@@ -330,7 +390,7 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
       for (const name of ['cookie', 'origin', 'sec-fetch-site', 'user-agent', 'content-type']) {
         if (typeof req.headers[name] === 'string') headers.set(name, req.headers[name]);
       }
-      headers.set('x-forwarded-for', req.socket?.remoteAddress || 'unknown');
+      headers.set('x-forwarded-for', accountClientAddress(req,env));
       const response = await auth.handler(new Request(origin + url.pathname + url.search, {
         method: req.method, headers, ...(input ? { body: input.body } : {}),
       }));
@@ -344,11 +404,13 @@ export function createAccountAuth({ env = process.env, sendEmail, database: supp
       if (response.status >= 500) { reply(res, 503, { error: 'Authentication unavailable.', code: 'AUTH_UNAVAILABLE' }); return true; }
       res.end(await response.text());
     } catch { reply(res, 503, { error: 'Authentication unavailable.', code: 'AUTH_UNAVAILABLE' }); }
+    finally {releaseUnlink?.()}
     return true;
   }
 
-  return { enabled, ready, publicConfig, handleNode, getIdentity,
+  return { enabled, mode:production?'production':staging?'staging':'disabled', ready, publicConfig, handleNode, getIdentity,
     get database() { return db; },
-    async close() { await ready; closed = true; readyState = false; auth = null; if (db && !suppliedDatabase) { try { db.close(); } catch {} } db = null; },
+    async close() { await ready; closed = true; readyState = false; auth = null; await Promise.allSettled([...pendingTasks]);
+      if (db && !suppliedDatabase) { try { db.close(); } catch {} } db = null; },
   };
 }

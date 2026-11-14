@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import Stripe from 'stripe';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createBilling } from '../billing/index.mjs';
 import { validateCreditPolicy, measuredCost } from '../billing/policy.mjs';
 
@@ -26,29 +29,45 @@ function fixture(t, overrides = {}) {
   let clock = Date.UTC(2026, 10, 13, 18);
   const env = { COMPASS_BILLING_MODE: 'test', COMPASS_BILLING_ORIGIN: 'http://127.0.0.1:8777', COMPASS_ACCOUNT_ORIGIN: 'http://127.0.0.1:8777',
     COMPASS_CREDIT_POLICY_JSON: JSON.stringify(commercial), STRIPE_SECRET_KEY: 'sk_test_compass_fixture_not_real', STRIPE_WEBHOOK_SECRET: 'whsec_compass_fixture_not_real', ...overrides.env };
-  const state = { calls: [], customers: new Map(), sessions: new Map(), subscriptions: new Map(), invoices: new Map(), refunds: new Map(), counter: 0 };
+  const live = env.COMPASS_BILLING_MODE === 'live';
+  const state = { calls: [], customers: new Map(), sessions: new Map(), subscriptions: new Map(), invoices: new Map(), refunds: new Map(), counter: 0,
+    merchant: { id: 'acct_fixtureMerchant', object: 'account', charges_enabled: true } };
   const keyResults = new Map();
   const invoke = (name, params, options) => state.calls.push({ name, params: copy(params), options: copy(options) });
   const stripe = {
+    paymentIntents:{retrieve:async id=>{
+      invoke('paymentIntents.retrieve',id);
+      const session=[...state.sessions.values()].find(value=>value.payment_intent===id);
+      const invoice=[...state.invoices.values()].find(value=>value.payments?.data?.[0]?.payment?.payment_intent===id);
+      if(!session&&!invoice)return null;
+      return {id,object:'payment_intent',livemode:live,status:'succeeded',customer:(session||invoice).customer,
+        currency:(session||invoice).currency,amount:session?session.amount_total:invoice.amount_paid,amount_received:session?session.amount_total:invoice.amount_paid};
+    }},
+    accounts: { retrieve: async () => { invoke('accounts.retrieve', null); return copy(state.merchant); } },
     customers: { create: async (params, options) => {
       invoke('customers.create', params, options);
       if (keyResults.has(options.idempotencyKey)) return copy(keyResults.get(options.idempotencyKey));
-      const value = { id: 'cus_fixture_' + ++state.counter, object: 'customer', livemode: false, metadata: params.metadata };
+      const value = { id: 'cus_fixture_' + ++state.counter, object: 'customer', livemode: live, metadata: params.metadata };
       state.customers.set(value.id, value); keyResults.set(options.idempotencyKey, value); return copy(value);
     } },
     prices: { retrieve: async id => {
       invoke('prices.retrieve', id);
       const offer = commercial.offers.find(item => item.priceId === id);
-      return { id, object: 'price', active: true, livemode: false, currency: offer.currency, unit_amount: offer.unitAmount,
+      return { id, object: 'price', active: true, livemode: live, currency: offer.currency, unit_amount: offer.unitAmount,
         recurring: offer.kind === 'subscription' ? { interval: offer.interval, interval_count: offer.intervalCount } : null };
     } },
     checkout: { sessions: {
       create: async (params, options) => {
         invoke('checkout.sessions.create', params, options);
         if (keyResults.has(options.idempotencyKey)) return copy(keyResults.get(options.idempotencyKey));
-        const value = { id: 'cs_test_fixture_' + ++state.counter, object: 'checkout.session', livemode: false, status: 'open', payment_status: 'unpaid',
+        const value = { id: 'cs_' + (live ? 'live' : 'test') + '_fixture_' + ++state.counter, object: 'checkout.session', livemode: live, status: 'open', payment_status: 'unpaid',
           customer: params.customer, client_reference_id: params.client_reference_id, metadata: params.metadata, mode: params.mode,
-          url: 'https://checkout.stripe.com/c/pay/cs_test_fixture_' + state.counter };
+          success_url: params.success_url, cancel_url: params.cancel_url, automatic_tax: { enabled: false }, allow_promotion_codes: false,
+          total_details: { amount_discount: 0, amount_shipping: 0, amount_tax: 0 }, line_items: { has_more: false, data: params.line_items.map(line => {
+            const offer = commercial.offers.find(item => item.priceId === line.price);
+            return { quantity: line.quantity, price: { id: line.price, object: 'price', active: true, livemode: live, currency: offer.currency, unit_amount: offer.unitAmount,
+              recurring: offer.kind === 'subscription' ? { interval: offer.interval, interval_count: offer.intervalCount } : null } };
+          }) }, url: 'https://checkout.stripe.com/c/pay/cs_' + (live ? 'live' : 'test') + '_fixture_' + state.counter };
         state.sessions.set(value.id, value); keyResults.set(options.idempotencyKey, value); return copy(value);
       },
       retrieve: async id => { invoke('checkout.sessions.retrieve', id); return copy(state.sessions.get(id)); },
@@ -62,12 +81,12 @@ function fixture(t, overrides = {}) {
       retrieve: async id => { invoke('refunds.retrieve', id); return copy(state.refunds.get(id)); },
       list: async params => { invoke('refunds.list', params); return { data: [...state.refunds.values()].filter(value => value.charge === params.charge).map(copy), has_more: false }; },
     },
-    billingPortal: { sessions: { create: async params => { invoke('billingPortal.sessions.create', params); return { url: 'https://billing.stripe.com/p/session/fixture' }; } } },
+    billingPortal: { sessions: { create: async params => { invoke('billingPortal.sessions.create', params); return { id: 'bps_fixture', object: 'billing_portal.session', ...params, url: 'https://billing.stripe.com/p/session/fixture' }; } } },
   };
-  const billing = createBilling({ database: db, env, stripeClient: stripe, now: () => clock });
+  const billing = createBilling({ database: db, env, stripeClient: stripe, storageInspector: overrides.storageInspector, costMeasurementReady: overrides.costMeasurementReady, now: () => clock });
   let eventCounter = 0;
   function signed(type, object, changes = {}, signatureChanges = {}) {
-    const event = { id: 'evt_fixture_' + ++eventCounter, object: 'event', api_version: '2026-10-28.endive', created: Math.floor(clock / 1000), livemode: false, type, data: { object: copy(object) }, ...changes };
+    const event = { id: 'evt_fixture_' + ++eventCounter, object: 'event', api_version: '2026-10-28.endive', created: Math.floor(clock / 1000), livemode: live, type, data: { object: copy(object) }, ...changes };
     const payload = JSON.stringify(event);
     const signature = Stripe.webhooks.generateTestHeaderString({ payload, secret: env.STRIPE_WEBHOOK_SECRET, timestamp: Math.floor(clock / 1000), ...signatureChanges });
     return { payload, signature, event };
@@ -85,12 +104,12 @@ function fixture(t, overrides = {}) {
   async function subscriptionPaid(owner = 'owner_a') {
     const session = await checkoutPaid(owner, 'plan');
     const end = Math.floor(clock / 1000) + 30 * 86400;
-    const subscription = { id: 'sub_fixture_' + ++state.counter, object: 'subscription', livemode: false, customer: session.customer, metadata: session.metadata,
-      status: 'active', cancel_at_period_end: false, items: { data: [{ id: 'si_fixture', price: { id: 'price_fixturePlan' }, quantity: 1, current_period_end: end }] } };
+    const subscription = { id: 'sub_fixture_' + ++state.counter, object: 'subscription', livemode: live, customer: session.customer, metadata: session.metadata,
+      status: 'active', cancel_at_period_end: false, items: { has_more: false, data: [{ id: 'si_fixture', price: copy(session.line_items.data[0].price), quantity: 1, current_period_end: end }] } };
     state.subscriptions.set(subscription.id, subscription);
-    const invoice = { id: 'in_fixture_' + ++state.counter, object: 'invoice', livemode: false, customer: session.customer, parent: { subscription_details: { subscription: subscription.id } },
+    const invoice = { id: 'in_fixture_' + ++state.counter, object: 'invoice', livemode: live, customer: session.customer, parent: { subscription_details: { subscription: subscription.id } },
       status: 'paid', amount_paid: 200, amount_remaining: 0, currency: 'usd',
-      payments: { data: [{ status: 'paid', payment: { payment_intent: 'pi_invoice_' + state.counter } }] },
+      payments: { has_more: false, data: [{ object: 'invoice_payment', livemode: live, invoice: 'in_fixture_' + state.counter, currency: 'usd', amount_paid: 200, status: 'paid', payment: { type: 'payment_intent', payment_intent: 'pi_invoice_' + state.counter } }] },
       lines: { has_more: false, data: [{ quantity: 1, pricing: { price_details: { price: 'price_fixturePlan' } }, period: { start: end - 30 * 86400, end }, proration: false }] } };
     state.invoices.set(invoice.id, invoice);
     await deliver('invoice.paid', invoice);
@@ -98,6 +117,25 @@ function fixture(t, overrides = {}) {
   }
   return { db, env, commercial, billing, state, stripe, signed, deliver, checkoutPaid, subscriptionPaid, now: () => clock, advance: milliseconds => { clock += milliseconds; } };
 }
+
+function liveFixture(t, overrides = {}) {
+  const directory = mkdtempSync(join(tmpdir(), 'compass-live-billing-fixture-'));
+  const path = join(directory, 'fixture.sqlite');
+  const database = new DatabaseSync(path);
+  t.after(() => { database.close(); rmSync(directory, { recursive: true, force: true }); });
+  return fixture(t, { database, storageInspector: async () => ({ mode: 'durable', dependencies: [] }), costMeasurementReady: true, ...overrides,
+    env: { COMPASS_BILLING_MODE: 'live', COMPASS_ACCOUNT_MODE: 'production', COMPASS_BILLING_ORIGIN: 'https://mycompass.world', COMPASS_ACCOUNT_ORIGIN: 'https://mycompass.world',
+      COMPASS_ACCOUNT_DATABASE: path, COMPASS_BILLING_LIVE_POLICY_VERSION: policy().version, STRIPE_ACCOUNT_ID: 'acct_fixtureMerchant', STRIPE_SECRET_KEY: 'rk_live_compass_fixture_not_real', ...overrides.env } });
+}
+
+test('live credits require a succeeded payment belonging to the verified customer and mode',async t=>{
+  for(const change of [{status:'processing'},{livemode:false},{customer:'cus_other'},{amount_received:1}]){
+    const f=liveFixture(t),retrieve=f.stripe.paymentIntents.retrieve;
+    f.stripe.paymentIntents.retrieve=async id=>({...await retrieve(id),...change});
+    await assert.rejects(f.checkoutPaid(),errorCode('payment_intent_policy_mismatch'));
+    assert.equal(f.billing.account('owner_a').balance,0);
+  }
+});
 
 test('billing is off without approved economics and never initializes a financial database', t => {
   const db = new DatabaseSync(':memory:'); t.after(() => db.close());
@@ -357,7 +395,7 @@ test('billing history and portal are owner scoped and administrator summary cont
   assert.equal(JSON.stringify(summary).includes('whsec_'), false);
 });
 
-test('billing origins must match the authenticated origin and never enable main-domain or live payment flows', async t => {
+test('test billing refuses the main domain; incomplete live configuration creates no financial tables', async t => {
   for (const env of [
     { COMPASS_BILLING_ORIGIN: 'https://another.example', COMPASS_ACCOUNT_ORIGIN: 'https://accounts.example' },
     { COMPASS_BILLING_ORIGIN: 'https://mycompass.world', COMPASS_ACCOUNT_ORIGIN: 'https://mycompass.world' },
@@ -371,4 +409,191 @@ test('billing origins must match the authenticated origin and never enable main-
   const disabled = fixture(t, { env: { COMPASS_BILLING_MODE: 'live' } });
   assert.equal(disabled.billing.status().creditsEnabled, false);
   assert.equal(disabled.db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name LIKE 'billing_%'").get().n, 0);
+});
+
+test('live readiness verifies storage, own merchant and every approved price before exposing offers', async t => {
+  const f = liveFixture(t);
+  assert.equal(f.billing.status().mode, 'live');
+  assert.equal(f.billing.status().billingEnabled, false);
+  assert.equal(f.billing.status().creditsEnabled, false);
+  assert.deepEqual(f.billing.status().offers, []);
+  assert.throws(() => f.billing.reserve('owner_a', 'before_preflight'), errorCode('stripe_live_setup_required'));
+  const [first, second] = await Promise.all([f.billing.ready(), f.billing.ready()]);
+  assert.equal(first.liveChargesEnabled, true); assert.equal(second.billingEnabled, true);
+  assert.equal(first.offers.length, 2);
+  assert.deepEqual(f.state.calls.map(item => item.name), ['accounts.retrieve', 'prices.retrieve', 'prices.retrieve']);
+  assert.equal(f.billing.account('owner_a').balance, 0, 'preflight never grants credits');
+  const bound = f.db.prepare('SELECT mode,merchant_id,verified_at FROM billing_environment').get();
+  assert.equal(bound.mode, 'live'); assert.equal(bound.merchant_id, 'acct_fixtureMerchant'); assert.ok(bound.verified_at);
+  assert.equal(JSON.stringify(first).includes('acct_'), false, 'public state does not publish merchant configuration');
+  assert.equal(JSON.stringify(first).includes('rk_live_'), false);
+});
+
+test('live configuration cannot claim working measurement or storage through an environment flag', async t => {
+  const missingCost = liveFixture(t, { costMeasurementReady: false, env: { COMPASS_BILLING_COST_MEASUREMENT: 'verified' } });
+  assert.equal((await missingCost.billing.ready()).billingEnabled, false);
+  assert.ok(missingCost.billing.status().blocked.includes('measured_infrastructure_cost_required'));
+  assert.deepEqual(missingCost.state.calls.map(item => item.name), ['accounts.retrieve']);
+  await assert.rejects(missingCost.billing.checkout('owner_a', { offerId: 'pack', requestKey: randomUUID() }), errorCode('stripe_live_setup_required'));
+  const storage = liveFixture(t, { storageInspector: async () => ({ mode: 'ephemeral-preview', dependencies: ['volume_mount_unverified'] }) });
+  assert.ok((await storage.billing.ready()).blocked.includes('durable_billing_storage_required'));
+  assert.equal(storage.state.calls.length, 0);
+  const wrongDatabase = liveFixture(t, { env: { COMPASS_ACCOUNT_DATABASE: '/not/the/open/database.sqlite' } });
+  assert.ok((await wrongDatabase.billing.ready()).blocked.includes('durable_billing_storage_required'));
+  assert.equal(wrongDatabase.state.calls.length, 0);
+});
+
+test('live mode requires reviewed exact production origin, merchant, matching key and policy approval', async t => {
+  for (const env of [
+    { COMPASS_ACCOUNT_MODE: 'staging' },
+    { COMPASS_BILLING_ORIGIN: 'https://mycompass.world/path' },
+    { COMPASS_BILLING_ORIGIN: 'https://mycompass.world?anything=yes' },
+    { COMPASS_BILLING_ORIGIN: 'https://other.example' },
+    { COMPASS_ACCOUNT_ORIGIN: 'https://www.mycompass.world' },
+    { COMPASS_BILLING_ORIGIN: 'http://mycompass.world', COMPASS_ACCOUNT_ORIGIN: 'http://mycompass.world' },
+    { STRIPE_ACCOUNT_ID: undefined },
+    { COMPASS_BILLING_LIVE_POLICY_VERSION: 'unapproved-policy' },
+    { STRIPE_SECRET_KEY: 'sk_test_compass_fixture_not_real' },
+  ]) {
+    const f = liveFixture(t, { env });
+    assert.equal((await f.billing.ready()).liveChargesEnabled, false);
+    assert.deepEqual(f.billing.status().offers, []);
+    await assert.rejects(f.billing.checkout('owner_a', { offerId: 'pack', requestKey: randomUUID() }), errorCode('stripe_live_setup_required'));
+    assert.equal(f.state.calls.length, 0);
+  }
+  const testRestricted = fixture(t, { env: { STRIPE_SECRET_KEY: 'rk_test_compass_fixture_not_real' } });
+  assert.equal((await testRestricted.billing.ready()).billingEnabled, true);
+});
+
+test('merchant verification uses the key owner, fails closed and refreshes before every payment action', async t => {
+  const f = liveFixture(t);
+  f.state.merchant.id = 'acct_someoneElse';
+  assert.ok((await f.billing.ready()).blocked.includes('stripe_merchant_account_mismatch'));
+  assert.equal(f.state.calls.some(item => item.name === 'customers.create'), false);
+  f.state.merchant.id = 'acct_fixtureMerchant';
+  assert.equal((await f.billing.ready()).liveChargesEnabled, true);
+  await f.checkoutPaid();
+  f.state.merchant.charges_enabled = false;
+  assert.equal((await f.billing.portal('owner_a')).mode, 'live', 'existing customers retain billing management while new sales are suspended');
+  assert.equal(f.billing.status().liveChargesEnabled, false);
+  assert.ok(f.billing.status().blocked.includes('stripe_merchant_charges_disabled'));
+  assert.equal(f.state.calls.filter(item => item.name === 'billingPortal.sessions.create').length, 1);
+  assert.throws(() => f.billing.reserve('owner_a', 'paused_merchant'), errorCode('stripe_live_setup_required'));
+  f.state.merchant.charges_enabled = true;
+  assert.equal((await f.billing.portal('owner_a')).mode, 'live');
+  f.stripe.accounts.retrieve = async () => { throw Error('sensitive upstream details'); };
+  const unavailable = await f.billing.ready();
+  assert.ok(unavailable.blocked.includes('stripe_merchant_verification_unavailable'));
+  assert.equal(JSON.stringify(unavailable).includes('sensitive'), false);
+});
+
+test('financial database binding refuses mode and merchant changes and unbound legacy financial data', async t => {
+  const f = liveFixture(t); await f.checkoutPaid();
+  const options = { database: f.db, stripeClient: f.stripe, costMeasurementReady: true, storageInspector: async () => ({ mode: 'durable' }), now: f.now };
+  const calls = f.state.calls.length;
+  const otherMerchant = createBilling({ ...options, env: { ...f.env, STRIPE_ACCOUNT_ID: 'acct_anotherMerchant' } });
+  assert.ok(otherMerchant.status().blocked.includes('billing_environment_merchant_mismatch'));
+  assert.equal((await otherMerchant.ready()).billingEnabled, false);
+  assert.throws(() => otherMerchant.grant('owner_a', { credits: 1, key: 'wrong_environment' }), errorCode('credit_policy_setup_required'));
+  const testMode = createBilling({ ...options, env: { ...f.env, COMPASS_BILLING_MODE: 'test', STRIPE_SECRET_KEY: 'sk_test_compass_fixture_not_real' } });
+  assert.ok(testMode.status().blocked.includes('billing_environment_mode_mismatch'));
+  assert.equal(f.state.calls.length, calls);
+  assert.equal(f.billing.account('owner_a').balance, 1000);
+  assert.throws(() => f.db.exec("UPDATE billing_environment SET mode='test'"), /immutable_billing_environment/);
+  assert.throws(() => f.db.exec('DELETE FROM billing_environment'), /immutable_billing_environment/);
+  const old = new DatabaseSync(':memory:'); t.after(() => old.close());
+  old.exec("CREATE TABLE billing_account(owner TEXT PRIMARY KEY); INSERT INTO billing_account VALUES ('existing_owner')");
+  const legacy = createBilling({ database: old, env: { ...f.env, COMPASS_BILLING_MODE: 'test' }, stripeClient: f.stripe });
+  assert.ok(legacy.status().blocked.includes('billing_environment_migration_required'));
+  assert.equal(old.prepare("SELECT name FROM sqlite_master WHERE name='billing_environment'").get(), undefined);
+});
+
+test('live checkout verifies exact returned ownership, price, mode, callbacks and hosted Stripe URL', async t => {
+  for (const mutate of [
+    value => { value.livemode = false; },
+    value => { value.id = 'cs_test_wrongMode'; },
+    value => { value.customer = 'cus_someoneElse'; },
+    value => { value.client_reference_id = 'bc_someoneElse'; },
+    value => { value.metadata.compass_checkout_id = 'bc_someoneElse'; },
+    value => { value.mode = 'setup'; },
+    value => { value.success_url = 'https://other.example/workspace'; },
+    value => { value.url = 'https://checkout.stripe.com.attacker.example/pay'; },
+    value => { value.line_items.data[0].quantity = 2; },
+    value => { value.total_details.amount_discount = 1; },
+  ]) {
+    const f = liveFixture(t), create = f.stripe.checkout.sessions.create;
+    f.stripe.checkout.sessions.create = async (...args) => { const value = await create(...args); mutate(value); return value; };
+    await assert.rejects(f.billing.checkout('owner_a', { offerId: 'pack', requestKey: randomUUID() }), error => ['invalid_stripe_live_checkout', 'checkout_price_policy_mismatch'].includes(error.code));
+    assert.equal(f.billing.account('owner_a').balance, 0);
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM billing_payment').get().n, 0);
+  }
+  const wrongPrice = liveFixture(t), retrieve = wrongPrice.stripe.prices.retrieve;
+  wrongPrice.stripe.prices.retrieve = async id => ({ ...await retrieve(id), livemode: false });
+  assert.ok((await wrongPrice.billing.ready()).blocked.includes('stripe_price_policy_mismatch'));
+  assert.equal(wrongPrice.state.calls.some(item => item.name === 'customers.create'), false);
+});
+
+test('live signed webhooks grant and refund once, reject cross-mode/Connect, and never trust redirects', async t => {
+  const f = liveFixture(t);
+  const opened = await f.billing.checkout('owner_a', { offerId: 'pack', requestKey: randomUUID() });
+  assert.equal(opened.mode, 'live'); assert.equal(f.billing.account('owner_a').balance, 0);
+  const session = f.state.sessions.get(opened.sessionId);
+  const before = f.state.calls.length;
+  const wrongMode = f.signed('checkout.session.completed', session, { livemode: false });
+  await assert.rejects(f.billing.webhook(wrongMode.payload, wrongMode.signature), errorCode('stripe_live_event_required'));
+  const connect = f.signed('checkout.session.completed', session, { account: 'acct_other' });
+  await assert.rejects(f.billing.webhook(connect.payload, connect.signature), errorCode('stripe_live_event_required'));
+  await assert.rejects(f.billing.webhook(connect.payload + ' ', connect.signature), errorCode('stripe_webhook_signature_invalid'));
+  assert.equal(f.state.calls.length, before, 'invalid signatures and event scope trigger no upstream calls');
+  Object.assign(session, { status: 'complete', payment_status: 'paid', amount_total: 100, currency: 'usd', payment_intent: 'pi_liveFixture' });
+  session.livemode = false;
+  await assert.rejects(f.deliver('checkout.session.completed', session), errorCode('stripe_live_object_required'));
+  session.livemode = true;
+  const paid = f.signed('checkout.session.completed', session);
+  assert.equal((await f.billing.webhook(paid.payload, paid.signature)).mode, 'live');
+  assert.equal((await f.billing.webhook(paid.payload, paid.signature)).replay, true);
+  assert.equal(f.billing.account('owner_a').balance, 1000);
+  const refund = { id: 're_liveFixture', object: 'refund', amount: 100, currency: 'usd', status: 'succeeded', payment_intent: session.payment_intent };
+  f.state.refunds.set(refund.id, refund);
+  await f.deliver('refund.created', refund); await f.deliver('refund.updated', refund);
+  assert.equal(f.billing.account('owner_a').balance, 0, 'real Refund objects have no livemode property');
+  assert.equal(f.billing.account('owner_a').transactions.filter(row => row.kind === 'refund_revoke').length, 1);
+});
+
+test('live paid subscription and cancellation preserve existing invoice and refund rules', async t => {
+  const f = liveFixture(t), { subscription, invoice } = await f.subscriptionPaid();
+  assert.equal(f.billing.account('owner_a').balance, 2000);
+  assert.equal(f.billing.assertEntitled('owner_a', 'advanced').allowed, true);
+  assert.equal((await f.billing.cancel('owner_a', { subscriptionId: subscription.id, requestKey: randomUUID() })).cancelAtPeriodEnd, true);
+  const refund = { id: 're_livePlanFixture', object: 'refund', amount: 200, currency: 'usd', status: 'succeeded', payment_intent: invoice.payments.data[0].payment.payment_intent };
+  f.state.refunds.set(refund.id, refund); await f.deliver('refund.created', refund);
+  assert.throws(() => f.billing.assertEntitled('owner_a', 'advanced'), errorCode('entitlement_required'));
+  await f.deliver('invoice.paid', invoice);
+  assert.equal(f.billing.account('owner_a').balance, 0);
+});
+
+test('existing payments reconcile after prices are archived, charges stop or cost measurement becomes unavailable', async t => {
+  const f = liveFixture(t), { subscription, invoice, session } = await f.subscriptionPaid();
+  f.state.merchant.charges_enabled = false;
+  const retrieve = f.stripe.prices.retrieve;
+  f.stripe.prices.retrieve = async id => ({ ...await retrieve(id), active: false });
+  const paused = createBilling({ database: f.db, env: f.env, stripeClient: f.stripe, storageInspector: async () => ({ mode: 'durable' }), costMeasurementReady: false, now: f.now });
+  assert.equal((await paused.ready()).billingEnabled, false);
+  assert.deepEqual(paused.status().offers, []);
+  assert.equal((await paused.cancel('owner_a', { subscriptionId: subscription.id, requestKey: randomUUID() })).cancelAtPeriodEnd, true);
+  await assert.rejects(paused.checkout('owner_a', { offerId: 'pack', requestKey: randomUUID() }), errorCode('stripe_live_setup_required'));
+  const refund = { id: 're_livePaused', object: 'refund', amount: 200, currency: 'usd', status: 'succeeded', payment_intent: invoice.payments.data[0].payment.payment_intent };
+  f.state.refunds.set(refund.id, refund);
+  const signed = f.signed('refund.created', refund);
+  await paused.webhook(signed.payload, signed.signature);
+  assert.equal(paused.account('owner_a').balance, 0);
+  // A delayed snapshot for an already-paid, owner-bound Checkout still uses its
+  // original immutable terms, even after new sales have been suspended.
+  session.line_items.data[0].price.active = false;
+  const replay = f.signed('checkout.session.completed', session);
+  await paused.webhook(replay.payload, replay.signature);
+  assert.equal(paused.account('owner_a').balance, 0);
+  f.state.merchant.id = 'acct_anotherMerchant';
+  const blocked = f.signed('refund.updated', refund);
+  await assert.rejects(paused.webhook(blocked.payload, blocked.signature), errorCode('stripe_live_setup_required'));
 });

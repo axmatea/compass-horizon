@@ -2,6 +2,9 @@
 
 Canonical source: [axmatea/compass-horizon](https://github.com/axmatea/compass-horizon).
 
+Current production account, storage and provider activation status:
+[Production services](docs/PRODUCTION_SERVICES.md).
+
 COMPASS builds and refines websites, with functional data applications in an
 explicit account preview. The predominantly white public pages are `/`, `/demo`,
 `/plan`, `/studio` and `/create`; `/voice-demo` aliases `/demo`. The homepage

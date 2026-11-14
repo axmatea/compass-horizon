@@ -12,7 +12,7 @@ const providerNames = {google:'Google',github:'GitHub',apple:'Apple'}
 const accountForm = $('account-form')
 const onboardingForm = $('onboarding-form')
 const promptInput = $('create-prompt')
-if(appEntry){$('prompt-note').textContent='Data apps in preview.';promptInput.placeholder='A CRM for my studio…'}
+if(appEntry){$('prompt-note').textContent='Data apps.';promptInput.placeholder='A CRM for my studio…'}
 const entry = accountEntry(location.href)
 if (new URL(location.href).searchParams.has('token') || new URL(location.href).searchParams.has('error')) history.replaceState(null,'',entry.cleanURL)
 const views = createAccountViews({root:$('account-tools'),api,onMessage:message,onExpired:requireAccountChoice,onUser:bindIdentity,onPreferences:openPreferences})
@@ -85,7 +85,7 @@ function show(step,{focus = true} = {}) {
   const returning = state.flowMode !== 'project' && !state.draft
   const editing = state.flowMode === 'profile'
   const titles = {prompt:'What will you make?',auth:returning ? 'Welcome back.' : 'Keep your idea.',onboarding:editing ? 'Your direction.' : 'Make it yours.',manage:{account:'Your account.',recover:'Recover your account.',reset:'A new password.',verify:'Verify your email.'}[state.flowMode] || 'Your account.'}
-  const descriptions = {prompt:'Start with an idea.',auth:returning ? 'Sign in to your workspace.' : 'One account. A place to keep building.',onboarding:'Two choices. Both optional.',manage:'Simple, secure account controls.'}
+  const descriptions = {prompt:'Start with an idea.',auth:returning ? 'Sign in to your workspace.' : 'Sign in to save your work.',onboarding:'Two choices. Both optional.',manage:'Account settings.'}
   $('create-title').textContent = titles[step]
   $('create-lede').textContent = descriptions[step]
   $('step-label').textContent = editing ? 'Preferences' : returning ? 'Your workspace' : step === 'onboarding' ? 'A direction for your project' : 'A new project'
@@ -100,7 +100,7 @@ function show(step,{focus = true} = {}) {
   if (step === 'onboarding') {
     showPreferences(editing ? state.profilePreferences : state.draft?.preferences ?? state.profilePreferences)
     $('save-scope').textContent = state.guest || !state.user ? 'Your choices stay in this tab.'
-      : state.config?.persistence === 'durable' ? 'Saved with your account when you continue.' : 'Preview account · data may reset.'
+      : state.config?.persistence === 'durable' ? 'Save choices to your account.' : 'Preview account · data may reset.'
   }
   if(step==='manage')void views.render(state.flowMode,{config:state.config,user:state.user,resetToken:entry.resetToken,linkError:entry.linkError,hasDraft:Boolean(state.draft)})
   if (focus) $('create-title').focus()
@@ -123,7 +123,7 @@ function mode(signup) {
   $('account-password').autocomplete = signup ? 'new-password' : 'current-password'
   $('password-note').hidden = !signup
   $('account-submit').textContent = signup ? 'Create account →' : 'Sign in →'
-  $('forgot-password').hidden = signup || !state.config?.features.passwordRecovery
+  $('forgot-password').hidden = signup || !state.config?.providers.includes('email') || !state.config?.features.passwordRecovery
   message()
 }
 function renderProviders() {
@@ -143,7 +143,8 @@ function renderProviders() {
   $('auth-preview-note').hidden = !email || state.config?.emailMode !== 'test'
   $('auth-unavailable').hidden = providers.length > 0
   $('account-email').placeholder = state.config?.emailMode === 'test' ? 'you@example.test' : 'you@example.com'
-  $('forgot-password').hidden = state.signup || !state.config?.features.passwordRecovery
+  $('forgot-password').hidden = state.signup || !email || !state.config?.features.passwordRecovery
+  if(appEntry)$('prompt-note').textContent=state.config?.persistence === 'durable' ? 'Data apps.' : 'Data apps in preview.'
   $('create-account-link').hidden = !state.config?.configured
   $('create-account-link').textContent = state.user ? 'Account' : 'Sign in'
   $('create-account-link').href = state.user ? '/create?view=account' : '/create?signin=1'
@@ -196,9 +197,9 @@ async function initialize() {
 
 async function authenticate(event) {
   event.preventDefault()
-  if (state.busy || !accountForm.reportValidity() || (state.flowMode === 'project' && !persist())) return
+  if (state.busy || !state.config?.providers.includes('email') || !accountForm.reportValidity() || (state.flowMode === 'project' && !persist())) return
   const email = $('account-email').value.trim()
-  if (!allowedEmail(email,state.config)) { message('Use a .test email for this preview account.',true); $('account-email').focus(); return }
+  if (!allowedEmail(email,state.config)) { message(state.config?.emailMode === 'test' ? 'Use a .test email for this preview.' : 'Enter a valid email.',true); $('account-email').focus(); return }
   const run = ++epoch
   busy(true)
   message()

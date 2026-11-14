@@ -71,3 +71,13 @@ test('valid private temporary database stays enabled while aliases are blocked a
   assert.equal((await f.request('/database-copy.json')).status,404);assert.equal((await f.request('/private-alias/accounts.json')).status,404);
   const asset=await f.request('/accounts.json');assert.equal(asset.status,200);assert.deepEqual(await asset.json(),{asset:'public'});
 });
+
+test('private mounted backups cannot be served through a public asset alias',async t=>{
+  const f=await fixture(t,async({env,publicRoot,privateRoot})=>{
+    env.COMPASS_STORAGE_MODE='persistent-volume';env.RAILWAY_VOLUME_MOUNT_PATH=privateRoot;
+    await writeFile(join(privateRoot,'private-backup.json'),'Private backup content',{mode:0o600});
+    await symlink(join(privateRoot,'private-backup.json'),join(publicRoot,'public-copy.json'));
+  });
+  const response=await f.request('/public-copy.json');assert.equal(response.status,404);
+  assert.equal((await response.text()).includes('Private backup content'),false);
+});

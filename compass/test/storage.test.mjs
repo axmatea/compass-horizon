@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,chmod,rm,symlink,realpath,stat,copyFile} from 'node:fs/promises';
+import {mkdtemp,mkdir,chmod,rm,symlink,realpath,stat,copyFile,access,readFile,readdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:http';
 import {DatabaseSync} from 'node:sqlite';
-import {inspectStorage,backupAccountDatabase} from '../account/storage.mjs';
+import {inspectStorage,prepareProductionStorage,accountDatabaseLimit,backupAccountDatabase} from '../account/storage.mjs';
 import {createAccountAuth} from '../account/auth.mjs';
 import {createAccountStore} from '../account/store.mjs';
 
@@ -34,6 +34,10 @@ test('an ordinary writable directory is not advertised as durable cloud storage'
   const unavailable=await inspectStorage(context.env,{readMountInfo:async()=>{throw Error('Not a Linux volume mount')}});
   assert.equal(unavailable.mode,'ephemeral-preview');
   assert.ok(!JSON.stringify(unavailable).includes(context.path));
+  for(const filesystem of ['tmpfs','ramfs','overlay']){
+    const temporary=await inspectStorage(context.env,{readMountInfo:async()=>`29 23 8:1 / ${context.mount} rw - ${filesystem} temporary rw\n`});
+    assert.ok(temporary.dependencies.includes('volume_mount_unverified'));
+  }
 });
 
 test('a verified mount and private writable database require a fixed signing secret',async t=>{
@@ -54,6 +58,36 @@ test('symlink escapes, public database locations and unsafe permissions fail sto
   assert.ok((await inspectStorage(env,verified)).dependencies.includes('database_permissions_unsafe'));
 });
 
+test('production bootstrap verifies the mount and private destination before creating an empty database',async t=>{
+  const {env,verified,mount,publicRoot,directory}=await fixture(t);
+  const production={...env,COMPASS_ACCOUNT_MODE:'production',COMPASS_ACCOUNT_DATABASE:join(mount,'new-private','account.sqlite')};
+  assert.equal((await prepareProductionStorage(production,{readMountInfo:async()=>''})).mode,'ephemeral-preview');
+  await assert.rejects(access(production.COMPASS_ACCOUNT_DATABASE));
+  assert.deepEqual(await prepareProductionStorage(production,verified),{mode:'durable',dependencies:[]});
+  assert.equal((await stat(production.COMPASS_ACCOUNT_DATABASE)).size,0);
+  assert.equal((await stat(production.COMPASS_ACCOUNT_DATABASE)).mode&0o777,0o600);
+  assert.equal((await stat(join(mount,'new-private'))).mode&0o777,0o700);
+  // A missing final file must still resolve its existing symlinked ancestors.
+  const alias=join(mount,'public-link');await symlink(publicRoot,alias);
+  const publicPath={...production,COMPASS_ACCOUNT_DATABASE:join(alias,'not-created.sqlite')};
+  assert.equal((await prepareProductionStorage(publicPath,verified)).mode,'ephemeral-preview');
+  await assert.rejects(access(join(publicRoot,'not-created.sqlite')));
+  const outside=join(directory,'outside');await mkdir(outside,{mode:0o700});
+  const escaped=join(mount,'outside-link');await symlink(outside,escaped);
+  const invalid={...production,COMPASS_ACCOUNT_DATABASE:join(escaped,'absent','account.sqlite')};
+  assert.equal((await prepareProductionStorage(invalid,verified)).mode,'ephemeral-preview');
+  await assert.rejects(access(join(outside,'absent')));
+});
+
+test('production technical database limits are explicit and bounded without changing staging limits',()=>{
+  assert.equal(accountDatabaseLimit({}),64*1024*1024);
+  assert.equal(accountDatabaseLimit({COMPASS_ACCOUNT_MODE:'production'}),256*1024*1024);
+  assert.equal(accountDatabaseLimit({COMPASS_ACCOUNT_MODE:'production',COMPASS_ACCOUNT_MAX_DATABASE_BYTES:String(128*1024*1024)}),128*1024*1024);
+  for(const value of ['not-a-number','',String(63*1024*1024),String(1024*1024*1024+1)]){
+    assert.throws(()=>accountDatabaseLimit({COMPASS_ACCOUNT_MODE:'production',COMPASS_ACCOUNT_MAX_DATABASE_BYTES:value}),error=>error.code==='database_limit_invalid');
+  }
+});
+
 test('explicit snapshots are private, consistent and cannot be written under the public asset root',async t=>{
   const {env,database,publicRoot,backups,directory}=await fixture(t);
   const snapshot=await backupAccountDatabase({env,database});
@@ -66,6 +100,25 @@ test('explicit snapshots are private, consistent and cannot be written under the
   await assert.rejects(backupAccountDatabase({env:{...env,COMPASS_BACKUP_DIRECTORY:escaped},database}),error=>error.code==='backup_directory_is_public');
   await chmod(backups,0o755);
   await assert.rejects(backupAccountDatabase({env,database}),error=>error.code==='backup_directory_unavailable_or_not_private');
+});
+
+test('production snapshots retain seven verified private helper files and leave unrelated files alone',async t=>{
+  const {env,database,backups,directory}=await fixture(t);
+  const production={...env,COMPASS_ACCOUNT_MODE:'production'};
+  const unrelated=join(backups,'operator-notes.txt');await writeFile(unrelated,'Do not remove',{mode:0o600});
+  const publicName='compass-backup-2000-01-01T00-00-00-000Z-00000000-0000-0000-0000-000000000000.sqlite';
+  const publicFile=join(backups,publicName);await writeFile(publicFile,'Unsafe permissions need operator review',{mode:0o644});await chmod(publicFile,0o644);
+  const symlinkName='compass-backup-2000-01-02T00-00-00-000Z-00000000-0000-0000-0000-000000000000.sqlite';
+  const outside=join(directory,'outside-file');await writeFile(outside,'Keep symlink target',{mode:0o600});await symlink(outside,join(backups,symlinkName));
+  const snapshots=[];
+  for(let index=0;index<8;index++)snapshots.push(await backupAccountDatabase({env:production,database}));
+  assert.equal(snapshots.at(-1).retention,7);assert.equal(snapshots.at(-1).pruned,1);
+  const names=await readdir(backups);
+  assert.equal(names.filter(name=>name.startsWith('compass-backup-')&&name!==publicName&&name!==symlinkName).length,7);
+  await access(snapshots.at(-1).path);
+  assert.equal(await readFile(unrelated,'utf8'),'Do not remove');
+  assert.equal(await readFile(outside,'utf8'),'Keep symlink target');await access(publicFile);
+  await assert.rejects(backupAccountDatabase({env:{...production,COMPASS_BACKUP_RETENTION:'0'},database}),error=>error.code==='backup_retention_invalid');
 });
 
 test('a real account and its owned project restore from a private snapshot with the fixed session secret',async t=>{

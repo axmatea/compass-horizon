@@ -154,7 +154,7 @@ test('Stripe webhook consumes exact signed raw bytes without an account cookie a
   const policy={version:'synthetic-http-test',currency:'usd',creditUnitCostMicros:1000,maxOperationCostMicros:10000,rounding:'ceil',creditFeatures:['generate'],rates:[{provider:'anthropic',model:'synthetic-model',inputTokenBasis:'excludes_cache',inputMicrosPerMillion:1000000,outputMicrosPerMillion:1000000}],offers:[{id:'synthetic-pack',kind:'credits',priceId:'price_synthetic',credits:100,unitAmount:100,currency:'usd',features:[]}]};
   const secret='whsec_synthetic_http_fixture_only';
   const {request}=await fixture(t,true,{COMPASS_BILLING_MODE:'test',COMPASS_BILLING_ORIGIN:origin,COMPASS_CREDIT_POLICY_JSON:JSON.stringify(policy),STRIPE_SECRET_KEY:'sk_test_synthetic_fixture_only',STRIPE_WEBHOOK_SECRET:secret});
-  const timestamp=Math.floor(Date.now()/1000),event={id:'evt_syntheticHttp',livemode:false,created:timestamp,type:'synthetic.ignored',data:{object:{id:'synthetic_object'}}};
+  const timestamp=Math.floor(Date.now()/1000),event={id:'evt_syntheticHttp',object:'event',livemode:false,created:timestamp,type:'synthetic.ignored',data:{object:{id:'synthetic_object'}}};
   // Deliberate whitespace proves no JSON reserialization before verification.
   const payload=JSON.stringify(event,null,2),signature=Stripe.webhooks.generateTestHeaderString({payload,secret,timestamp});
   const options={method:'POST',body:payload,headers:{'stripe-signature':signature,origin:'https://hooks.stripe.com','sec-fetch-site':'cross-site'}};

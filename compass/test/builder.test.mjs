@@ -170,17 +170,17 @@ test('a stub anthropic reply is used for the page and the prompt is not logged',
 });
 
 test('site turns are rate limited and length limited without an error page', async () => {
-  const ctx = await listen({ DEMO_RATE_LIMIT: '1' }, async () => { throw new Error('should not call'); });
+  const ctx = await listen({ NODE_ENV:'production',COMPASS_ACCOUNT_TRUST_RAILWAY_PROXY:'1',RAILWAY_PROJECT_ID:'fixture-project',RAILWAY_SERVICE_ID:'fixture-service',DEMO_RATE_LIMIT: '1' }, async () => { throw new Error('should not call'); });
   try {
-    const first = await turn(ctx.origin, LINES[0], undefined, { 'x-forwarded-for': '203.0.113.40' });
+    const first = await turn(ctx.origin, LINES[0], undefined, { 'x-real-ip': '203.0.113.40' });
     assert.equal(first.status, 200);
-    const limited = await turn(ctx.origin, LINES[1], first.body.sessionId, { 'x-forwarded-for': '203.0.113.40' });
+    const limited = await turn(ctx.origin, LINES[1], first.body.sessionId, { 'x-real-ip': '203.0.113.40' });
     assert.equal(limited.status, 429);
     assert.equal(limited.body.error, 'rate_limited');
     assert.match(limited.body.fallback.html, /Pricing/);
     const stream = await fetch(ctx.origin + '/api/site/turn', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'text/event-stream', 'x-forwarded-for': '203.0.113.41' },
+      headers: { 'content-type': 'application/json', accept: 'text/event-stream', 'x-real-ip': '203.0.113.41' },
       body: JSON.stringify({ text: LINES[0] }),
     });
     assert.equal(stream.status, 200);
@@ -188,7 +188,7 @@ test('site turns are rate limited and length limited without an error page', asy
     assert.match(text, /event: tool_call/);
     assert.match(text, /event: render/);
     assert.match(text, /event: result/);
-    const tooLong = await turn(ctx.origin, 'x'.repeat(501), undefined, { 'x-forwarded-for': '203.0.113.42' });
+    const tooLong = await turn(ctx.origin, 'x'.repeat(501), undefined, { 'x-real-ip': '203.0.113.42' });
     assert.equal(tooLong.status, 400);
     assert.equal(tooLong.body.error, 'text_too_long');
     assert.equal(tooLong.body.limit, 500);
@@ -196,4 +196,13 @@ test('site turns are rate limited and length limited without an error page', asy
     await ctx.app.close();
     await rm(ctx.root, { recursive: true, force: true });
   }
+});
+
+test('changing untrusted forwarded headers cannot bypass the public build limit', async t => {
+  const ctx=await listen({DEMO_RATE_LIMIT:'1'},async()=>{throw Error('No external call expected')});
+  t.after(async()=>{await ctx.app.close();await rm(ctx.root,{recursive:true,force:true})});
+  const first=await turn(ctx.origin,LINES[0],undefined,{'x-forwarded-for':'203.0.113.1','x-real-ip':'203.0.113.1'});
+  assert.equal(first.status,200);
+  const next=await turn(ctx.origin,LINES[0],undefined,{'x-forwarded-for':'203.0.113.2','x-real-ip':'203.0.113.2'});
+  assert.equal(next.status,429);
 });

@@ -56,12 +56,13 @@ test('video URL is https only and live mode falls back when the model fails', as
     COMPASS_DEMO_MODE: 'live',
     DEMO_VIDEO_URL: 'https://example.com/film.mp4',
     NEBIUS_API_KEY: secret,
+    NODE_ENV:'production',COMPASS_ACCOUNT_TRUST_RAILWAY_PROXY:'1',RAILWAY_PROJECT_ID:'fixture-project',RAILWAY_SERVICE_ID:'fixture-service',
     DEMO_RATE_LIMIT: '2',
   }, async () => { seen.push('called'); throw new Error('down'); });
   try {
     const config = await (await fetch(ctx.origin + '/api/config')).json();
     assert.equal(config.demoVideoUrl, 'https://example.com/film.mp4');
-    const headers = { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.10' };
+    const headers = { 'content-type': 'application/json', 'x-real-ip': '203.0.113.10' };
     const body = JSON.stringify({ exampleId: 'barber' });
     const first = await (await fetch(ctx.origin + '/api/demo/clarify', { method: 'POST', headers, body })).json();
     assert.equal(first.source, 'example');
@@ -76,7 +77,7 @@ test('video URL is https only and live mode falls back when the model fails', as
     assert.equal(limitedBody.error, 'rate_limited');
     assert.equal(limitedBody.fallback.preview.tabs.length >= 2, true);
     assert.equal(JSON.stringify(limitedBody).includes(secret), false);
-    const custom = await (await fetch(ctx.origin + '/api/demo/clarify', { method: 'POST', headers: { ...headers, 'x-forwarded-for': '203.0.113.11' }, body: JSON.stringify({ intent: 'a shared reading list for my book club' }) })).json();
+    const custom = await (await fetch(ctx.origin + '/api/demo/clarify', { method: 'POST', headers: { ...headers, 'x-real-ip': '203.0.113.11' }, body: JSON.stringify({ intent: 'a shared reading list for my book club' }) })).json();
     assert.equal(custom.source, 'fallback');
     assert.equal(custom.ok, true);
     assert.equal(seen.length > 0, true);

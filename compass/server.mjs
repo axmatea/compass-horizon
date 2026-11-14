@@ -8,8 +8,10 @@ import { clarifyDemo, planDemo, demoVideoUrl, llmStatus, fallbackRun, MAX_INTENT
 import { submitEarlyAccess } from './early-access.mjs';
 import { applyHomepage } from './homepage.mjs';
 import { createSiteBuilder, publicTurn, sessionIdFrom, validateResumeIntent, MAX_TEXT } from './builder/index.mjs';
-import { createAccountAuth,isAccountDatabaseAsset } from './account/auth.mjs';
+import { createAccountAuth,isAccountDatabaseAsset,accountClientAddress } from './account/auth.mjs';
 import { createAccountApi } from './account/http.mjs';
+import {inspectStorage} from './account/storage.mjs';
+import {createBackupService} from './account/backup.mjs';
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -20,12 +22,6 @@ const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
   '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8' };
 const retired = /^\/(?:app|office|login|demo|voice-demo|presentation|present|story|protect|studio|horizon|vision|acquisition|live|film)(?:\/|\.|$)/;
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; frame-src 'self' https:";
-
-function clientAddress(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.trim()) return forwarded.split(',')[0].trim().slice(0, 80);
-  return req.socket?.remoteAddress || 'local';
-}
 
 async function readJson(req) {
   const chunks = [];
@@ -62,6 +58,15 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
   const site = createSiteBuilder({ env, fetchImpl });
   const accounts = createAccountAuth({env});
   const accountApi = createAccountApi({auth:accounts,env,fetchImpl,rateLimitNow:accountRateNow});
+  let backups,backupTimer;
+  const backupStartup=(async()=>{
+    await accounts.ready;
+    if(env.COMPASS_ACCOUNT_MODE!=='production'||!accounts.publicConfig().configured)return;
+    backups=createBackupService({env,database:accounts.database});
+    await backups.run();
+    backupTimer=setInterval(()=>{backups.run().catch(()=>{})},24*60*60*1000);
+    backupTimer.unref();
+  })().catch(()=>{});
   let previewScriptPolicy;
   const allowTrustedPreview=async res=>{
     await accounts.ready;if(!accounts.publicConfig().configured)return;
@@ -90,7 +95,20 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
         res.writeHead(308, { Location: `https://mycompass.world${url.pathname}${url.search}` }).end(); return;
       }
       if (pathname === '/healthz') {
-        json(200, { ok: true, mode: 'public-demo', demoMode: env.COMPASS_DEMO_MODE, llmConfigured: llmStatus(env),
+        const productionAccounts = env.COMPASS_ACCOUNT_MODE === 'production';
+        let accountsReady = true;
+        if (productionAccounts) {
+          await accounts.ready;
+          accountsReady = accounts.publicConfig().configured && (await inspectStorage(env)).mode === 'durable';
+          await backupStartup;
+        }
+        const backupsReady=Boolean(backups?.status().ready);
+        const healthy=accountsReady&&(!productionAccounts||backupsReady);
+        // Railway must not promote a release that requested real accounts but
+        // failed to initialize its private persistent identity store.
+        json(healthy ? 200 : 503, { ok: healthy, mode: productionAccounts ? 'production' : 'public-demo',
+          demoMode: env.COMPASS_DEMO_MODE, llmConfigured: llmStatus(env),
+          ...(productionAccounts ? {accountsReady,backupsReady} : {}),
           revision: env.RAILWAY_GIT_COMMIT_SHA || env.COMPASS_REVISION || 'local' }); return;
       }
       if (pathname === '/api/config' && req.method === 'GET') { json(200, { demoVideoUrl: demoVideoUrl(env) }); return; }
@@ -98,7 +116,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
       if (await accountApi(req,res)) return;
       if (pathname === '/api/early-access') {
         if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); text(405, 'Method not allowed'); return; }
-        const gate = hit(clientAddress(req));
+        const gate = hit(accountClientAddress(req,env));
         if (gate.limited) { json(429, { ok: false, stored: false, error: 'rate_limited' }, { 'Retry-After': String(gate.retryAfter) }); return; }
         const body = await readJson(req);
         if (body.error) { json(400, { ok: false, stored: false, error: body.error }); return; }
@@ -106,7 +124,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
         json(result.status, result.body); return;
       }
       if (pathname === '/api/site/turn' && req.method === 'POST') {
-        const gate = hit(clientAddress(req));
+        const gate = hit(accountClientAddress(req,env));
         const body = await readJson(req);
         if (body.error) { json(400, { error: body.error, limit: MAX_TEXT }); return; }
         const text = typeof body.value?.text === 'string' ? body.value.text.trim() : '';
@@ -152,7 +170,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
       }
       if (pathname === '/api/demo/clarify' || pathname === '/api/demo/plan') {
         if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); text(405, 'Method not allowed'); return; }
-        const gate = hit(clientAddress(req));
+        const gate = hit(accountClientAddress(req,env));
         if (gate.limited) { json(429, { error: 'rate_limited', fallback: fallbackRun() }, { 'Retry-After': String(gate.retryAfter) }); return; }
         const body = await readJson(req);
         if (body.error) { json(400, { error: body.error, limit: MAX_INTENT }); return; }
@@ -171,7 +189,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
       if (normalized === '/create') { await serveFile(req,res,root,'/create.html',text,env); return; }
       if (normalized === '/workspace') {
         await accounts.ready;
-        if (!accounts.publicConfig().configured) { text(404,'Account preview is not enabled.'); return; }
+        if (!accounts.publicConfig().configured) { text(404,'Account access is not enabled.'); return; }
         res.setHeader('X-Robots-Tag','noindex');
         await allowTrustedPreview(res);
         await serveFile(req,res,root,'/demo.html',text,env); return;
@@ -191,7 +209,8 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
   });
   return { server, async close() {
     const stopped = server.listening ? new Promise(resolve => server.close(resolve)) : Promise.resolve();
-    server.closeIdleConnections(); await stopped; await accounts.close();
+    server.closeIdleConnections(); await stopped; await backupStartup;
+    clearInterval(backupTimer);await backups?.close();await accounts.close();
   } };
 }
 

@@ -3,10 +3,15 @@
 The founder's current complete-product mandate supersedes the previous limited
 slice: implement the complete supported builder, account lifecycle, trusted
 application generation, isolated previews, owner-scoped storage, cost/credit
-ledger, test billing, integrations, publishing, and operational controls. Keep
+ledger, billing, integrations, publishing, and operational controls. Keep
 all existing public functionality. Use modules; no framework rewrite. Production
-auth/data migrations, new paid infrastructure, live charges and external provider
-consent still require their verified test configuration and explicit authorization.
+accounts, private persistent storage, OAuth and payments setup are explicitly
+authorized by the founder's 14 November production request. Use the existing
+Railway service and owned providers where possible. Enable a real provider only
+after its configuration and complete flow are verified. Commercial prices and
+credit terms require founder confirmation; do not invent them. Provider consent,
+security-sensitive browser access and financial transactions retain their own
+action-specific confirmation requirements.
 Never execute arbitrary generated code on the delivery server. Engineer-authored
 templates driven only by validated manifests may use the trusted runtime; arbitrary
 code requires a separate resource-limited execution service. Record each external
@@ -75,8 +80,9 @@ history, force-push, drop production data, or create archive directories.
 User-requested cleanup can retire source code, not erase an existing database.
 Never read/print secrets or load old .env files to build the product.
 Do not fake live-agent status or working-account claims. Outbound calls are
-limited to explicitly configured server-side model requests, account identity/
-verification services in the isolated staging feature, and the optional
+limited to explicitly configured server-side model requests, owned account
+identity/verification services, verified Stripe billing, explicitly configured
+encrypted private backups and the optional
 WAITLIST_WEBHOOK_URL post of an early-access email. If the
 model call is missing or fails, serve a prepared example. If the webhook is
 unset or fails, do not claim the email was stored. Never claim metrics,
@@ -84,18 +90,20 @@ customers, prices or team members the founder has not confirmed.
 
 Production belongs to existing Railway compass-web, mycompass.world, main with
 root directory /compass and /healthz healthcheck. /healthz reports
-mode=public-demo. Deploy only with current user approval and verify exact
+mode=public-demo unless production accounts are explicitly enabled. Deploy only
+with current user approval and verify exact
 public revision plus assets in the browser. Optional runtime settings are
 DEMO_VIDEO_URL, WAITLIST_WEBHOOK_URL and the model key names in
 compass/.env.example, including ANTHROPIC_API_KEY and ANTHROPIC_MODEL.
 Website deploy success is not a Mac factory-reset authorization: local recovery
 requires its own verified backup and restore evidence. Never initiate reset.
 
-Account rules: default off. Only COMPASS_ACCOUNT_MODE=staging plus a valid exact
-origin, absolute isolated database path and secret enables identity. Staging
-auth refuses mycompass.world and www.mycompass.world, even if keys exist. Never
-enable production accounts, persistent customer data, paid billing or new paid
-infrastructure as an incidental release step. Better Auth owns password/session
+Account rules: default off. COMPASS_ACCOUNT_MODE=staging enables isolated QA;
+COMPASS_ACCOUNT_MODE=production is reserved for https://mycompass.world with a
+fixed private secret, a verified mounted private persistent database, and real
+email delivery or configured social identity. Staging auth still refuses the
+primary domains. /healthz must fail when production identity is requested but
+unready. Better Auth owns password/session
 security; all private endpoints verify the DB session and owner independently.
 Public and authenticated builder runtimes must remain separate. No-delivery
 email signup accepts only reserved .test addresses. Missing OAuth credentials

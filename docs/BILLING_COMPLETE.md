@@ -1,16 +1,17 @@
-# Credit accounting and Stripe test billing
+# Credit accounting and Stripe production readiness
 
-13 November 2026. This is implemented server-side code with local financial and
-provider-stream regression tests. **No live charging path exists.** No Stripe
-account, price, subscription, payment or provider call was created during this
-work. Real Stripe test-account credentials and approved commercial inputs are
-still external setup requirements; SDK-signed fixtures do not prove a real
-checkout, portal, card payment or webhook delivery.
+14 November 2026. The server supports explicitly configured Stripe test and live
+transports, with local financial and provider-stream regression tests. Live
+checkout remains disabled until the production gates below pass. No Stripe
+merchant, price, subscription, payment or real provider call was created during
+this work. SDK-signed fixtures do not prove a real checkout, portal, card payment
+or webhook delivery. Commercial inputs and production merchant credentials have
+not been supplied; no prices or provider costs are invented as defaults.
 
 ## Activation and external requirements
 
 Default-off `createBilling({database,env,stripeClient?,now?})` uses the already-open
-account SQLite database. With no explicit test mode, valid policy or database,
+account SQLite database. With no explicit mode, valid policy or database,
 it creates no billing tables and returns null balances, empty offers and exact
 blocked-reason codes. It never manufactures a free credit balance.
 
@@ -18,13 +19,36 @@ Required server configuration:
 
 | Input | Requirement |
 | --- | --- |
-| `COMPASS_BILLING_MODE` | Exactly `test`. `live` is refused. |
+| `COMPASS_BILLING_MODE` | Explicitly `test` or `live`; there is no automatic promotion. |
 | `COMPASS_CREDIT_POLICY_JSON` | A founder-approved versioned policy with the fields below. No numerical economics are bundled as defaults. |
-| `COMPASS_BILLING_ORIGIN` | Exact reviewed staging origin, matching `COMPASS_ACCOUNT_ORIGIN`; no credentials, query, hash or non-root path. HTTPS, except local development. Main domains are refused. |
-| `STRIPE_SECRET_KEY` | A test secret (`sk_test_`), provisioned securely. A live key cannot activate this adapter. |
-| `STRIPE_WEBHOOK_SECRET` | Separate test endpoint signing secret (`whsec_`), provisioned securely. |
-| Stripe prices and portal | Existing approved test prices must match the catalog; configure the Stripe test portal and restrict it to the supported products/actions. |
-| Durable storage | An owned durable database location, backup/restore and financial retention policy before customer billing. Ephemeral Railway files are not reliable financial storage. |
+| `COMPASS_BILLING_ORIGIN` | Exact reviewed origin, matching `COMPASS_ACCOUNT_ORIGIN`; no credentials, query, hash or non-root path. Live requires HTTPS and `COMPASS_ACCOUNT_MODE=production`. Test mode still refuses the main domains. Only non-production test development permits loopback HTTP. |
+| `STRIPE_SECRET_KEY` | Securely provisioned secret or restricted key matching the explicit mode: `sk_test_` / `rk_test_` or `sk_live_` / `rk_live_`. A mode mismatch cannot activate payments. |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_`) for this merchant's endpoint in the same mode, securely provisioned. Its prefix alone cannot prove its mode; signed events must match the configured mode. |
+| `STRIPE_ACCOUNT_ID` | Expected existing merchant `acct_` ID, mandatory for live mode. Read-only `accounts.retrieve()` verifies the owner of the supplied key, not a connected account chosen by the caller. Restricted keys need the corresponding account and resource permissions. |
+| `COMPASS_BILLING_LIVE_POLICY_VERSION` | Exact match to the approved policy's `version`, mandatory for live mode. This acknowledgment does not provide missing costs or terms. |
+| Stripe prices and portal | Existing approved mode-specific prices must match every catalog amount, currency and interval. Configure the portal for that merchant/mode and restrict it to supported products/actions. The module provisions no products, prices or portal settings. |
+| Durable storage | Live preflight verifies the actual mounted private durable storage through `inspectStorage` and checks that the open SQLite database is the configured file. Backup/restore evidence and financial retention remain operational prerequisites. Ephemeral Railway files cannot pass. |
+| Trusted cost measurement | Live checkout requires the server's `costMeasurementReady:true` capability, supplied only after actual infrastructure measurement is wired into settlement. It defaults to false and has no environment-variable override. Current generation callsites still pass unknown infrastructure cost, so this capability must remain false. |
+
+`await billing.ready()` performs read-only storage, merchant and catalog
+preflight before the account UI exposes offers. `status()` reports the most recent
+verification; offers and `liveChargesEnabled` remain off until it succeeds.
+Every payment action refreshes merchant/storage verification. New checkout also
+requires `charges_enabled:true`, active matching Prices, and complete commercial
+configuration. Identity mismatch, unavailable verification or unsafe storage
+fails closed with bounded reason codes; credentials and merchant payloads never
+appear in public status. Stripe keeps test and live objects separate; use
+mode-specific keys and resources ([Stripe API keys](https://docs.stripe.com/keys)).
+
+The additive `billing_environment` record binds a financial database to its
+Stripe mode and expected merchant. SQL triggers prohibit deleting or changing
+that identity. A different mode or merchant cannot reuse the ledger. A database
+containing legacy financial rows without a binding requires an explicit,
+verified migration; the server never infers that those records belong to a new
+merchant. Keep test and live databases separate. Existing synthetic test
+fixtures remain compatible without merchant lookup; configured test merchants
+receive the same identity check. A populated unbound test fixture cannot later
+silently adopt a merchant.
 
 The policy requires `version`, `currency:"usd"`, positive integer
 `creditUnitCostMicros`, positive integer `maxOperationCostMicros`, explicit
@@ -39,7 +63,7 @@ silently inherit a different alias's price.
 Each offer specifies `id`, `kind` (`credits` or `subscription`), `priceId`, integer
 `credits`, `unitAmount`, `currency:"usd"`, and a feature allowlist. Subscriptions
 also specify `interval` (`month` or `year`) and `intervalCount`. The server fetches
-the actual test Price and checks active state, currency, amount and interval
+the actual mode-specific Price and checks active state, currency, amount and interval
 before creating Checkout. Only one approved price/quantity per checkout/invoice
 is supported. Trials, discounts, taxes, currency conversion, proration and plan
 upgrades are not silently mapped to a credit grant; mismatched events fail closed.
@@ -89,9 +113,9 @@ operations, not user-selected amounts or self-service refund endpoints.
 
 ## Stripe transport and lifecycle
 
-The official `stripe@23.1.0` SDK handles test API calls and raw-body signature
+The official `stripe@23.1.0` SDK handles API calls and raw-body signature
 verification. The adapter bounds webhook bodies and checks signature age/future
-timestamps, event IDs, test mode and merchant scope before any API retrieval.
+timestamps, event IDs, exact configured mode and merchant scope before any API retrieval.
 It retrieves current Stripe objects, rather than granting from redirects or
 trusting an out-of-order snapshot. Duplicate deliveries and distinct events for
 the same payment cannot duplicate a grant. Event hashes are stored; raw payment
@@ -116,7 +140,7 @@ paid-period entitlements, including after old invoice events repeat. This is
 credit accounting, separate from actually initiating a money refund. Stripe's
 [refund statuses and lifecycle](https://docs.stripe.com/refunds) remain authoritative.
 
-Register the test webhook for checkout completion/async outcomes/expiry,
+Register the merchant's mode-specific webhook for checkout completion/async outcomes/expiry,
 subscription creation/update/deletion/pause/resume, `invoice.paid`,
 `invoice.payment_failed`, refund creation/update/failure and `charge.refunded`.
 The raw HTTP endpoint is `/api/billing/webhook`. Normal authenticated billing
@@ -124,10 +148,31 @@ routes require owner verification and CSRF/origin checks; the signed webhook
 does not use a browser session. Keep webhook endpoint/API versions and portal
 configuration under review when upgrading Stripe.
 
+Live Checkout additionally verifies the returned object type, mode, customer,
+metadata, client reference, exact callbacks, hosted Stripe URL and the single
+expanded line item's approved Price/quantity. Discounts, shipping and tax must
+remain absent/zero under the existing supported policy; adding any of them
+requires an approved commercial implementation first. Current paid invoices
+require one verified InvoicePayment covering the exact amount, currency, invoice
+and live mode; partial or multiple payment arrangements fail closed. See the
+[Checkout object](https://docs.stripe.com/api/checkout/sessions/object) and
+[InvoicePayment object](https://docs.stripe.com/api/invoice-payment/object).
+
+Reconciliation remains available for already-owned payments when new checkout is
+disabled because charges stop, a catalog Price is archived or cost measurement
+needs repair. Cancellation, portal management and signed webhook processing still
+verify the same bound merchant and durable database, and use original payment
+terms. An archived Price cannot open a new Checkout but does not erase a paid
+receipt. Refund objects have no `livemode` property in Stripe's schema; merchant
+key retrieval, signed event mode and the known payment supply that boundary.
+See the [Refund object](https://docs.stripe.com/api/refunds/object). This module
+reconciles refunds; it never initiates cash refunds.
+
 ## Router contract
 
 ```js
 const billing = createBilling({ database: identity.database, env });
+await billing.ready(); // Before returning account billing status/offers.
 const state = { status: billing.status(), account: billing.account(owner) };
 const held = billing.reserve(owner, operation.id);
 const result = await withUsageTracking(event => {
@@ -183,9 +228,18 @@ spent-credit shortfalls and paid-period entitlement revocation. Provider tests
 also exercise fragmented real SSE frames, terminal validation, errors, resource
 limits, cumulative usage and cancellation. All upstream transport is mocked.
 
-Before real Stripe test-account approval, complete an actual browser checkout,
-webhook delivery, paid subscription renewal/failure, cancellation, refund and
-cross-account test with that account. Before any future live implementation,
-obtain explicit financial authorization, approved commercial terms, durable
-storage/restore evidence and provider-billing reconciliation. Rollback disables
-the module or restores the prior image; it must not delete financial records.
+Local tests also cover live preflight, restricted mode-matching keys, exact
+production origins, durable/open-database mismatch, merchant mismatch and failed
+verification, immutable mode/merchant binding, legacy migration refusal, strict
+Checkout responses, cross-mode/Connect events, live paid invoices and refunds,
+and reconciliation after new sales are suspended. All transport is mocked;
+synthetic fixture economics must never be copied into production.
+
+Before activation, verify an actual test-mode browser checkout, webhook delivery,
+paid subscription renewal/failure, cancellation, refund and cross-account
+isolation with the intended merchant. Then verify the corresponding live
+endpoint/configuration with the approved merchant, commercial terms and spending
+authorization. Retain durable storage/restore evidence and provider-billing
+reconciliation. No real card transaction has been performed by these tests.
+Rollback disables new checkout or restores the prior image; it must not delete
+financial records or lose existing payment/refund reconciliation.

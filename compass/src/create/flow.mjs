@@ -18,17 +18,20 @@ export function resolveCreateEntry({search = '',hasDraft = false,config = {},sig
 export function normalizeAccountConfig(value) {
   const enabled = value?.enabled === true
   const configured = enabled && value?.configured === true
-  return {enabled,configured,providers:configured && Array.isArray(value?.providers)
-    ? [...new Set(value.providers.filter(provider => PROVIDERS.includes(provider)))] : [],
-  emailMode:['verification','verified'].includes(value?.emailMode) ? 'verified' : 'test',
-  persistence:value?.persistence === 'durable' ? 'durable' : 'ephemeral-preview',
+  const emailMode = value?.emailMode === 'disabled' ? 'disabled' : ['verification','verified'].includes(value?.emailMode) ? 'verified' : 'test'
+  const providers = configured && Array.isArray(value?.providers)
+    ? [...new Set(value.providers.filter(provider => PROVIDERS.includes(provider) && (provider !== 'email' || emailMode !== 'disabled')))] : []
+  const email = providers.includes('email')
+  return {enabled,configured,providers,emailMode,
+  persistence:configured && value?.persistence === 'durable' ? 'durable' : 'ephemeral-preview',
   features:{accountManagement:configured && value?.features?.accountManagement === true,
-    passwordRecovery:configured && value?.features?.passwordRecovery === true,
-    emailVerification:configured && value?.features?.emailVerification === true,
+    passwordRecovery:email && emailMode === 'verified' && value?.features?.passwordRecovery === true,
+    emailVerification:email && emailMode === 'verified' && value?.features?.emailVerification === true,
     accountLinking:configured && value?.features?.accountLinking === true}}
 }
 
 export function allowedEmail(value, config) {
+  if (config?.emailMode === 'disabled' || Array.isArray(config?.providers) && !config.providers.includes('email')) return false
   if (typeof value !== 'string' || value.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return false
   return config?.emailMode !== 'test' || /^[^\s@]+@[^\s@]+\.test$/i.test(value)
 }
