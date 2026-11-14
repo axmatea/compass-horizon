@@ -70,6 +70,17 @@ test('public entry points stay honest, bounded, accessible and connected', async
   for (const example of EXAMPLES) assert.ok(plan.includes(example.intent), example.id);
 });
 
+test('demo builder markup matches the idle client layout', async () => {
+  const demo = await read('demo.html');
+  assert.match(demo, /rel="preload" as="font" type="font\/woff2" href="\/src\/site\/fonts\/inter-var-latin\.woff2" crossorigin/);
+  assert.match(demo, /<div class="project-bar" hidden>/);
+  assert.match(demo, /<div class="context-row" hidden>/);
+  assert.match(demo, /<details class="history-details" hidden>/);
+  assert.match(demo, /<span class="count"[^>]*hidden/);
+  assert.match(demo, /data-preview-code/);
+  assert.match(demo, /<section class="preview-code" hidden/);
+});
+
 test('public pages use the approved Fold mark', async () => {
   const fold = 'M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z';
   for (const page of ['index.html', 'demo.html', 'plan.html', 'studio.html', 'create.html']) {

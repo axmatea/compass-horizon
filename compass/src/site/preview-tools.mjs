@@ -43,13 +43,19 @@ export function createPreviewTools({ root, surface, getPlan, getRender, isBusy =
   const copy = root.querySelector('[data-preview-copy]')
   const download = root.querySelector('[data-preview-download]')
   const status = root.querySelector('[data-preview-status]')
-  const source=doc.createElement('button');source.type='button';source.textContent='Code';source.className='preview-code-toggle';source.setAttribute('data-preview-code','');source.setAttribute('aria-expanded','false')
-  const codePanel=doc.createElement('section');codePanel.className='preview-code';codePanel.hidden=true;codePanel.setAttribute('aria-label','Website source')
-  surface.append(codePanel)
-  let editor=null,loading=false
   const exportMenu=root.querySelector('.export-menu')
-  if(typeof exportMenu?.before==='function')exportMenu.before(source)
-  else root.prepend(source)
+  let source=root.querySelector('[data-preview-code]')
+  if (!source) {
+    source=doc.createElement('button');source.type='button';source.textContent='Code';source.className='preview-code-toggle';source.setAttribute('data-preview-code','');source.setAttribute('aria-expanded','false')
+    if(typeof exportMenu?.before==='function')exportMenu.before(source)
+    else root.prepend(source)
+  }
+  let codePanel=surface.querySelector('.preview-code')
+  if (!codePanel) {
+    codePanel=doc.createElement('section');codePanel.className='preview-code';codePanel.hidden=true;codePanel.setAttribute('aria-label','Website source')
+    surface.append(codePanel)
+  }
+  let editor=null,loading=false
   async function openCode(){
     if(!canExportPreview(getRender(),isBusy(),getPlan()) || loading)return
     loading=true;source.disabled=true
