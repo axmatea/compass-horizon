@@ -846,7 +846,7 @@ const accountReady = accountMode ? mountAccountWorkspace({
     // An account project is not an existing device-local project. A separate
     // explicit device save creates a new local copy and preserves both stores.
     projectId=null; lastSavedSignature=''; paintProject()
-    tell('Opened from preview account. Ready to refine.')
+    tell('Opened from your account. Ready to refine.')
     return true
   },
   onClear:({accountChanged}={})=>{if(accountChanged && handoffDraft)clearDraft({id:handoffDraft.id}); clearCurrent()},
