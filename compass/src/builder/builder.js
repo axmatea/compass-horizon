@@ -149,6 +149,7 @@ for(const [name,options] of visualFields){
   select.addEventListener('change',()=>{if(select.value && previewRender()?.html && !state.busy && !selectedRevision)void submit(select.value);select.value=''})
   label.append(select);designControls.append(label)
 }
+designControls.hidden = true
 form.after(designControls)
 
 function previewPlan() {

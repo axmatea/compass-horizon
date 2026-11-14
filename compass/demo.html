@@ -22,6 +22,7 @@
 <meta name="twitter:image:alt" content="COMPASS demo. A brief, a build log, and a page preview.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" as="font" type="font/woff2" href="/src/site/fonts/inter-var-latin.woff2" crossorigin>
 <link rel="stylesheet" href="/src/builder/builder.css">
 <script type="module" src="/src/builder/builder.js"></script>
 </head>
@@ -41,7 +42,7 @@
 <ul id="projects-list" class="projects-list"></ul><p id="projects-status" role="status"></p>
 </section>
 <div class="sd" id="demo" data-state="idle">
-<div class="project-bar">
+<div class="project-bar" hidden>
 <div class="project-identity"><label class="project-name-label" for="project-name">Project</label><input id="project-name" value="Untitled project" maxlength="64" autocomplete="off" aria-describedby="save-status"><span id="save-status" role="status">Not saved</span></div>
 <button type="button" id="save-project" class="button button-primary" disabled>Save on this device</button>
 </div>
@@ -51,7 +52,7 @@
 <form id="composer">
 <label class="sr" for="sd-input">Type to COMPASS</label>
 <textarea id="sd-input" name="text" maxlength="500" rows="2" autocomplete="off" placeholder="A minimal website for an architecture studio…"></textarea>
-<div class="composer-actions"><button type="button" class="mic" id="mic" aria-pressed="false" aria-describedby="voice-privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><span>Speak</span></button><p class="hint" id="hint">Describe a page, then refine it.</p><span class="count" aria-label="Characters used"><span id="count">0</span>/500</span><button type="button" id="cancel-build" hidden>Cancel</button><button type="submit" id="send" disabled>Build page</button></div>
+<div class="composer-actions"><button type="button" class="mic" id="mic" aria-pressed="false" aria-describedby="voice-privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><span>Speak</span></button><p class="hint" id="hint">Describe a page, then refine it.</p><span class="count" aria-label="Characters used" hidden><span id="count">0</span>/500</span><button type="button" id="cancel-build" hidden>Cancel</button><button type="submit" id="send" disabled>Build page</button></div>
 </form>
 <p class="interim" id="interim" hidden></p>
 <p class="voice-fallback" id="voice-fallback" hidden>Voice input is unavailable here. Type your idea instead.</p>
@@ -65,6 +66,7 @@
 <div class="chrome">
 <div class="preview-heading"><span class="preview-dot" aria-hidden="true"></span><span class="url" id="url">Your page preview</span><span class="preview-source" id="preview-source" hidden></span></div>
 <div class="preview-tools" data-preview-tools>
+<button type="button" class="preview-code-toggle" data-preview-code aria-expanded="false" disabled>Code</button>
 <div class="viewport-tabs" role="group" aria-label="Preview size">
 <button type="button" data-preview-view-button="web" aria-pressed="true">Desktop</button><button type="button" data-preview-view-button="tablet" aria-pressed="false">Tablet</button><button type="button" data-preview-view-button="phone" aria-pressed="false">Mobile</button><button type="button" data-preview-view-button="both" aria-pressed="false">Both</button>
 </div>
@@ -81,8 +83,9 @@
 <div class="preview-web"><iframe class="frame" id="frame" title="Generated page preview" sandbox="" hidden></iframe></div>
 <div class="preview-phone"><iframe class="frame" id="phone-frame" title="Generated page on a phone" sandbox="" hidden></iframe></div>
 </div>
+<section class="preview-code" hidden aria-label="Website source"></section>
 </section>
-<div class="context-row">
+<div class="context-row" hidden>
 <details class="context-details"><summary>Details <span>Brief &amp; build</span></summary><div class="context-content">
 <section class="card" id="brief-card" hidden><header><h2>The brief</h2><span id="brief-version"></span></header><ul class="brief" id="brief"></ul></section>
 <section class="card" id="build-card" hidden><header><h2>Watch the build</h2></header><ol class="build" id="build" aria-label="Build"></ol></section>
@@ -91,7 +94,7 @@
 <details class="voice-settings"><summary>Voice &amp; shortcuts</summary><p class="voice-privacy" id="voice-privacy">Voice uses your browser’s speech service. COMPASS receives only submitted text.</p><p class="shortcut-hint">⌘ / Ctrl + Enter: build · ⌘ / Ctrl + Shift + F: code · Escape: cancel</p></details>
 <p class="project-note">Preview only. Forms do not send data. Save on this device or download HTML. Nothing is published.</p>
 </div></details>
-<details class="history-details"><summary>History <span id="history-count">0 revisions</span></summary><div class="history-content"><p>Earlier previews. Your current page stays intact.</p><ol id="history-list" class="history-list"></ol></div></details>
+<details class="history-details" hidden><summary>History <span id="history-count">0 revisions</span></summary><div class="history-content"><p>Earlier previews. Your current page stays intact.</p><ol id="history-list" class="history-list"></ol></div></details>
 </div>
 
 </div>
