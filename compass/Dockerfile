@@ -36,6 +36,10 @@ COPY sandbox ./sandbox
 COPY integrations ./integrations
 COPY billing ./billing
 COPY usage.mjs ./
-USER node
+# Railway attaches a fresh root-owned /data volume only when the container starts.
+COPY scripts/verify-private-storage.mjs ./scripts/verify-private-storage.mjs
+# This built-in-only entry point provisions an absent private child, then drops
+# all supplementary groups and becomes node before importing the server.
+USER root
 EXPOSE 8080
-CMD ["node", "server.mjs"]
+CMD ["node", "account/runtime.mjs"]

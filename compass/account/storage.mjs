@@ -96,7 +96,7 @@ export async function inspectStorage(env=process.env,{readMountInfo=mountInfo}={
     const publicRoot=await canonical(staticPath(env));
     if(database===publicRoot||within(publicRoot,database))dependencies.push('database_in_static_root');
     if(info.mode&0o077)dependencies.push('database_permissions_unsafe');
-    await access(mount,constants.W_OK);await access(dirname(database),constants.W_OK|constants.X_OK);
+    await access(mount,constants.X_OK);await access(dirname(database),constants.W_OK|constants.X_OK);
     await access(database,constants.R_OK|constants.W_OK);
   } catch {dependencies.push('database_unavailable_or_not_writable');}
   return {mode:dependencies.length?'ephemeral-preview':'durable',dependencies};
@@ -115,10 +115,13 @@ export async function prepareProductionStorage(env=process.env,{readMountInfo=mo
     const database=await canonical(env.COMPASS_ACCOUNT_DATABASE),publicRoot=await canonical(staticPath(env));
     if(!within(mount,database))return {mode:'ephemeral-preview',dependencies:['database_outside_volume']};
     if(database===publicRoot||within(publicRoot,database))return {mode:'ephemeral-preview',dependencies:['database_in_static_root']};
-    await access(mount,constants.W_OK|constants.X_OK);
+    // The mount root may remain root-owned. The unprivileged runtime writes only
+    // inside its private child; opening the absent file below proves writability.
+    await access(mount,constants.X_OK);
     await mkdir(dirname(database),{recursive:true,mode:0o700});
     // Recheck after mkdir, including any pre-existing symlink in the path.
     if(await realpath(dirname(env.COMPASS_ACCOUNT_DATABASE))!==dirname(database))throw Error();
+    await access(dirname(database),constants.W_OK|constants.X_OK);
     try {
       const file=await open(database,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY|constants.O_NOFOLLOW,0o600);
       await file.close();

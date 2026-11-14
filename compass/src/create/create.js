@@ -13,8 +13,9 @@ const accountForm = $('account-form')
 const onboardingForm = $('onboarding-form')
 const promptInput = $('create-prompt')
 if(appEntry){$('prompt-note').textContent='Data apps.';promptInput.placeholder='A CRM for my studio…'}
-const entry = accountEntry(location.href)
-if (new URL(location.href).searchParams.has('token') || new URL(location.href).searchParams.has('error')) history.replaceState(null,'',entry.cleanURL)
+const entryURL = new URL(location.href)
+const entry = accountEntry(entryURL.href)
+if (['token','error','oauth','error_description'].some(name => entryURL.searchParams.has(name))) history.replaceState(null,'',entry.cleanURL)
 const views = createAccountViews({root:$('account-tools'),api,onMessage:message,onExpired:requireAccountChoice,onUser:bindIdentity,onPreferences:openPreferences})
 let epoch = 0
 
@@ -184,6 +185,7 @@ async function initialize() {
     renderProviders()
     message()
     next()
+    if (entry.oauthError) message(accountErrorText(new AccountRequestError('OAUTH_FAILED'),state.flowMode === 'account' ? 'manage' : 'sign-in')+(state.draft ? ' Your idea is kept.' : ''),true)
   } catch {
     if (run !== epoch) return
     state.config = null
