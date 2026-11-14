@@ -45,14 +45,16 @@ export function createAccountViews({root,api,onMessage,onExpired,onUser,onPrefer
   async function render(view,{config,user,resetToken,linkError,hasDraft=false}={}) {
     const mine=++generation;running=false;root.replaceChildren()
     const back=link('Back to sign in','/create?signin=1')
+    const emailEnabled=config?.providers?.includes('email') === true && config?.emailMode !== 'disabled'
     if(view==='recover') {
-      if(!config?.features.passwordRecovery){root.append(node('p','Password recovery needs configured email delivery. It is unavailable in this preview.'),back);return}
+      if(!emailEnabled || !config?.features.passwordRecovery){root.append(node('p','Email recovery is unavailable. Use your connected sign-in method.'),back);return}
       const section=form('Recover your account','Request reset link',()=>run(()=>api.requestPasswordReset(email.value.trim()),'Reset link requested. Check your inbox.'))
       const email=field(section.item,'Recovery email',{type:'email',autocomplete:'email',value:user?.email || '',maxLength:254})
       section.finish();root.append(back);return
     }
     if(view==='reset') {
-      if(!config?.features.passwordRecovery || !resetToken || linkError){root.append(node('p',!config?.features.passwordRecovery?'Password recovery is unavailable in this preview.':'This reset link is missing, invalid or expired.'),link('Request a new link','/create?view=recover'),back);return}
+      if(!emailEnabled || !config?.features.passwordRecovery){root.append(node('p','Email recovery is unavailable. Use your connected sign-in method.'),back);return}
+      if(!resetToken || linkError){root.append(node('p','This reset link is missing, invalid or expired.'),link('Request a new link','/create?view=recover'),back);return}
       let token=resetToken
       const section=form('Choose a new password','Reset password',()=>run(async()=>{
         if(password.value!==confirmation.value)throw new AccountRequestError('PASSWORD_MISMATCH',400)
@@ -64,7 +66,7 @@ export function createAccountViews({root,api,onMessage,onExpired,onUser,onPrefer
     }
     if(view==='verify') {
       if(user?.emailVerified){root.append(node('p','Email verified.'),link(hasDraft?'Continue your idea':'Open workspace',hasDraft?'/create':'/workspace'));return}
-      if(!config?.features.emailVerification){root.append(node('p','Email verification is unavailable in this preview.'),back);return}
+      if(!emailEnabled || !config?.features.emailVerification){root.append(node('p','Email verification is unavailable.'),back);return}
       root.append(node('p',linkError?'This verification link is invalid or expired. Request another.':'Verify your email to continue.'))
       const section=form('Request verification','Request link',()=>run(()=>api.resendVerification(email.value.trim()),'Verification link requested. Check your inbox.'))
       const email=field(section.item,'Verification email',{type:'email',autocomplete:'email',value:user?.email || '',maxLength:254})
@@ -79,7 +81,7 @@ export function createAccountViews({root,api,onMessage,onExpired,onUser,onPrefer
       user=session.user;onUser(session.user)
     }))
     const displayName=field(name.item,'Name',{value:user.name || '',autocomplete:'name',maxLength:80});name.finish()
-    if(config.features.emailVerification) {
+    if(emailEnabled && config.features.emailVerification) {
       const emailChange=form('Email','Request email change',()=>run(()=>api.changeEmail(newEmail.value.trim()),'Email change requested. Confirm it from your email.'))
       const newEmail=field(emailChange.item,'New email',{type:'email',autocomplete:'email',maxLength:254});emailChange.finish()
     }
@@ -91,6 +93,7 @@ export function createAccountViews({root,api,onMessage,onExpired,onUser,onPrefer
     },'Password changed. Other sessions signed out.'))
     const current=field(password.item,'Current password',{type:'password',autocomplete:'current-password'})
     const next=field(password.item,'New account password',{type:'password',autocomplete:'new-password',minLength:12});password.finish()
+    password.item.hidden=true
     const connections=node('section',null,'account-section');connections.append(node('h2','Sign-in methods'))
     const accountsList=node('div');connections.append(accountsList);root.append(connections)
     const footer=node('div',null,'account-links')
@@ -102,10 +105,14 @@ export function createAccountViews({root,api,onMessage,onExpired,onUser,onPrefer
       if(mine!==generation)return
       sessions.textContent=Array.isArray(active)?`${active.length} active ${active.length===1?'session':'sessions'}.`:'Session details unavailable.'
       const methods=Array.isArray(accounts)?accounts:[]
-      if(!methods.some(item=>item.providerId==='credential')){password.item.hidden=true;if(config.features.passwordRecovery)root.append(link('Set up email sign-in','/create?view=recover'))}
+      const usable=method=>config.providers.includes(method.providerId==='credential'?'email':method.providerId)
+      const usableMethods=methods.filter(usable)
+      const emailAccount=methods.some(item=>item.providerId==='credential')
+      password.item.hidden=!(emailEnabled && emailAccount)
+      if(emailEnabled && !emailAccount && config.features.passwordRecovery)root.append(link('Set up email sign-in','/create?view=recover'))
       for(const item of methods) {
-        const row=node('div',null,'account-method');row.append(node('span',names[item.providerId] || 'Linked account'))
-        if(methods.length>1 && config.features.accountLinking && item.providerId!=='credential')row.append(action('Disconnect',()=>run(async()=>{await api.unlinkAccount(item.id);await render('account',{config,user,hasDraft})},''),'text-button'))
+        const row=node('div',null,'account-method');row.append(node('span',(names[item.providerId] || 'Linked account')+(usable(item)?'':' · unavailable')))
+        if(usable(item) && usableMethods.length>1 && config.features.accountLinking && item.providerId!=='credential')row.append(action('Disconnect',()=>run(async()=>{await api.unlinkAccount(item.id);await render('account',{config,user,hasDraft})},''),'text-button'))
         accountsList.append(row)
       }
       if(config.features.accountLinking)for(const provider of config.providers.filter(item=>item!=='email'&&!methods.some(account=>account.providerId===item))) {

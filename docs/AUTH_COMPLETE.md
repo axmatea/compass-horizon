@@ -1,8 +1,9 @@
 # Authentication and onboarding implementation
 
-This increment extends the existing Better Auth 1.7.23 integration. It does not
-enable production accounts, create provider applications, provision storage or
-activate a paid service.
+This extends the existing Better Auth 1.7.23 integration. The 14 November
+production setup is documented in [PRODUCTION_SERVICES.md](PRODUCTION_SERVICES.md).
+Production activation is explicit and depends on verified storage and providers;
+implementation tests alone do not establish a working external connection.
 
 ## Working account surfaces
 
@@ -88,14 +89,15 @@ dedicated mount entry in Linux mountinfo and rejects public database locations,
 symlink escapes and unsafe database permissions. Only mode and dependency codes
 are suitable for public configuration; paths and secrets are not returned there.
 
-No volume has been provisioned by this implementation. That remains an explicit
-external dependency requiring authorized Railway storage configuration and its
-cost approval. Give the non-root service user ownership/write access to its
+The production setup provisioned a dedicated 1 GB Railway volume at `/data` on
+14 November. Live account persistence still requires provider activation and a
+verified save/redeploy/reopen flow. Give the non-root service user ownership/write access to its
 private data directory. Railway volumes use one service instance; adding this
 adapter does not authorize additional infrastructure or production identity.
 
-`backupAccountDatabase({env,database})` is an operator-only helper, never a user
-API or startup action. Set `COMPASS_BACKUP_DIRECTORY` to an existing absolute
+`backupAccountDatabase({env,database})` is a private server/operator helper, never
+a user API. The explicitly configured production encrypted-backup worker may
+invoke it at startup and on its schedule. Set `COMPASS_BACKUP_DIRECTORY` to an absolute
 0700 private directory outside the served static root. The helper checks the
 source handle against the configured account database, uses Node's SQLite online
 backup API, creates a new exclusive 0600 snapshot, and checks SQLite integrity.

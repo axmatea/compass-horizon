@@ -76,6 +76,24 @@ test('public delivery keeps guest creation available and account access closed b
   assert.equal(xml.status, 200); assert.match(xml.headers.get('content-type'), /application\/xml/);
 });
 
+test('a production account request fails deployment health until identity and private storage are ready', async t => {
+  const root=await mkdtemp(join(tmpdir(),'compass-production-health-'));
+  const privatePath=join(root,'must-not-open.sqlite');
+  const app=createCompassServer({env:{COMPASS_ACCOUNT_MODE:'production',COMPASS_ACCOUNT_ORIGIN:'https://mycompass.world',
+    COMPASS_ACCOUNT_DATABASE:privatePath,BETTER_AUTH_SECRET:'fixed-but-no-provider-or-mount-is-configured',COMPASS_REVISION:'production-health'}});
+  t.after(async()=>{await app.close();await rm(root,{recursive:true,force:true})});
+  app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
+  const origin='http://127.0.0.1:'+app.server.address().port;
+  const health=await fetch(origin+'/healthz');
+  assert.equal(health.status,503);
+  assert.deepEqual(await health.json(),{ok:false,mode:'production',demoMode:'examples',llmConfigured:false,accountsReady:false,backupsReady:false,revision:'production-health'});
+  assert.equal(health.headers.get('cache-control'),'no-store');
+  const config=await (await fetch(origin+'/api/account/config')).json();
+  assert.equal(config.configured,false);
+  assert.equal(JSON.stringify(config).includes(privatePath),false);
+  await assert.rejects(stat(privatePath),{code:'ENOENT'});
+});
+
 test('approved promo is a bounded faststart file with a poster and captions', async (t) => {
   const dir = fileURLToPath(new URL('../public/assets/promo/', import.meta.url));
   const video = await stat(join(dir, 'compass-promo.mp4'));

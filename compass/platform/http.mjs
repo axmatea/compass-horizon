@@ -25,7 +25,7 @@ const fields=(value,allowed)=>{if(Object.keys(value).some(key=>!allowed.includes
 export const integrationCallback=pathname=>/^\/api\/account\/integrations\/(github|google-drive|google-sheets|gmail|google-calendar|notion|slack)\/callback$/.test(pathname);
 export const publicationPolicy="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox";
 
-// Created only after exact-origin preview configuration has passed. Every
+// Created only after exact-origin identity configuration has passed. Every
 // private call is supplied an owner established by the server's DB session.
 export function createPlatformApi({database,env,fetchImpl,accountStore}) {
   const store=createPlatformStore(database);
@@ -79,7 +79,7 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
   async function handle(req,res,{url,owner,json}) {
     const path=url.pathname,method=req.method;
     if(path==='/api/account/capabilities'&&method==='GET'){json(200,{admin:isAdmin(owner),storage:await storage(),applications:true,publications:true,arbitraryExecution:false});return true}
-    if(path==='/api/account/billing'&&method==='GET'){json(200,{status:billing.status(),account:billing.account(owner)});return true}
+    if(path==='/api/account/billing'&&method==='GET'){await billing.ready();json(200,{status:billing.status(),account:billing.account(owner)});return true}
     const pay=path.match(/^\/api\/account\/billing\/(checkout|portal|cancel)$/);
     if(pay&&method==='POST'){
       const input=await readBody(req,4096);fields(input,pay[1]==='checkout'?['offerId','requestKey']:pay[1]==='cancel'?['subscriptionId','requestKey']:[]);

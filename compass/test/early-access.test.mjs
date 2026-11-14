@@ -44,6 +44,7 @@ test('email normalization rejects invalid and overlong addresses', () => {
 test('early access validates, rate limits, ignores the honeypot, and falls back to mailto', async () => {
   const calls = [];
   const ctx = await listen({
+    NODE_ENV:'production',COMPASS_ACCOUNT_TRUST_RAILWAY_PROXY:'1',RAILWAY_PROJECT_ID:'fixture-project',RAILWAY_SERVICE_ID:'fixture-service',
     DEMO_RATE_LIMIT: '2',
     WAITLIST_WEBHOOK_URL: 'http://hooks.example.com/insecure',
   }, async (url, opts) => {
@@ -55,14 +56,14 @@ test('early access validates, rate limits, ignores the honeypot, and falls back 
     assert.equal(invalid.status, 400);
     assert.deepEqual(await invalid.json(), { ok: false, stored: false, error: 'invalid_email' });
 
-    const tooLong = await post(ctx.origin, { email: 'a'.repeat(64) + '@' + 'b'.repeat(140) + '.com' }, { 'x-forwarded-for': '203.0.113.21' });
+    const tooLong = await post(ctx.origin, { email: 'a'.repeat(64) + '@' + 'b'.repeat(140) + '.com' }, { 'x-real-ip': '203.0.113.21' });
     assert.equal(tooLong.status, 400);
 
-    const honey = await post(ctx.origin, { email: 'ada@example.com', hp: 'filled by a bot' }, { 'x-forwarded-for': '203.0.113.22' });
+    const honey = await post(ctx.origin, { email: 'ada@example.com', hp: 'filled by a bot' }, { 'x-real-ip': '203.0.113.22' });
     assert.equal(honey.status, 200);
     assert.deepEqual(await honey.json(), { ok: true, stored: false });
 
-    const open = await post(ctx.origin, { email: 'ada@example.com' }, { 'x-forwarded-for': '203.0.113.23' });
+    const open = await post(ctx.origin, { email: 'ada@example.com' }, { 'x-real-ip': '203.0.113.23' });
     assert.equal(open.status, 200);
     const mailto = await open.json();
     assert.equal(mailto.ok, true);
@@ -72,9 +73,9 @@ test('early access validates, rate limits, ignores the honeypot, and falls back 
     assert.match(decodeURIComponent(mailto.mailto), /Email: ada@example.com/);
     assert.equal(JSON.stringify(mailto).includes('http://hooks.example.com'), false);
 
-    const again = await post(ctx.origin, { email: 'ada@example.com' }, { 'x-forwarded-for': '203.0.113.23' });
+    const again = await post(ctx.origin, { email: 'ada@example.com' }, { 'x-real-ip': '203.0.113.23' });
     assert.equal(again.status, 200);
-    const limited = await post(ctx.origin, { email: 'ada@example.com' }, { 'x-forwarded-for': '203.0.113.23' });
+    const limited = await post(ctx.origin, { email: 'ada@example.com' }, { 'x-real-ip': '203.0.113.23' });
     assert.equal(limited.status, 429);
     assert.equal((await limited.json()).error, 'rate_limited');
     assert.ok(Number(limited.headers.get('retry-after')) >= 1);
@@ -98,7 +99,7 @@ test('a configured https webhook receives the email and timestamp, and a failure
     return new Response(null, { status: 204 });
   }, { 'index.html': '<h1>index</h1>', 'demo.html': '<h1>demo</h1>' });
   try {
-    const ok = await post(ctx.origin, { email: 'ada@example.com', hp: '   ' }, { 'x-forwarded-for': '203.0.113.30' });
+    const ok = await post(ctx.origin, { email: 'ada@example.com', hp: '   ' }, { 'x-real-ip': '203.0.113.30' });
     assert.equal(ok.status, 200);
     assert.deepEqual(await ok.json(), { ok: true, stored: true, delivery: 'webhook' });
     assert.equal(calls[0].method, 'POST');
@@ -108,7 +109,7 @@ test('a configured https webhook receives the email and timestamp, and a failure
     assert.match(calls[0].payload.timestamp, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     assert.deepEqual(Object.keys(calls[0].payload).sort(), ['email', 'timestamp']);
 
-    const failed = await post(ctx.origin, { email: 'ada@fail.example' }, { 'x-forwarded-for': '203.0.113.31' });
+    const failed = await post(ctx.origin, { email: 'ada@fail.example' }, { 'x-real-ip': '203.0.113.31' });
     assert.equal(failed.status, 502);
     const body = await failed.json();
     assert.equal(body.stored, false);

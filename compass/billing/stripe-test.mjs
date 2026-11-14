@@ -1,27 +1,13 @@
 import Stripe from 'stripe';
 import { randomUUID, createHash } from 'node:crypto';
-import { reject, integer, identifier } from './policy.mjs';
+import { reject, integer } from './policy.mjs';
+import { billingOrigin, stripeId, verifyBillingStorage } from './environment.mjs';
 
 const ref = value => typeof value === 'string' ? value : value?.id;
-const stripeId = (value, prefix) => typeof value === 'string' && new RegExp('^' + prefix + '_[A-Za-z0-9_]{1,160}$').test(value);
 const requestKey = value => typeof value === 'string' && /^[A-Za-z0-9_-]{16,100}$/.test(value);
 const sha = value => createHash('sha256').update(value).digest('hex');
 const ceil = (n, d) => (n + d - 1n) / d;
 const terminal = ['canceled', 'unpaid', 'incomplete_expired'];
-
-function billingOrigin(env) {
-  try {
-    const url = new URL(env.COMPASS_BILLING_ORIGIN);
-    const accountUrl = new URL(env.COMPASS_ACCOUNT_ORIGIN);
-    if (url.username || url.password || url.search || url.hash || url.pathname !== '/') return null;
-    if (accountUrl.username || accountUrl.password || accountUrl.search || accountUrl.hash || accountUrl.pathname !== '/' || accountUrl.origin !== url.origin) return null;
-    const host = url.hostname.replace(/\.+$/, '');
-    if (['mycompass.world', 'www.mycompass.world'].includes(host)) return null;
-    if (url.protocol === 'https:') return url.origin;
-    if (env.NODE_ENV !== 'production' && url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(host)) return url.origin;
-  } catch {}
-  return null;
-}
 
 function externalUrl(value, hosts) {
   try {
@@ -30,19 +16,30 @@ function externalUrl(value, hosts) {
   } catch { return null; }
 }
 
-// Test-only payment transport. This file deliberately has no live-mode branch.
-export function createStripeTestAdapter(ledger, { env, stripeClient, now = () => Date.now() }) {
+// One account and one Stripe mode per financial database; no Connect routing.
+export function createStripeAdapter(ledger, { env, stripeClient, storageInspector, costMeasurementReady = false, binding, now = () => Date.now() }) {
   const { database: db, policy, transaction, ensureAccount, addEntry } = ledger;
-  const origin = billingOrigin(env);
+  const mode = env.COMPASS_BILLING_MODE;
+  const live = mode === 'live';
+  const origin = billingOrigin(env, mode);
+  const merchantId = env.STRIPE_ACCOUNT_ID;
+  const sessionPrefix = live ? 'cs_live' : 'cs_test';
   const key = env.STRIPE_SECRET_KEY;
   const signingSecret = env.STRIPE_WEBHOOK_SECRET;
   const blocked = [];
-  if (!origin) blocked.push('exact_test_billing_origin_required');
-  if (typeof key !== 'string' || !/^sk_test_[A-Za-z0-9_]{8,}$/.test(key)) blocked.push('stripe_test_secret_key_required');
-  if (typeof signingSecret !== 'string' || !/^whsec_[A-Za-z0-9_]{8,}$/.test(signingSecret)) blocked.push('stripe_test_webhook_secret_required');
-  if (!policy.offers.length) blocked.push('approved_stripe_test_offers_required');
-  const enabled = !blocked.length;
-  const stripe = enabled ? stripeClient || new Stripe(key, { timeout: 8000, maxNetworkRetries: 1 }) : null;
+  if (!origin) blocked.push('exact_' + mode + '_billing_origin_required');
+  if (typeof key !== 'string' || !new RegExp('^(?:sk|rk)_' + mode + '_[A-Za-z0-9_]{8,}$').test(key)) blocked.push('stripe_' + mode + '_secret_key_required');
+  if (typeof signingSecret !== 'string' || !/^whsec_[A-Za-z0-9_]{8,}$/.test(signingSecret)) blocked.push('stripe_' + mode + '_webhook_secret_required');
+  if (merchantId !== undefined && !stripeId(merchantId, 'acct')) blocked.push('stripe_merchant_account_required');
+  const transportConfigured = !blocked.length;
+  if (!policy.offers.length) blocked.push('approved_stripe_' + mode + '_offers_required');
+  if (live && costMeasurementReady !== true) blocked.push('measured_infrastructure_cost_required');
+  const stripe = transportConfigured ? stripeClient || new Stripe(key, { timeout: 8000, maxNetworkRetries: 1 }) : null;
+  const needsPreflight = live || Boolean(merchantId);
+  let readyState = !blocked.length && !needsPreflight;
+  let identityReady = transportConfigured && !needsPreflight;
+  let readinessBlocked = !blocked.length && needsPreflight ? ['stripe_preflight_required'] : [];
+  let preflight;
   db.exec(`
     CREATE TABLE IF NOT EXISTS billing_customer (owner TEXT PRIMARY KEY, account_id TEXT NOT NULL UNIQUE, customer_id TEXT UNIQUE);
     CREATE TABLE IF NOT EXISTS billing_checkout (id TEXT PRIMARY KEY, owner TEXT NOT NULL, request_key TEXT NOT NULL, kind TEXT NOT NULL, offer_json TEXT NOT NULL,
@@ -63,8 +60,43 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     if (!paymentColumns.has(name)) db.exec('ALTER TABLE billing_payment ADD COLUMN ' + name + ' ' + definition);
   }
   const stamp = () => new Date(now()).toISOString();
-  const requireReady = () => { if (!enabled) reject(503, 'stripe_test_setup_required'); };
-  const api = async run => { try { return await run(); } catch { reject(502, 'stripe_test_api_unavailable'); } };
+  const api = async run => { try { return await run(); } catch { reject(502, 'stripe_' + mode + '_api_unavailable'); } };
+  async function ready() {
+    if (!transportConfigured) return false;
+    if (!needsPreflight) return !blocked.length;
+    // Refresh before every payment action. A completed preflight is status,
+    // never permanent permission to use an account whose state later changes.
+    if (preflight) return preflight;
+    readyState = false;
+    identityReady = false;
+    preflight = (async () => {
+      readinessBlocked = [];
+      if (live && !await verifyBillingStorage(db, env, storageInspector)) readinessBlocked.push('durable_billing_storage_required');
+      if (readinessBlocked.length) return false;
+      let account;
+      try { account = await stripe.accounts.retrieve(); }
+      catch { readinessBlocked.push('stripe_merchant_verification_unavailable'); return false; }
+      if (account?.object !== 'account' || account.id !== merchantId) readinessBlocked.push('stripe_merchant_account_mismatch');
+      if (readinessBlocked.length) return false;
+      identityReady = true;
+      binding?.verified?.();
+      if (live && account?.charges_enabled !== true) readinessBlocked.push('stripe_merchant_charges_disabled');
+      if (blocked.length || readinessBlocked.length) return false;
+      try {
+        for (const offer of policy.offers) assertPrice(await api(() => stripe.prices.retrieve(offer.priceId)), offer);
+      } catch (error) { readinessBlocked.push(error?.code === 'stripe_price_policy_mismatch' ? error.code : 'stripe_price_verification_unavailable'); return false; }
+      readyState = true;
+      return true;
+    })();
+    try { return await preflight; } finally { preflight = null; }
+  }
+  const requireReady = async ({ reconcile = false } = {}) => {
+    const paymentsReady = await ready();
+    // Known payments must still reconcile when new sales are suspended, a
+    // price is archived, or cost measurement needs repair. Identity/storage
+    // verification remains mandatory; no new Checkout is permitted here.
+    if (!(reconcile ? identityReady : paymentsReady)) reject(503, 'stripe_' + mode + '_setup_required');
+  };
   function offerFor(id) { const offer = policy.offers.find(item => item.id === id); if (!offer) reject(400, 'unknown_billing_offer'); return offer; }
   function ownedCustomer(owner) {
     ensureAccount(owner);
@@ -80,7 +112,7 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     });
     if (row.customer_id) return row.customer_id;
     const value = await api(() => stripe.customers.create({ metadata: { compass_account_id: row.account_id } }, { idempotencyKey: 'compass:customer:' + row.account_id }));
-    if (!stripeId(value?.id, 'cus') || value.livemode !== false) reject(502, 'invalid_stripe_test_customer');
+    if (!stripeId(value?.id, 'cus') || value.object !== 'customer' || value.livemode !== live) reject(502, 'invalid_stripe_' + mode + '_customer');
     transaction(() => {
       const current = db.prepare('SELECT * FROM billing_customer WHERE owner=?').get(owner);
       if (current.customer_id && current.customer_id !== value.id) reject(409, 'stripe_customer_conflict');
@@ -88,12 +120,12 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     });
     return value.id;
   }
-  function assertPrice(price, offer) {
-    if (!price || price.id !== offer.priceId || price.livemode !== false || price.active !== true || price.currency !== offer.currency || price.unit_amount !== offer.unitAmount
+  function assertPrice(price, offer, { allowArchived = false } = {}) {
+    if (!price || (live && price.object !== 'price') || price.id !== offer.priceId || price.livemode !== live || (!allowArchived && price.active !== true) || price.currency !== offer.currency || price.unit_amount !== offer.unitAmount
       || (offer.kind === 'credits' ? Boolean(price.recurring) : price.recurring?.interval !== offer.interval || price.recurring?.interval_count !== offer.intervalCount)) reject(409, 'stripe_price_policy_mismatch');
   }
   async function checkout(owner, { offerId, requestKey: keyValue } = {}) {
-    requireReady();
+    await requireReady();
     if (!requestKey(keyValue)) reject(400, 'billing_idempotency_key_required');
     const offer = offerFor(offerId);
     const intent = transaction(() => {
@@ -109,7 +141,7 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
       db.prepare('INSERT INTO billing_checkout(id,owner,request_key,kind,offer_json,status,created_at) VALUES (?,?,?,?,?,?,?)').run(id, owner, keyValue, offer.kind, JSON.stringify(offer), 'pending', stamp());
       return db.prepare('SELECT * FROM billing_checkout WHERE id=?').get(id);
     });
-    if (intent.checkout_url) return { url: intent.checkout_url, sessionId: intent.session_id, mode: 'test', replay: true };
+    if (intent.checkout_url) return { url: intent.checkout_url, sessionId: intent.session_id, mode, replay: true };
     // Replaying an existing pending checkout uses its original approved offer.
     const snapshot = JSON.parse(intent.offer_json);
     const customerId = await customer(owner);
@@ -121,33 +153,38 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
       mode: snapshot.kind === 'credits' ? 'payment' : 'subscription', customer: customerId,
       client_reference_id: intent.id, metadata, line_items: [{ price: snapshot.priceId, quantity: 1 }],
       success_url: origin + '/workspace?billing=success', cancel_url: origin + '/workspace?billing=canceled',
+      ...(live ? { allow_promotion_codes: false, automatic_tax: { enabled: false }, expand: ['line_items.data.price'] } : {}),
       ...(snapshot.kind === 'credits' ? { payment_intent_data: { metadata } } : { subscription_data: { metadata } }),
     }, { idempotencyKey: 'compass:checkout:' + intent.id }));
     const url = externalUrl(value?.url, ['checkout.stripe.com']);
-    if (!stripeId(value?.id, 'cs_test') || value.livemode !== false || ref(value.customer) !== customerId || !url) reject(502, 'invalid_stripe_test_checkout');
+    if (!stripeId(value?.id, sessionPrefix) || value.object !== 'checkout.session' || value.livemode !== live || ref(value.customer) !== customerId || !url
+      || value.mode !== (snapshot.kind === 'credits' ? 'payment' : 'subscription') || value.client_reference_id !== intent.id || value.metadata?.compass_checkout_id !== intent.id
+      || (live && (value.status !== 'open' || value.success_url !== origin + '/workspace?billing=success' || value.cancel_url !== origin + '/workspace?billing=canceled'))) reject(502, 'invalid_stripe_' + mode + '_checkout');
+    if (live) assertCheckoutLines(value, snapshot);
     transaction(() => {
       const current = db.prepare('SELECT session_id FROM billing_checkout WHERE id=?').get(intent.id);
       if (current.session_id && current.session_id !== value.id) reject(409, 'checkout_session_conflict');
       db.prepare("UPDATE billing_checkout SET session_id=?,checkout_url=?,status=CASE WHEN status='pending' THEN 'open' ELSE status END WHERE id=? AND owner=?").run(value.id, url, intent.id, owner);
     });
-    return { url, sessionId: value.id, mode: 'test', replay: false };
+    return { url, sessionId: value.id, mode, replay: false };
   }
   async function portal(owner) {
-    requireReady();
+    await requireReady({ reconcile: true });
     const row = ownedCustomer(owner);
     const value = await api(() => stripe.billingPortal.sessions.create({ customer: row.customer_id, return_url: origin + '/workspace?billing=returned' }));
     const url = externalUrl(value?.url, ['billing.stripe.com']);
-    if (!url) reject(502, 'invalid_stripe_test_portal');
-    return { url, mode: 'test' };
+    if (!url || (live && (value.object !== 'billing_portal.session' || !stripeId(value.id, 'bps') || ref(value.customer) !== row.customer_id || value.return_url !== origin + '/workspace?billing=returned'))) reject(502, 'invalid_stripe_' + mode + '_portal');
+    return { url, mode };
   }
   function subscriptionContext(value) {
-    if (!stripeId(value?.id, 'sub') || value.livemode !== false || !stripeId(ref(value.customer), 'cus')) reject(400, 'invalid_test_subscription');
+    if (!stripeId(value?.id, 'sub') || value.object !== 'subscription' || value.livemode !== live || !stripeId(ref(value.customer), 'cus')) reject(400, 'invalid_' + mode + '_subscription');
     const checkoutId = value.metadata?.compass_checkout_id;
     const intent = typeof checkoutId === 'string' ? db.prepare('SELECT * FROM billing_checkout WHERE id=?').get(checkoutId) : null;
     if (!intent || intent.kind !== 'subscription' || intent.customer_id !== ref(value.customer)) reject(409, 'unrecognized_subscription');
     const offer = JSON.parse(intent.offer_json);
     const items = value.items?.data;
-    if (!Array.isArray(items) || items.length !== 1 || ref(items[0].price) !== offer.priceId || items[0].quantity !== 1) reject(409, 'subscription_price_mismatch');
+    if (!Array.isArray(items) || items.length !== 1 || (live && value.items.has_more !== false) || ref(items[0].price) !== offer.priceId || items[0].quantity !== 1) reject(409, 'subscription_price_mismatch');
+    if (live) assertPrice(items[0].price, offer, { allowArchived: true });
     const periodEnd = items[0].current_period_end ?? value.current_period_end;
     if (!integer(periodEnd)) reject(409, 'subscription_period_required');
     if (!['active','trialing','past_due','canceled','unpaid','paused','incomplete','incomplete_expired'].includes(value.status)) reject(409, 'unsupported_subscription_status');
@@ -167,7 +204,7 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     return db.prepare('SELECT * FROM billing_subscription WHERE id=?').get(value.id);
   }
   async function cancel(owner, { subscriptionId, requestKey: keyValue } = {}) {
-    requireReady();
+    await requireReady({ reconcile: true });
     if (!stripeId(subscriptionId, 'sub') || !requestKey(keyValue)) reject(400, 'invalid_subscription_cancellation');
     const row = db.prepare('SELECT * FROM billing_subscription WHERE id=? AND owner=?').get(subscriptionId, owner);
     if (!row) reject(404, 'subscription_not_found');
@@ -190,15 +227,24 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
       .run(id, owner, customerId, paymentIntent, invoiceId, subscriptionId, periodEnd, JSON.stringify(offer), amount, offer.currency, offer.credits, 'paid', stamp());
     return { replay: false, paymentId: id };
   }
+  function assertCheckoutLines(value, offer, { settled = false } = {}) {
+    const lines = value.line_items;
+    const line = lines?.data?.length === 1 ? lines.data[0] : null;
+    if (!line || lines.has_more !== false || line.quantity !== 1 || ref(line.price) !== offer.priceId
+      || value.automatic_tax?.enabled !== false || value.allow_promotion_codes === true || value.discounts?.length
+      || ['amount_discount', 'amount_shipping', 'amount_tax'].some(name => value.total_details?.[name] !== 0)) reject(409, 'checkout_price_policy_mismatch');
+    assertPrice(line.price, offer, { allowArchived: settled });
+  }
   function applyCheckout(value) {
     const id = value.metadata?.compass_checkout_id;
     const intent = typeof id === 'string' ? db.prepare('SELECT * FROM billing_checkout WHERE id=?').get(id) : null;
     if (!intent) reject(409, 'unrecognized_checkout');
     const offer = JSON.parse(intent.offer_json);
-    if (value.livemode !== false || !stripeId(value.id, 'cs_test') || (intent.session_id && intent.session_id !== value.id) || ref(value.customer) !== intent.customer_id
+    if (value.object !== 'checkout.session' || value.livemode !== live || !stripeId(value.id, sessionPrefix) || (intent.session_id && intent.session_id !== value.id) || ref(value.customer) !== intent.customer_id
       || value.client_reference_id !== intent.id || value.mode !== (offer.kind === 'credits' ? 'payment' : 'subscription')) reject(409, 'checkout_owner_or_policy_mismatch');
     if (value.status === 'expired') { db.prepare("UPDATE billing_checkout SET status='expired',session_id=? WHERE id=? AND status<>'complete'").run(value.id, intent.id); return { status: 'expired' }; }
     if (value.payment_status !== 'paid' || value.status !== 'complete') return { status: 'pending_payment' };
+    if (live) assertCheckoutLines(value, offer, { settled: true });
     if (value.amount_total !== offer.unitAmount || value.currency !== offer.currency) reject(409, 'checkout_amount_mismatch');
     db.prepare("UPDATE billing_checkout SET status='complete',session_id=? WHERE id=?").run(value.id, intent.id);
     if (offer.kind === 'subscription') return { status: 'awaiting_paid_invoice' };
@@ -209,10 +255,16 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     return { status: 'paid', ...result };
   }
   function invoiceSubscription(value) { return ref(value.subscription) || ref(value.parent?.subscription_details?.subscription); }
-  function invoicePayment(value) { return ref(value.payment_intent) || ref(value.payments?.data?.find(item => item.status === 'paid')?.payment?.payment_intent); }
+  function invoicePayment(value) {
+    if (!live) return ref(value.payment_intent) || ref(value.payments?.data?.find(item => item.status === 'paid')?.payment?.payment_intent);
+    const items = value.payments?.data, payment = items?.length === 1 ? items[0] : null;
+    if (!payment || value.payments.has_more !== false || payment.object !== 'invoice_payment' || payment.livemode !== true || payment.status !== 'paid'
+      || ref(payment.invoice) !== value.id || payment.currency !== value.currency || payment.amount_paid !== value.amount_paid || payment.payment?.type !== 'payment_intent') reject(409, 'invoice_payment_policy_mismatch');
+    return ref(payment.payment.payment_intent);
+  }
   function applyInvoice(invoice, subscription, created, paid) {
     const current = applySubscription(subscription, created);
-    if (invoice.livemode !== false || ref(invoice.customer) !== current.customer_id || invoiceSubscription(invoice) !== subscription.id) reject(409, 'invoice_owner_mismatch');
+    if (invoice.object !== 'invoice' || invoice.livemode !== live || ref(invoice.customer) !== current.customer_id || invoiceSubscription(invoice) !== subscription.id) reject(409, 'invoice_owner_mismatch');
     if (!paid) {
       if (created >= current.event_created) db.prepare("UPDATE billing_subscription SET status='payment_failed',event_created=?,updated_at=? WHERE id=?").run(created, stamp(), subscription.id);
       return { status: 'payment_failed' };
@@ -233,7 +285,9 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     return { status: 'paid', ...result };
   }
   function applyRefund(value) {
-    if (!stripeId(value?.id, 're') || value.livemode === true || !integer(value.amount) || !['pending','requires_action','succeeded','failed','canceled'].includes(value.status)) reject(400, 'invalid_test_refund');
+    // Stripe Refund has no livemode field. Merchant-key retrieval and the
+    // signed event mode supply that boundary; a contradictory field is refused.
+    if (!stripeId(value?.id, 're') || value.object !== 'refund' || (value.livemode !== undefined && value.livemode !== live) || !integer(value.amount) || !['pending','requires_action','succeeded','failed','canceled'].includes(value.status)) reject(400, 'invalid_' + mode + '_refund');
     const paymentIntent = ref(value.payment_intent);
     if (!stripeId(paymentIntent, 'pi')) reject(409, 'refund_payment_intent_required');
     const payment = db.prepare('SELECT * FROM billing_payment WHERE payment_intent_id=?').get(paymentIntent);
@@ -255,24 +309,42 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     }
     return { status: value.status, revokedCredits: revoked, paymentId: payment.id };
   }
+  async function verifyLivePayment(id,{customer,currency,amount}) {
+    if(!live)return;
+    if(!stripeId(id,'pi'))reject(409,'payment_intent_required');
+    const payment=await api(()=>stripe.paymentIntents.retrieve(id));
+    if(payment?.object!=='payment_intent'||payment.id!==id||payment.livemode!==true||payment.status!=='succeeded'
+      ||ref(payment.customer)!==customer||payment.currency!==currency||payment.amount!==amount||payment.amount_received!==amount)reject(409,'payment_intent_policy_mismatch');
+  }
   async function webhook(rawBody, signature) {
-    requireReady();
     if ((!Buffer.isBuffer(rawBody) && typeof rawBody !== 'string') || Buffer.byteLength(rawBody) > 512 * 1024 || typeof signature !== 'string' || signature.length > 2048) reject(400, 'invalid_stripe_webhook');
     const timestamps = signature.split(',').filter(item => item.startsWith('t=')).map(item => Number(item.slice(2)));
     if (timestamps.length !== 1 || !integer(timestamps[0]) || Math.abs(Math.floor(now() / 1000) - timestamps[0]) > 300) reject(400, 'stripe_webhook_timestamp_invalid');
     let event;
     try { event = Stripe.webhooks.constructEvent(rawBody, signature, signingSecret, 300, undefined, now()); }
     catch { reject(400, 'stripe_webhook_signature_invalid'); }
-    if (!stripeId(event.id, 'evt') || event.livemode !== false || event.account || !integer(event.created) || typeof event.type !== 'string' || event.type.length > 100 || !event.data?.object) reject(400, 'stripe_test_event_required');
+    if (event.object !== 'event' || !stripeId(event.id, 'evt') || event.livemode !== live || event.account || !integer(event.created) || typeof event.type !== 'string' || event.type.length > 100 || !event.data?.object) reject(400, 'stripe_' + mode + '_event_required');
+    await requireReady({ reconcile: true });
     const hash = sha(rawBody);
     const previous = db.prepare('SELECT * FROM billing_event WHERE id=?').get(event.id);
     if (previous) { if (previous.payload_hash !== hash) reject(409, 'stripe_event_id_conflict'); return { ...JSON.parse(previous.result_json), replay: true }; }
     const object = event.data.object;
+    if(live){
+      const expected=event.type.startsWith('checkout.session.')?'checkout.session'
+        :event.type.startsWith('customer.subscription.')?'subscription'
+        :event.type.startsWith('invoice.')?'invoice':event.type==='charge.refunded'?'charge'
+        :event.type.startsWith('refund.')?'refund':null;
+      if(expected&&(object.object!==expected||(expected==='refund'?object.livemode!==undefined&&object.livemode!==true:object.livemode!==true)))reject(400,'stripe_live_object_required');
+    }
     let execute = () => ({ status: 'ignored' });
     if (['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','checkout.session.expired'].includes(event.type)) {
-      if (!stripeId(object.id, 'cs_test')) reject(400, 'invalid_checkout_event');
-      const current = await api(() => stripe.checkout.sessions.retrieve(object.id));
+      if (!stripeId(object.id, sessionPrefix)) reject(400, 'invalid_checkout_event');
+      if (live && object.object !== 'checkout.session') reject(400, 'invalid_checkout_event');
+      const current = await api(() => stripe.checkout.sessions.retrieve(object.id, live ? { expand: ['line_items.data.price'] } : undefined));
       if (current?.id !== object.id) reject(502, 'stripe_resource_id_mismatch');
+      if(live&&current?.object==='checkout.session'&&current.livemode===true&&current.status==='complete'&&current.payment_status==='paid'&&current.mode==='payment'){
+        await verifyLivePayment(ref(current.payment_intent),{customer:ref(current.customer),currency:current.currency,amount:current.amount_total});
+      }
       execute = () => applyCheckout(current);
     } else if (['customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','customer.subscription.paused','customer.subscription.resumed'].includes(event.type)) {
       if (!stripeId(object.id, 'sub')) reject(400, 'invalid_subscription_event');
@@ -281,8 +353,10 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
       execute = () => ({ status: applySubscription(current, event.created).status });
     } else if (['invoice.paid','invoice.payment_failed'].includes(event.type)) {
       if (!stripeId(object.id, 'in')) reject(400, 'invalid_invoice_event');
-      const current = await api(() => stripe.invoices.retrieve(object.id));
+      const current = await api(() => stripe.invoices.retrieve(object.id, live ? { expand: ['payments'] } : undefined));
       if (current?.id !== object.id) reject(502, 'stripe_resource_id_mismatch');
+      if(live&&(current.object!=='invoice'||current.livemode!==true))reject(400,'stripe_live_object_required');
+      if(live&&current.status==='paid')await verifyLivePayment(invoicePayment(current),{customer:ref(current.customer),currency:current.currency,amount:current.amount_paid});
       const subscriptionId = invoiceSubscription(current);
       if (!stripeId(subscriptionId, 'sub')) reject(409, 'invoice_subscription_required');
       const subscription = await api(() => stripe.subscriptions.retrieve(subscriptionId));
@@ -296,13 +370,13 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     } else if (event.type === 'charge.refunded') {
       if (!stripeId(object.id, 'ch')) reject(400, 'invalid_charge_refund_event');
       const refunds = await api(() => stripe.refunds.list({ charge: object.id, limit: 100 }));
-      if (!Array.isArray(refunds.data) || refunds.has_more) reject(503, 'refund_reconciliation_required');
+      if (!Array.isArray(refunds.data) || refunds.has_more || refunds.data.length > 100 || refunds.data.some(value => ref(value.charge) !== object.id)) reject(503, 'refund_reconciliation_required');
       execute = () => ({ status: 'refunds_reconciled', refunds: refunds.data.map(applyRefund) });
     }
     return transaction(() => {
       const duplicate = db.prepare('SELECT * FROM billing_event WHERE id=?').get(event.id);
       if (duplicate) { if (duplicate.payload_hash !== hash) reject(409, 'stripe_event_id_conflict'); return { ...JSON.parse(duplicate.result_json), replay: true }; }
-      const result = { ...execute(), mode: 'test', replay: false };
+      const result = { ...execute(), mode, replay: false };
       db.prepare('INSERT INTO billing_event(id,type,payload_hash,result_json,created_at) VALUES (?,?,?,?,?)').run(event.id, event.type, hash, JSON.stringify(result), stamp());
       return result;
     });
@@ -319,5 +393,11 @@ export function createStripeTestAdapter(ledger, { env, stripeClient, now = () =>
     ensureAccount(owner);
     return db.prepare('SELECT id,status,amount_minor AS amountMinor,currency,credits,revoked_credits AS revokedCredits,created_at AS at FROM billing_payment WHERE owner=? ORDER BY rowid DESC LIMIT 100').all(owner);
   }
-  return { enabled, blocked, origin, checkout, portal, cancel, webhook, subscriptions, history };
+  return { get enabled() { return readyState; }, get blocked() { return [...blocked, ...readinessBlocked]; }, origin, ready, checkout, portal, cancel, webhook, subscriptions, history };
+}
+
+// Retained for server integrations importing the original adapter name.
+export function createStripeTestAdapter(ledger, options) {
+  if (options.env.COMPASS_BILLING_MODE !== 'test') reject(503, 'stripe_test_setup_required');
+  return createStripeAdapter(ledger, options);
 }
