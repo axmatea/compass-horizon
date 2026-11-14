@@ -187,6 +187,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
       if (normalized === '/plan') { await serveFile(req, res, root, '/plan.html', text,env); return; }
       if (normalized === '/studio') { await serveFile(req, res, root, '/studio.html', text,env); return; }
       if (normalized === '/create') { await serveFile(req,res,root,'/create.html',text,env); return; }
+      if (normalized === '/privacy') { await serveFile(req,res,root,'/privacy.html',text,env); return; }
       if (normalized === '/workspace') {
         await accounts.ready;
         if (!accounts.publicConfig().configured) { text(404,'Account access is not enabled.'); return; }
