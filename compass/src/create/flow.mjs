@@ -1,4 +1,5 @@
 const PROVIDERS = ['email','google','github','apple']
+export const ACCOUNT_REAUTH_PATH = '/create?signin=1&reauth=1'
 
 // Returning-account routes carry only mode flags. A pending idea always keeps
 // the normal creation path; it is never replaced by a fabricated prompt.
@@ -6,6 +7,10 @@ export function resolveCreateEntry({search = '',hasDraft = false,config = {},sig
   const query = new URLSearchParams(search)
   const view = query.get('view')
   if (['recover','reset','verify'].includes(view)) return {mode:view,step:'manage'}
+  // A valid older session can open the workspace but still require a new
+  // sign-in for security details. Keep the session and any draft until the
+  // user explicitly authenticates; the callback returns to account settings.
+  if (config.enabled && config.configured && query.get('signin') === '1' && query.get('reauth') === '1') return {mode:'account',step:'auth'}
   if (view === 'account') return {mode:'account',step:config.enabled && config.configured && signedIn ? 'manage' : 'auth'}
   if (view === 'preferences' && config.enabled && config.configured) return {mode:'profile',step:signedIn ? 'onboarding' : 'auth'}
   if (!hasDraft && config.enabled && config.configured) {
@@ -101,7 +106,7 @@ export function createAccountApi({fetch:request = globalThis.fetch,origin = glob
     saveProfile:preferences => privateRequest('/api/account/profile','PUT',{preferences}),
     signUp:({name,email,password}) => send('/api/auth/sign-up/email','POST',{name,email,password,callbackURL:base.origin+'/create?view=verify'}),
     signIn:({email,password}) => send('/api/auth/sign-in/email','POST',{email,password,callbackURL:callback()}),
-    social:provider => send('/api/auth/sign-in/social','POST',{provider,callbackURL:callback(),errorCallbackURL:errorCallback(callback())}),
+    social:provider => send('/api/auth/sign-in/social','POST',{provider,callbackURL:callback(),errorCallbackURL:errorCallback(returnMode==='account' ? base.origin+ACCOUNT_REAUTH_PATH : callback())}),
     signOut:() => boundUserId ? privateRequest('/api/auth/sign-out','POST',{}) : send('/api/auth/sign-out','POST',{}),
     updateName:name => privateRequest('/api/auth/update-user','POST',{name}),
     changePassword:({currentPassword,newPassword}) => privateRequest('/api/auth/change-password','POST',{currentPassword,newPassword,revokeOtherSessions:true}),
@@ -120,6 +125,7 @@ export function createAccountApi({fetch:request = globalThis.fetch,origin = glob
 export function accountErrorText(error, action = 'sign-in') {
   if (isAccountChanged(error)) return 'The account changed. Sign in again or continue without an account. Your idea is kept.'
   if (error?.code === 'OAUTH_FAILED') return action === 'manage' ? 'That sign-in method wasn’t connected. Try again.' : 'Sign-in didn’t finish. Try again or choose another method.'
+  if (error?.code === 'SESSION_NOT_FRESH') return 'Sign in again to continue.'
   if (error?.code === 'timeout') return 'That took too long. Your idea is still here. Try again.'
   if (error?.code === 'network' || error?.code === 'invalid-response') return 'We couldn’t connect. Your idea is still here. Try again.'
   if (error?.status === 429) return 'Too many attempts. Wait a moment, then try again.'

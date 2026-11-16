@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { normalizeAccountConfig, allowedEmail, accountErrorText, isAccountChanged, AccountRequestError, safeSocialRedirect } from '../src/create/flow.mjs';
+import { normalizeAccountConfig, allowedEmail, accountErrorText, isAccountChanged, AccountRequestError, safeSocialRedirect, ACCOUNT_REAUTH_PATH } from '../src/create/flow.mjs';
 
 const workspaceSource=(await readFile(new URL('../src/account/workspace.mjs',import.meta.url),'utf8')).replace(/^import .+\n/gm,'').replace('export async function','async function');
 const manageSource=(await readFile(new URL('../src/create/manage.mjs',import.meta.url),'utf8')).replace(/^import .+\n/gm,'').replaceAll('export function','function');
@@ -99,7 +99,7 @@ test('social-only config retains disabled email and suppresses contradictory ema
 });
 
 test('social-only account management keeps sessions and linking while hiding email and password forms',async()=>{
-  const root=new Node(),context={document:{createElement:tag=>new Node(tag)},accountErrorText,isAccountChanged,AccountRequestError,safeSocialRedirect};
+  const root=new Node(),context={document:{createElement:tag=>new Node(tag)},accountErrorText,isAccountChanged,AccountRequestError,safeSocialRedirect,ACCOUNT_REAUTH_PATH};
   vm.runInNewContext(manageSource+';globalThis.createViews=createAccountViews',context);
   const views=context.createViews({root,api:{sessions:async()=>[{id:'session_one'}],accounts:async()=>[{id:'identity_one',providerId:'google'}]},onMessage(){},onExpired(){},onUser(){},onPreferences(){}});
   const config=normalizeAccountConfig({...durableConfig,providers:['google','github'],features:{...durableConfig.features,passwordRecovery:true,emailVerification:true}});
@@ -114,4 +114,37 @@ test('social-only account management keeps sessions and linking while hiding ema
     assert.ok(!root.all().some(item=>item.tagName==='FORM'));
     assert.doesNotMatch(root.textContent,/preview/);
   }
+});
+
+test('linked methods load while session details wait, and stale-session errors offer explicit reauthentication',async()=>{
+  const root=new Node(),messages=[],expired=[];
+  let rejectSessions;
+  const pendingSessions=new Promise((_,reject)=>{rejectSessions=reject});
+  const context={document:{createElement:tag=>new Node(tag)},accountErrorText,isAccountChanged,AccountRequestError,safeSocialRedirect,ACCOUNT_REAUTH_PATH};
+  vm.runInNewContext(manageSource+';globalThis.createViews=createAccountViews',context);
+  const views=context.createViews({root,api:{sessions:()=>pendingSessions,accounts:async()=>[{id:'google_one',providerId:'google'}]},
+    onMessage:message=>messages.push(message),onExpired:error=>expired.push(error),onUser(){},onPreferences(){}});
+  const rendered=views.render('account',{config:normalizeAccountConfig(durableConfig),user:{id:'owner_one',email:'person@example.com'}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(root.textContent,/Sign-in methodsGoogle/);
+  assert.match(root.textContent,/Checking active sessions/);
+  rejectSessions(new AccountRequestError('SESSION_NOT_FRESH',403));await rendered;
+  assert.match(root.textContent,/Sign in again to view active sessions/);
+  assert.match(root.textContent,/Sign-in methodsGoogle/);
+  const reauthenticate=root.all().find(item=>item.tagName==='A'&&item.textContent==='Sign in again');
+  assert.equal(reauthenticate.href,ACCOUNT_REAUTH_PATH);assert.equal(reauthenticate.hidden,false);
+  assert.deepEqual(messages,[]);assert.deepEqual(expired,[]);
+});
+
+test('a linked-account load failure does not replace successfully loaded session details',async()=>{
+  const root=new Node(),messages=[];
+  const context={document:{createElement:tag=>new Node(tag)},accountErrorText,isAccountChanged,AccountRequestError,safeSocialRedirect,ACCOUNT_REAUTH_PATH};
+  vm.runInNewContext(manageSource+';globalThis.createViews=createAccountViews',context);
+  const views=context.createViews({root,api:{sessions:async()=>[{id:'one'}],accounts:async()=>{throw new AccountRequestError('AUTH_UNAVAILABLE',503)}},
+    onMessage:message=>messages.push(message),onExpired(){},onUser(){},onPreferences(){}});
+  await views.render('account',{config:normalizeAccountConfig(durableConfig),user:{id:'owner_one',email:'person@example.com'}});
+  assert.match(root.textContent,/1 active session/);assert.match(root.textContent,/Sign-in methods unavailable/);
+  assert.doesNotMatch(root.textContent,/Session details unavailable/);
+  assert.equal(root.all().find(item=>item.tagName==='A'&&item.textContent==='Sign in again').hidden,true);
+  assert.equal(messages.length,1);
 });

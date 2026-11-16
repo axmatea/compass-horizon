@@ -190,6 +190,22 @@ test('no-delivery staging permits only .test registration and enforces library p
   assert.equal((await request('/api/auth/sign-up/email', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: '{}' })).status, 415);
 });
 
+test('an older valid session requires fresh authentication for session details without losing account access',async t=>{
+  const {auth,request}=await fixture(t);
+  const original=await register(request,'Freshness');
+  auth.database.prepare('UPDATE compass_account_session SET createdAt=? WHERE userId=?').run(Date.now()-2*86400_000,original.body.user.id);
+  const stale=await request('/api/auth/list-sessions',{cookie:original.cookie});
+  assert.equal(stale.status,403);assert.equal((await stale.json()).code,'SESSION_NOT_FRESH');
+  assert.equal((await request('/api/auth/list-accounts',{cookie:original.cookie})).status,200);
+  assert.equal((await (await request('/api/auth/get-session',{cookie:original.cookie})).json()).user.id,original.body.user.id);
+  const login=await request('/api/auth/sign-in/email',{method:'POST',body:{email:'freshness@compass.test',password}});
+  assert.equal(login.status,200);const freshCookie=cookieFor(login);assert.notEqual(freshCookie,original.cookie);
+  const fresh=await request('/api/auth/list-sessions',{cookie:freshCookie});
+  assert.equal(fresh.status,200);assert.equal((await fresh.json()).length,2);
+  assert.equal((await request('/api/auth/list-sessions',{cookie:original.cookie})).status,403,'existing older session stays protected');
+  assert.ok(await auth.getIdentity(new Headers({cookie:original.cookie})),'reauthentication does not revoke the previous valid session');
+});
+
 test('configured email delivery verifies a real library token and requires verification before sign-in', async t => {
   const messages = [];
   const { auth, request } = await fixture(t, { options: { sendEmail: async message => { messages.push(message); } } });
