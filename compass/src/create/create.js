@@ -14,6 +14,7 @@ const onboardingForm = $('onboarding-form')
 const promptInput = $('create-prompt')
 if(appEntry){$('prompt-note').textContent='Data apps.';promptInput.placeholder='A CRM for my studio…'}
 const entryURL = new URL(location.href)
+let reauthenticating = entryURL.searchParams.get('signin') === '1' && entryURL.searchParams.get('reauth') === '1'
 const entry = accountEntry(entryURL.href)
 if (['token','error','oauth','error_description'].some(name => entryURL.searchParams.has(name))) history.replaceState(null,'',entry.cleanURL)
 const views = createAccountViews({root:$('account-tools'),api,onMessage:message,onExpired:requireAccountChoice,onUser:bindIdentity,onPreferences:openPreferences})
@@ -85,8 +86,8 @@ function show(step,{focus = true} = {}) {
   if(step !== 'manage')views.cancel()
   const returning = state.flowMode !== 'project' && !state.draft
   const editing = state.flowMode === 'profile'
-  const titles = {prompt:'What will you make?',auth:returning ? 'Welcome back.' : 'Keep your idea.',onboarding:editing ? 'Your direction.' : 'Make it yours.',manage:{account:'Your account.',recover:'Recover your account.',reset:'A new password.',verify:'Verify your email.'}[state.flowMode] || 'Your account.'}
-  const descriptions = {prompt:'Start with an idea.',auth:returning ? 'Sign in to your workspace.' : 'Sign in to save your work.',onboarding:'Two choices. Both optional.',manage:'Account settings.'}
+  const titles = {prompt:'What will you make?',auth:reauthenticating ? 'Sign in again.' : returning ? 'Welcome back.' : 'Keep your idea.',onboarding:editing ? 'Your direction.' : 'Make it yours.',manage:{account:'Your account.',recover:'Recover your account.',reset:'A new password.',verify:'Verify your email.'}[state.flowMode] || 'Your account.'}
+  const descriptions = {prompt:'Start with an idea.',auth:reauthenticating ? 'Sign in to view your security settings.' : returning ? 'Sign in to your workspace.' : 'Sign in to save your work.',onboarding:'Two choices. Both optional.',manage:'Account settings.'}
   $('create-title').textContent = titles[step]
   $('create-lede').textContent = descriptions[step]
   $('step-label').textContent = editing ? 'Preferences' : returning ? 'Your workspace' : step === 'onboarding' ? 'A direction for your project' : 'A new project'
@@ -116,6 +117,7 @@ function next() {
   show(entry.step)
 }
 function mode(signup) {
+  signup = signup && !reauthenticating
   state.signup = signup
   $('signup-mode').setAttribute('aria-pressed',String(signup))
   $('signin-mode').setAttribute('aria-pressed',String(!signup))
@@ -140,6 +142,7 @@ function renderProviders() {
   }
   const email = providers.includes('email')
   accountForm.hidden = !email
+  $('signup-mode').hidden = reauthenticating
   $('email-divider').hidden = !email || providers.length < 2
   $('auth-preview-note').hidden = !email || state.config?.emailMode !== 'test'
   $('auth-unavailable').hidden = providers.length > 0
@@ -185,7 +188,7 @@ async function initialize() {
     renderProviders()
     message()
     next()
-    if (entry.oauthError) message(accountErrorText(new AccountRequestError('OAUTH_FAILED'),state.flowMode === 'account' ? 'manage' : 'sign-in')+(state.draft ? ' Your idea is kept.' : ''),true)
+    if (entry.oauthError) message(accountErrorText(new AccountRequestError('OAUTH_FAILED'),state.flowMode === 'account' && !reauthenticating ? 'manage' : 'sign-in')+(state.draft ? ' Your idea is kept.' : ''),true)
   } catch {
     if (run !== epoch) return
     state.config = null
@@ -215,6 +218,12 @@ async function authenticate(event) {
     if (!signedIn(session)) { state.flowMode='verify';show('manage');message('Verification requested. Your idea is still here.');return }
     bindIdentity(session.user)
     state.guest = false
+    if (reauthenticating) {
+      reauthenticating = false
+      history.replaceState(null,'','/create?view=account')
+      state.flowMode = 'account'
+      api.setReturnMode('account')
+    }
     if (state.flowMode !== 'signin' && (state.flowMode==='profile' || !Object.keys(state.draft?.preferences || {}).length)) {
       try {
         const profile = await api.profile()

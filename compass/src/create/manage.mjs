@@ -1,4 +1,4 @@
-import {accountErrorText,isAccountChanged,AccountRequestError,safeSocialRedirect} from './flow.mjs'
+import {accountErrorText,isAccountChanged,AccountRequestError,safeSocialRedirect,ACCOUNT_REAUTH_PATH} from './flow.mjs'
 
 const names = {credential:'Email',email:'Email',google:'Google',github:'GitHub',apple:'Apple'}
 const node = (tag,text,className) => { const item=document.createElement(tag); if(text)item.textContent=text; if(className)item.className=className; return item }
@@ -88,6 +88,7 @@ export function createAccountViews({root,api,onMessage,onExpired,onUser,onPrefer
     }
     const security=node('section',null,'account-section');security.append(node('h2','Security'))
     const sessions=node('p','Checking active sessions…');security.append(sessions,action('Sign out other devices',()=>run(async()=>{await api.revokeOtherSessions();sessions.textContent='Other sessions signed out.'},''),'social-button'))
+    const reauthenticate=link('Sign in again',ACCOUNT_REAUTH_PATH);reauthenticate.hidden=true;security.append(reauthenticate)
     root.append(security)
     const password=form('Password','Change password',()=>run(async()=>{
       await api.changePassword({currentPassword:current.value,newPassword:next.value});current.value=next.value=''
@@ -101,25 +102,48 @@ export function createAccountViews({root,api,onMessage,onExpired,onUser,onPrefer
     footer.append(action('Preferences',onPreferences,'text-button'),link('Open workspace','/workspace'),action('Sign out',()=>run(async()=>{await api.signOut();onUser(null);location.replace('/create?signin=1')},''),'text-button'))
     if(hasDraft)footer.append(link('Continue idea','/create'))
     root.append(footer)
-    try {
-      const [active,accounts]=await Promise.all([api.sessions(),api.accounts()])
-      if(mine!==generation)return
-      sessions.textContent=Array.isArray(active)?`${active.length} active ${active.length===1?'session':'sessions'}.`:'Session details unavailable.'
-      const methods=Array.isArray(accounts)?accounts:[]
-      const usable=method=>config.providers.includes(method.providerId==='credential'?'email':method.providerId)
-      const usableMethods=methods.filter(usable)
-      const emailAccount=methods.some(item=>item.providerId==='credential')
-      password.item.hidden=!(emailEnabled && emailAccount)
-      if(emailEnabled && !emailAccount && config.features.passwordRecovery)root.append(link('Set up email sign-in','/create?view=recover'))
-      for(const item of methods) {
-        const row=node('div',null,'account-method');row.append(node('span',(names[item.providerId] || 'Linked account')+(usable(item)?'':' · unavailable')))
-        if(usable(item) && usableMethods.length>1 && config.features.accountLinking && item.providerId!=='credential')row.append(action('Disconnect',()=>run(async()=>{await api.unlinkAccount(item.id);await render('account',{config,user,hasDraft})},''),'text-button'))
-        accountsList.append(row)
+    function loadError(error) {
+      if(isAccountChanged(error)||error?.status===401)onExpired(error)
+      else onMessage(accountErrorText(error,'manage'),true)
+    }
+    async function loadSessions() {
+      try {
+        const active=await api.sessions()
+        if(mine!==generation)return
+        sessions.textContent=Array.isArray(active)?`${active.length} active ${active.length===1?'session':'sessions'}.`:'Session details unavailable.'
+      } catch(error) {
+        if(mine!==generation)return
+        if(error?.code==='SESSION_NOT_FRESH') {
+          sessions.textContent='Sign in again to view active sessions.'
+          reauthenticate.hidden=false
+        } else {sessions.textContent='Session details unavailable.';loadError(error)}
       }
-      if(config.features.accountLinking)for(const provider of config.providers.filter(item=>item!=='email'&&!methods.some(account=>account.providerId===item))) {
-        accountsList.append(action('Connect '+names[provider],()=>run(async()=>{const response=await api.linkSocial(provider);const url=safeSocialRedirect(response?.url,provider);if(!url)throw new AccountRequestError('invalid-response');location.assign(url)},''),'social-button'))
+    }
+    async function loadAccounts() {
+      try {
+        const accounts=await api.accounts()
+        if(mine!==generation)return
+        const methods=Array.isArray(accounts)?accounts:[]
+        const usable=method=>config.providers.includes(method.providerId==='credential'?'email':method.providerId)
+        const usableMethods=methods.filter(usable)
+        const emailAccount=methods.some(item=>item.providerId==='credential')
+        password.item.hidden=!(emailEnabled && emailAccount)
+        if(emailEnabled && !emailAccount && config.features.passwordRecovery)root.append(link('Set up email sign-in','/create?view=recover'))
+        for(const item of methods) {
+          const row=node('div',null,'account-method');row.append(node('span',(names[item.providerId] || 'Linked account')+(usable(item)?'':' · unavailable')))
+          if(usable(item) && usableMethods.length>1 && config.features.accountLinking && item.providerId!=='credential')row.append(action('Disconnect',()=>run(async()=>{await api.unlinkAccount(item.id);await render('account',{config,user,hasDraft})},''),'text-button'))
+          accountsList.append(row)
+        }
+        if(config.features.accountLinking)for(const provider of config.providers.filter(item=>item!=='email'&&!methods.some(account=>account.providerId===item))) {
+          accountsList.append(action('Connect '+names[provider],()=>run(async()=>{const response=await api.linkSocial(provider);const url=safeSocialRedirect(response?.url,provider);if(!url)throw new AccountRequestError('invalid-response');location.assign(url)},''),'social-button'))
+        }
+      } catch(error) {
+        if(mine!==generation)return
+        accountsList.textContent='Sign-in methods unavailable.'
+        loadError(error)
       }
-    } catch(error){if(mine===generation){sessions.textContent='Session details unavailable.';if(isAccountChanged(error)||error?.status===401)onExpired(error);else onMessage(accountErrorText(error,'manage'),true)}}
+    }
+    await Promise.all([loadSessions(),loadAccounts()])
   }
   return {render,cancel(){generation++;running=false}}
 }

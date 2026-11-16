@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {DRAFT_KEY,DRAFT_TTL,readDraft,writeDraft,clearDraft,onboardingIntent,normalizePreferences,validPrompt,draftCanAutoBuild,disarmDraft} from '../src/create/draft.mjs'
-import {createAccountApi,normalizeAccountConfig,allowedEmail,safeSocialRedirect,AccountRequestError,accountErrorText,isAccountChanged,resolveCreateEntry} from '../src/create/flow.mjs'
+import {createAccountApi,normalizeAccountConfig,allowedEmail,safeSocialRedirect,AccountRequestError,accountErrorText,isAccountChanged,resolveCreateEntry,ACCOUNT_REAUTH_PATH} from '../src/create/flow.mjs'
 import {accountEntry} from '../src/create/manage.mjs'
 
 const at = Date.parse('2026-11-13T12:00:00Z')
@@ -36,6 +36,32 @@ test('a pending idea retains its creation flow and accounts-off visitors never s
   }
   assert.deepEqual(resolveCreateEntry({hasDraft:true,config:{enabled:false}}),{mode:'project',step:'onboarding'})
   assert.deepEqual(resolveCreateEntry({hasDraft:true}),{mode:'project',step:'auth'})
+})
+
+test('explicit security reauthentication opens sign-in without redirecting a valid older session or losing a draft', async () => {
+  const config={enabled:true,configured:true}
+  const search=new URL(ACCOUNT_REAUTH_PATH,'https://preview.example').search
+  for(const signedIn of [false,true])for(const hasDraft of [false,true]) {
+    assert.deepEqual(resolveCreateEntry({search,config,signedIn,hasDraft}),{mode:'account',step:'auth'})
+  }
+  assert.deepEqual(resolveCreateEntry({search:'?reauth=1',config,signedIn:true}),{mode:'project',step:'prompt'})
+  assert.deepEqual(resolveCreateEntry({search,config:{enabled:false,configured:false},signedIn:true}),{mode:'project',step:'prompt'})
+  const options=fixture();writeDraft({prompt:'Keep my pending studio page'},options)
+  const calls=[]
+  const api=createAccountApi({origin:'https://preview.example',fetch:async (url,options)=>{
+    calls.push({url,body:JSON.parse(options.body)})
+    return {ok:true,status:200,json:async()=>({})}
+  }})
+  api.bindUser('existing_owner');api.setReturnMode('account')
+  await api.social('google')
+  await api.signIn({email:'owner@example.test',password:'Synthetic password only 123!'})
+  assert.ok(calls.every(call=>call.body.callbackURL==='https://preview.example/create?view=account'))
+  assert.equal(calls[0].body.errorCallbackURL,'https://preview.example'+ACCOUNT_REAUTH_PATH+'&oauth=failed')
+  assert.ok(calls.every(call=>call.url!=='/api/auth/sign-out'))
+  assert.deepEqual(resolveCreateEntry({search:new URL(calls[0].body.callbackURL).search,config,signedIn:true,hasDraft:true}),{mode:'account',step:'manage'})
+  assert.deepEqual(resolveCreateEntry({search:new URL(calls[0].body.errorCallbackURL).search,config,signedIn:true,hasDraft:true}),{mode:'account',step:'auth'})
+  assert.equal(readDraft(options).prompt,'Keep my pending studio page')
+  assert.equal(accountErrorText(new AccountRequestError('SESSION_NOT_FRESH',403),'manage'),'Sign in again to continue.')
 })
 
 test('an original multi-line idea survives auth redirects, preferences and a reload until its completed build is claimed', () => {
