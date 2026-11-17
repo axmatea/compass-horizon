@@ -7,6 +7,7 @@ const PROFILES = Object.freeze({
   food: { kind: 'bakery', sections: ['products', 'features', 'contact'], hero: 'split', font: 'serif', accent: 'coral' },
   general: { kind: 'project', sections: ['features', 'contact'], hero: 'centered', font: 'sans', accent: 'sky' },
 });
+const CONTACT_ACTIONS = new Set(['get in touch', 'contact', 'contact us', "let's talk", 'let’s talk', 'enquire', 'связаться']);
 
 export function profileFor(value = '') {
   const text = typeof value === 'object' && value ? `${value.kind || ''}` : String(value);
@@ -19,9 +20,11 @@ export function profileFor(value = '') {
 }
 
 // All primary actions must reach a section which exists in the rendered page.
-// Booking requests belong to contact; a property/portfolio page leads with work.
+// Explicit contact actions reach contact; other labels retain the page's default.
 export function primaryTarget(spec = {}) {
   const sections = Array.isArray(spec.sections) ? spec.sections : [];
+  const label = typeof spec.cta === 'string' ? spec.cta.trim().replace(/\s+/g, ' ').toLowerCase() : '';
+  if (sections.includes('contact') && CONTACT_ACTIONS.has(label)) return 'contact';
   const preferred = profileFor(spec).id === 'booking'
     ? ['contact', 'signup', 'features', 'products', 'gallery', 'pricing', 'faq', 'testimonials']
     : ['products', 'gallery', 'contact', 'signup', 'features', 'pricing', 'faq', 'testimonials'];
