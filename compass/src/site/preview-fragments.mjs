@@ -44,7 +44,7 @@ function anchor(tag,nameEnd) {
 // A presentation transform for already validated, scriptless website previews.
 // It is deliberately separate from source/export HTML and is not a sanitizer.
 export function srcdocFragmentLinks(value) {
-  const html=String(value??''),lower=html.toLowerCase()
+  const html=String(value??''),lower=html.replace(/[A-Z]/g,char=>char.toLowerCase())
   let at=0,last=0,result=''
   while(at<html.length) {
     const start=html.indexOf('<',at);if(start<0)break

@@ -34,3 +34,15 @@ test('actual renderer links are fixed only in device previews while saved and do
   assert.equal(html,snapshot);assert.equal(previewDownload({intent:spec,version:1},{html,version:1,pending:[]}).html,html)
   assert.match(html,/href="#contact"/);assert.ok(!html.includes('about:srcdoc'))
 })
+
+test('Unicode business names before anchors preserve every actual renderer fragment',()=>{
+  const spec={business:'İstanbul Studio 😀',kind:'creative studio',cta:'Get in touch',sections:['gallery','features','contact']}
+  const html=renderSite({spec,copy:preparedCopy(spec,['hero',...spec.sections]),version:1})
+  const original=[...html.matchAll(/<a\b[^>]*\bhref="(#[^"]*)"/g)].map(match=>match[1])
+  const prepared=previewDoc(html)
+  const links=[...prepared.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map(match=>match[1])
+  assert.ok(original.length>=6)
+  assert.deepEqual(links,original.map(fragment=>'about:srcdoc'+fragment))
+  assert.ok(prepared.includes('İstanbul Studio 😀'))
+  assert.equal(srcdocFragmentLinks('<title>İstanbul</title><a href="#contact">Contact</a>'),'<title>İstanbul</title><a href="about:srcdoc#contact">Contact</a>')
+})
