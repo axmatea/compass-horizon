@@ -22,7 +22,7 @@ const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon',
   '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8' };
 const retired = /^\/(?:app|office|login|demo|voice-demo|presentation|present|story|protect|studio|horizon|vision|acquisition|live|film)(?:\/|\.|$)/;
-const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self' https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; frame-src 'self' https:";
+const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; frame-src 'self' https:";
 
 async function readJson(req) {
   const chunks = [];
