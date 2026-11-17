@@ -19,7 +19,7 @@ export function createCodeEditor({document:doc,container,getHtml,getBase=()=>'',
   const status=doc.createElement('p');status.className='code-status';status.setAttribute('role','status')
   const changes=doc.createElement('p');changes.className='code-changes'
   actions.append(apply,revert,close);container.append(title,note,field,changes,actions,status)
-  let original='',working=false,stale=false
+  let original='',working=false,stale=false,initialized=false
   function paint() {
     field.readOnly=!onApply || !canEdit() || working
     apply.disabled=working || stale || !canEdit() || field.value===original
@@ -27,13 +27,25 @@ export function createCodeEditor({document:doc,container,getHtml,getBase=()=>'',
     const diff=changedLines(getBase() || original,field.value)
     changes.textContent=diff.added || diff.removed ? `index.html · +${diff.added} / −${diff.removed} lines` : 'index.html · No changes'
   }
-  function open() {original=getHtml() || '';field.value=original;stale=false;status.textContent='';paint();field.focus()}
-  function update() {
-    if(container.hidden)return
-    if(getHtml()!==original){
-      if(field.value===original){original=getHtml() || '';field.value=original;stale=false}
+  function discardDraft() {original=getHtml() || '';field.value=original;stale=false;initialized=true;status.textContent='';paint();field.focus()}
+  function syncDocument() {
+    const current=getHtml() || ''
+    if(current===original){
+      if(stale){stale=false;status.textContent=''}
+      return
+    }
+    if(current!==original){
+      if(field.value===original || field.value===current){original=current;field.value=original;stale=false;status.textContent=''}
       else {stale=true;status.textContent='The project changed. Discard this draft and reopen the latest code before applying.'}
     }
+  }
+  function open() {
+    if(!initialized){discardDraft();return}
+    syncDocument();paint();field.focus()
+  }
+  function update() {
+    if(container.hidden)return
+    syncDocument()
     paint()
   }
   async function save() {
@@ -52,7 +64,7 @@ export function createCodeEditor({document:doc,container,getHtml,getBase=()=>'',
   field.addEventListener('input',paint)
   field.addEventListener('keydown',event=>{if((event.metaKey || event.ctrlKey) && event.key==='Enter'){event.preventDefault();void save()}})
   apply.addEventListener('click',()=>void save())
-  revert.addEventListener('click',open)
+  revert.addEventListener('click',discardDraft)
   close.addEventListener('click',onClose)
   container.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();onClose()}})
   return {open,update}

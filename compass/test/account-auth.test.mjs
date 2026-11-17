@@ -238,6 +238,36 @@ test('configured email delivery verifies a real library token and requires verif
   assert.equal((await request('/api/auth/sign-in/email', { method: 'POST', body: { email: 'mail@example.test', password: 'Replacement synthetic password 73!' } })).status, 200);
 });
 
+test('real verification callbacks preserve auto-sign-in, distinguish another browser identity, and retain link errors and drafts',async t=>{
+  const messages=[],f=await fixture(t,{options:{sendEmail:async message=>messages.push(message)}});
+  const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+  const draft=writeDraft({prompt:'Keep my original studio idea',ready:false},{storage}).draft;
+  const api=createAccountApi({origin:f.origin,fetch:(path,options)=>f.request(path,{method:options.method,body:options.body,headers:options.headers})});
+  const verified=[];
+  for(const name of ['first','other']){
+    await api.signUp({name,email:name+'@example.test',password});
+    const sent=new URL(messages.find(message=>message.kind==='verify-email' && message.to===name+'@example.test').text.match(/https?:\/\/\S+/)[0]);
+    assert.equal(sent.searchParams.get('callbackURL'),f.origin+'/create?view=verify');
+    const response=await f.request(sent.pathname+sent.search,{headers:{'sec-fetch-site':'cross-site'}});
+    assert.equal(response.status,302);assert.equal(response.headers.get('location'),f.origin+'/create?view=verify');
+    const cookie=cookieFor(response);assert.match(cookie,/session_token=/,'existing automatic sign-in policy is preserved');
+    const session=await (await f.request('/api/auth/get-session',{cookie})).json();
+    assert.equal(session.user.email,name+'@example.test');assert.equal(session.user.emailVerified,true);
+    verified.push({sent,cookie,session});
+  }
+  const [first,other]=verified;
+  const replay=await f.request(first.sent.pathname+first.sent.search,{cookie:other.cookie,headers:{'sec-fetch-site':'cross-site'}});
+  assert.equal(replay.status,302);assert.equal(cookieFor(replay),'','an already verified link does not switch the current browser identity');
+  const unchanged=await (await f.request('/api/auth/get-session',{cookie:other.cookie})).json();
+  assert.equal(unchanged.user.id,other.session.user.id);assert.notEqual(unchanged.user.id,first.session.user.id);
+  const invalid=new URL(first.sent);invalid.searchParams.set('token','synthetic_invalid_token');
+  const failure=await f.request(invalid.pathname+invalid.search,{cookie:other.cookie,headers:{'sec-fetch-site':'cross-site'}});
+  assert.equal(failure.status,302);assert.equal(cookieFor(failure),'');
+  const entry=accountEntry(failure.headers.get('location'));assert.equal(entry.linkError,true);assert.equal(entry.cleanURL,'/create?view=verify');
+  assert.equal((await (await f.request('/api/auth/get-session',{cookie:other.cookie})).json()).user.id,other.session.user.id);
+  assert.deepEqual(readDraft({storage}),draft,'provider callbacks never rewrite the pending idea');
+});
+
 test('HTTPS configuration emits Secure cookies without sharing them with subdomains', async t => {
   const { request } = await fixture(t, { secureOrigin: true });
   const { response } = await register(request);
