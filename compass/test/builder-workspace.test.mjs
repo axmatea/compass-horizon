@@ -59,6 +59,20 @@ const page=(version=1,theme='light')=>({sessionId:'s_test',version,source:'model
 const json=data=>new Response(JSON.stringify(data),{headers:{'content-type':'application/json'}});
 const sse=events=>new Response(events.map(([event,data])=>'event: '+event+'\ndata: '+JSON.stringify(data)+'\n\n').join(''),{headers:{'content-type':'text/event-stream'}});
 
+test('both Builder device frames keep fragment navigation inside srcdoc without changing saved source',async()=>{
+  const result={...page(),html:'<!doctype html><html><body><a href="#contact">Get in touch</a><section id="contact">Contact</section></body></html>'};
+  for(const pathname of ['/demo','/workspace']){
+    const ui=await workspace(()=>json(result),{pathname});
+    if(pathname==='/demo')await ui.submit('Build a studio website');
+    else {
+      const revision=completedRevision({plan:{intent:result.intent,version:1},render:{html:result.html,version:1,pending:[]},source:'prepared'},'Saved studio');
+      ui.loadProject({id:'project_fragments',name:'Studio',createdAt:'2026-11-17T00:00:00Z',updatedAt:'2026-11-17T00:00:00Z',revisions:[revision]});
+    }
+    for(const selector of ['#frame','#phone-frame'])assert.match(ui.nodes.get(selector).srcdoc,/href="about:srcdoc#contact"/);
+    assert.equal(ui.getState().render.html,result.html);assert.equal(ui.getHistory().at(-1).render.html,result.html);
+  }
+});
+
 test('workspace dirty status identifies the device copy while public builder wording stays unchanged',async()=>{
   const result=page(),stamp='2026-11-17T00:00:00.000Z';
   const revision=completedRevision({plan:{intent:result.intent,version:1},render:{html:result.html,version:1,pending:[]},source:'prepared'},'A saved website');

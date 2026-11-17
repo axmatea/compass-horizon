@@ -1,5 +1,6 @@
 // Homepage builder client rules. The page talks to the same /api/site/turn
 // endpoint as /demo. Everything here is pure so it can run under node --test.
+import {srcdocFragmentLinks} from './preview-fragments.mjs'
 
 export const MAX_TEXT = 500
 
@@ -169,11 +170,11 @@ export function previewName(plan) {
   return slug || 'untitled'
 }
 
-// The device frames are small, so the built page scrolls without a scrollbar.
-// Only the homepage preview gets this; the page served for "Open page" is untouched.
+// Builder, homepage and Studio frames use the same isolated srcdoc preparation.
+// Source, saved documents, exports and the "Open page" response stay untouched.
 export function previewDoc(html) {
   const style = '<style>html{scrollbar-width:none}</style>'
-  const doc = String(html ?? '')
+  const doc = srcdocFragmentLinks(html)
   return doc.includes('</head>') ? doc.replace('</head>', style + '</head>') : doc + style
 }
 
