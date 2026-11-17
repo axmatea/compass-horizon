@@ -12,5 +12,7 @@ async function check(path) {
   }
 }
 for(const path of ['account','platform','billing','integrations','generation','sandbox','html','src/account','src/applications','src/create','src/builder','src/studio','src/help'])await check(path);
-const navigation=spawnSync(process.execPath,['--check','src/site/public-navigation.mjs'],{stdio:'inherit'});
-if(navigation.status!==0)process.exit(navigation.status||1);
+for(const path of ['src/site/public-navigation.mjs','src/site/preview-fragments.mjs']) {
+  const result=spawnSync(process.execPath,['--check',path],{stdio:'inherit'});
+  if(result.status!==0)process.exit(result.status||1);
+}
