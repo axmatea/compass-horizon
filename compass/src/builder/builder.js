@@ -682,7 +682,7 @@ function paintProject() {
   mic.disabled = readOnly || !dictation
   saveButton.disabled = readOnly || state.busy || !history.length || !isDirty()
   saveButton.textContent = projectId ? 'Save changes' : 'Save on this device'
-  saveStatus.textContent = saveMessage || (state.busy ? 'Build in progress' : history.length ? isDirty() ? 'Unsaved changes' : 'Saved on this device' : 'Not saved')
+  saveStatus.textContent = saveMessage || (state.busy ? 'Build in progress' : history.length ? isDirty() ? accountMode ? 'Device copy unsaved' : 'Unsaved changes' : 'Saved on this device' : 'Not saved')
   historyCount.textContent = history.length + (history.length === 1 ? ' revision' : ' revisions')
   undoButton.disabled=state.busy || history.length<2 || Boolean(undoQueue && !undoQueue.length)
   restoreButton.hidden=!selectedRevision
