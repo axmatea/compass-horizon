@@ -3,6 +3,9 @@ import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import vm from 'node:vm'
 import {webcrypto} from 'node:crypto'
+import {resolveObjectURL} from 'node:buffer'
+import {once} from 'node:events'
+import {createCompassServer} from '../server.mjs'
 import {createApplicationManifest} from '../generation/manifest.mjs'
 import {validateApplicationManifest} from '../generation/templates/lib/schema.mjs'
 import {validateApplicationBridgeMessage} from '../src/applications/bridge.mjs'
@@ -88,6 +91,28 @@ test('image upload sends raw bytes with the selected revision, supports role sel
   await ui.nodes.get('undo').fire('click');await tick();assert.equal(ui.api.currentApplication.version,4);assert.equal(ui.api.currentApplication.manifest.assets?.logo,undefined);assert.ok(ui.calls.some(call=>call.path.endsWith('/restore') && JSON.parse(call.body).version===2))
   await ui.nodes.get('undo').fire('click');await tick();assert.equal(ui.api.currentApplication.version,5);assert.deepEqual(ui.calls.filter(call=>call.path.endsWith('/restore')).map(call=>JSON.parse(call.body).version),[2,1])
   ui.api.destroy()
+})
+
+test('image thumbnail blobs are allowed only in the image content policy',async t=>{
+  const app=createCompassServer({env:{}});t.after(()=>app.close())
+  app.server.listen(0,'127.0.0.1');await once(app.server,'listening')
+  const response=await fetch('http://127.0.0.1:'+app.server.address().port+'/healthz');assert.equal(response.status,200)
+  assert.equal(response.headers.get('content-security-policy'),"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; frame-src 'self' https:")
+})
+
+test('uploaded image thumbnails use validated versioned blobs and release their object URLs',async()=>{
+  const ui=await fixture()
+  let url
+  try{
+    ui.nodes.get('upload-asset').files=[new Blob(['image'],{type:'image/png'})];await ui.nodes.get('upload-asset').fire('change');await tick()
+    const image=ui.nodes.get('asset-list').children[0].all().find(node=>node.tagName==='IMG')
+    assert.match(image.src,/^blob:/);assert.equal(image.alt,'Project image')
+    const blob=resolveObjectURL(image.src);assert.equal(blob.type,'image/png');assert.equal(await blob.text(),'image')
+    const read=ui.calls.find(call=>call.path.endsWith('/assets/asset_fixture') && call.raw)
+    assert.equal(read.headers['x-compass-app-version'],'2')
+    url=image.src
+  }finally{ui.api.destroy()}
+  assert.equal(resolveObjectURL(url),undefined)
 })
 
 test('asset bridge refuses images absent from the selected manifest and arbitrary capabilities',()=>{
