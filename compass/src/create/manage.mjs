@@ -66,12 +66,14 @@ export function createAccountViews({root,api,onMessage,onExpired,onUser,onPrefer
       section.finish();return
     }
     if(view==='verify') {
-      if(user?.emailVerified){root.append(node('p','Email verified.'),link(hasDraft?'Continue your idea':'Open workspace',hasDraft?'/create':'/workspace'));return}
-      if(!emailEnabled || !config?.features.emailVerification){root.append(node('p','Email verification is unavailable.'),back);return}
-      root.append(node('p',linkError?'This verification link is invalid or expired. Request another.':'Verify your email to continue.'))
+      if(!linkError && user?.emailVerified){root.append(node('p','Signed in as '+user.email,'account-address'),node('p',"This account's email is verified."),link(hasDraft?'Continue your idea':'Open workspace',hasDraft?'/create':'/workspace'));return}
+      root.append(node('p',linkError?'Verification didn’t finish. Try again or request another link.':'Open the link in your email, then sign in.'))
+      if(user?.email)root.append(node('p','Signed in as '+user.email,'account-address'))
+      root.append(link(user?'Use another account':'Sign in',user?ACCOUNT_REAUTH_PATH:'/create?view=account'))
+      if(!emailEnabled || !config?.features.emailVerification){root.append(node('p','Email verification is unavailable.'));return}
       const section=form('Request verification','Request link',()=>run(()=>api.resendVerification(email.value.trim()),'Verification link requested. Check your inbox.'))
       const email=field(section.item,'Verification email',{type:'email',autocomplete:'email',value:user?.email || '',maxLength:254})
-      section.finish();root.append(back);return
+      section.finish();return
     }
     if(!user || !config?.features.accountManagement){root.append(node('p','Sign in to manage your account.'),back);return}
     root.append(node('p',user.email || '', 'account-address'))

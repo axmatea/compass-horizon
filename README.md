@@ -95,8 +95,8 @@ routes require an explicitly configured account service and verified identity.
 
 Production is the existing COMPASS Railway project (compass-web service),
 serving mycompass.world. Source: this repository main, root directory /compass.
-The existing Railway service uses its configured Railpack build with root /compass.
-compass/Dockerfile is also maintained; this release does not change the builder.
+The tracked Railway configuration uses the Dockerfile builder with root /compass
+and compass/Dockerfile. Development dependencies are pruned before the runtime image is copied.
 Railway supplies PORT; healthcheck is /healthz.
 The response records the account mode, demoMode and the deployed Git revision;
 an unconfigured public server reports mode=public-demo.

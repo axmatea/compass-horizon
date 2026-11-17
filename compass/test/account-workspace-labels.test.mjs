@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { normalizeAccountConfig, allowedEmail, accountErrorText, isAccountChanged, AccountRequestError, safeSocialRedirect, ACCOUNT_REAUTH_PATH } from '../src/create/flow.mjs';
+import { normalizeAccountConfig, allowedEmail, accountErrorText, isAccountChanged, AccountRequestError, safeSocialRedirect, resolveCreateEntry, ACCOUNT_REAUTH_PATH } from '../src/create/flow.mjs';
+import {accountEntry} from '../src/create/manage.mjs';
 
 const workspaceSource=(await readFile(new URL('../src/account/workspace.mjs',import.meta.url),'utf8')).replace(/^import .+\n/gm,'').replace('export async function','async function');
 const manageSource=(await readFile(new URL('../src/create/manage.mjs',import.meta.url),'utf8')).replace(/^import .+\n/gm,'').replaceAll('export function','function');
@@ -15,6 +16,41 @@ class Node {
   focus(){}reportValidity(){return true}all(){return this.children.flatMap(child=>[child,...child.all()])}querySelectorAll(){return []}
 }
 const durableConfig={enabled:true,configured:true,providers:['google'],emailMode:'disabled',persistence:'durable',features:{accountManagement:true,accountLinking:true}};
+async function verificationView(options={}) {
+  const root=new Node(),calls=[],config=normalizeAccountConfig({...durableConfig,providers:['email','google'],emailMode:'verification',features:{emailVerification:true}});
+  const context={document:{createElement:tag=>new Node(tag)},accountErrorText,isAccountChanged,AccountRequestError,safeSocialRedirect,ACCOUNT_REAUTH_PATH};
+  vm.runInNewContext(manageSource+';globalThis.createViews=createAccountViews',context);
+  const views=context.createViews({root,api:{resendVerification:async()=>calls.push('resend')},onMessage(){},onExpired(){},onUser(){},onPreferences(){}});
+  await views.render('verify',{config,...options});return {root,calls,config};
+}
+
+test('verification link errors take precedence over a different verified browser account',async()=>{
+  const {root,calls}=await verificationView({user:{id:'owner_other',email:'other@example.test',emailVerified:true},linkError:true,hasDraft:true});
+  assert.match(root.textContent,/Verification didn’t finish/);
+  assert.match(root.textContent,/Signed in as other@example\.test/);
+  assert.doesNotMatch(root.textContent,/Email verified\.|This account's email is verified|Continue your idea|Open workspace/);
+  assert.equal(root.all().find(item=>item.tagName==='A' && item.textContent==='Use another account').href,ACCOUNT_REAUTH_PATH);
+  assert.deepEqual(calls,[]);
+});
+
+test('signed-out verification offers actual sign-in while preserving pending-idea routing and never trusting success query flags',async()=>{
+  const {root,calls,config}=await verificationView({hasDraft:true});
+  assert.match(root.textContent,/Open the link in your email, then sign in/);
+  assert.doesNotMatch(root.textContent,/Email verified\.|This account's email is verified/);
+  const signIn=root.all().find(item=>item.tagName==='A' && item.textContent==='Sign in');assert.ok(signIn);
+  assert.deepEqual(resolveCreateEntry({search:new URL(signIn.href,'https://compass.example').search,hasDraft:true,config}),{mode:'account',step:'auth'});
+  assert.equal(root.all().filter(item=>item.tagName==='FORM').length,1);
+  assert.deepEqual(calls,[]);
+  assert.equal(accountEntry('https://compass.example/create?view=verify&verified=1').linkError,false);
+});
+
+test('verification status identifies the actual signed-in account rather than attributing it to the email link',async()=>{
+  const {root,calls}=await verificationView({user:{id:'owner_other',email:'other@example.test',emailVerified:true},hasDraft:true});
+  assert.match(root.textContent,/Signed in as other@example\.test/);assert.match(root.textContent,/This account's email is verified/);
+  assert.equal(root.all().find(item=>item.tagName==='A' && item.textContent==='Continue your idea').href,'/create');
+  assert.deepEqual(calls,[]);
+});
+
 async function workspaceFixture({config=durableConfig,billing={mode:'disabled',billingEnabled:false,creditsEnabled:false,offers:[]}}={}) {
   const created=[],selectors=new Map(),calls=[],messages=[];
   const make=tag=>{const item=new Node(tag);created.push(item);return item};
