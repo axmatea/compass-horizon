@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "mode": "interactive-product-screens",
+  "recordedTutorial": null,
+  "durationMeaning": "165-second optional reading sequence, not a recorded-video runtime",
+  "source": "First-party COMPASS product captures with fictional websites and synthetic records. No owner account/profile, password, key or email-link captures are included.",
+  "mediaTransformation": "Format compression and proportional downscaling only; interface content was not fabricated.",
+  "legacyScreenMontageUsedAsRecording": false,
+  "assets": [
+    {
+      "url": "/assets/tutorial/builder-design-5c18075504.webp",
+      "sourceSHA256": "a7fbeea6f0426520f3bf24ec32c055cf8e5623adc507fabcc8a0e1d89ce258b8",
+      "sha256": "5c18075504a6d773f12dc2ba73aa2460fd9818d1d6646f60c3b3938b756bbdb1",
+      "width": 1280,
+      "height": 720,
+      "bytes": 39972
+    },
+    {
+      "url": "/assets/tutorial/builder-desktop-c1e89e48ce.webp",
+      "sourceSHA256": "d44275147714beb58ebc6b7b0dd24ad0464229746ad6576434fc1ce80c627ec4",
+      "sha256": "c1e89e48ce110f102cc80d498c6fd8e5577d4ec96b2e63cefb2a096b7e2d65b5",
+      "width": 1280,
+      "height": 720,
+      "bytes": 44428
+    },
+    {
+      "url": "/assets/tutorial/builder-export-cdad780f01.webp",
+      "sourceSHA256": "9fc29fa09ba45531f48345197a9c1064c9c508c7bae0ee9ab132ca384db066b1",
+      "sha256": "cdad780f0164c3ed7376256133eb8acf9619ddb963f6b6b887cd527ecd848607",
+      "width": 1280,
+      "height": 720,
+      "bytes": 39772
+    },
+    {
+      "url": "/assets/tutorial/builder-history-920f3fc470.webp",
+      "sourceSHA256": "159742f699c90c556d3808bda90e06a150b1d1fd74f5602dda2c9d3d23dfaa78",
+      "sha256": "920f3fc4706a3bcba60bdb0fee051af8b75837c49ba1472a3a6f40c1b7855dff",
+      "width": 1280,
+      "height": 720,
+      "bytes": 29382
+    },
+    {
+      "url": "/assets/tutorial/builder-mobile-efd0417368.webp",
+      "sourceSHA256": "eeffde7197427702830961b43b456557ed405a8d1b322a20dc5dca73bed0a4c5",
+      "sha256": "efd0417368ef2e084a2649738d07fcfb9dc627ad49f18014903d456c464ed9b6",
+      "width": 1280,
+      "height": 720,
+      "bytes": 39516
+    },
+    {
+      "url": "/assets/tutorial/cloud-save-f12010c444.webp",
+      "sourceSHA256": "fb1a05fd51f1c909169e743ac61fe6ab88d70b58bf5aee8a639515dd842dbc74",
+      "sha256": "f12010c444db76378de82ed2f3ff2e3624e4feb5a9a5aecbdcda0816075005db",
+      "width": 1280,
+      "height": 720,
+      "bytes": 34680
+    },
+    {
+      "url": "/assets/tutorial/integrations-4439c3e35c.webp",
+      "sourceSHA256": "a04852b305a85c9d0eac84e8894827d0be8a19b665bf40e9fb2eba9cf484a422",
+      "sha256": "4439c3e35cd28c6708a49b5aad917e51f7900abb9ba01a4abd5254eb719eab6e",
+      "width": 663,
+      "height": 853,
+      "bytes": 32140
+    },
+    {
+      "url": "/assets/tutorial/signup-ddb3817498.webp",
+      "sourceSHA256": "9a5380ffcd16ffb2026a7bc069c9f9166439014d46185e986122f40eb56d9a81",
+      "sha256": "ddb3817498837d14b9a1d4191deb7843349273068cb21774671c04cf45565a92",
+      "width": 663,
+      "height": 853,
+      "bytes": 19956
+    },
+    {
+      "url": "/assets/tutorial/usage-39065e748c.webp",
+      "sourceSHA256": "04c963beb3069eaad3177ce64056043deb81a7d4bffb0a3135643961fcb409fb",
+      "sha256": "39065e748c69613e511c958d7438e8a42588e56950f34128854d8510c25ff4a0",
+      "width": 750,
+      "height": 888,
+      "bytes": 34456
+    },
+    {
+      "url": "/assets/tutorial/workspace-app-45fae4aef9.webp",
+      "sourceSHA256": "a8fd54b86c0c3808cc7e3deb86ce63035fcad54823db65b238a228ddf6387685",
+      "sha256": "45fae4aef9f214ad75bb67ad6a029e81ffb55d1530cdcd83c6d70c880a12f6bc",
+      "width": 1280,
+      "height": 720,
+      "bytes": 42238
+    }
+  ],
+  "missingScreens": [],
+  "videoStatus": "No current instructional recording has been supplied. Native recording could not be captured reliably in this environment. The interactive guide remains usable without a video asset.",
+  "licenses": [
+    "licenses/sora-OFL.txt",
+    "licenses/inter-OFL.txt"
+  ]
+}

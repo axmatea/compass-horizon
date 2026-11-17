@@ -52,7 +52,7 @@ test('verification status identifies the actual signed-in account rather than at
 });
 
 async function workspaceFixture({config=durableConfig,billing={mode:'disabled',billingEnabled:false,creditsEnabled:false,offers:[]}}={}) {
-  const created=[],selectors=new Map(),calls=[],messages=[];
+  const created=[],selectors=new Map(),calls=[],messages=[],tour={opens:0,destroyed:false};
   const make=tag=>{const item=new Node(tag);created.push(item);return item};
   for(const selector of ['main','h1','.project-heading','.project-buttons','.sd','.skip','#projects-panel','[data-app-preview]'])selectors.set(selector,make());
   const project={name:'Forma',revisions:[{id:'revision_one',render:{html:'<!doctype html><p>Forma</p>'}}]};
@@ -65,12 +65,21 @@ async function workspaceFixture({config=durableConfig,billing={mode:'disabled',b
   };
   const document={body:make('body'),createElement:make,querySelector:selector=>selectors.get(selector),addEventListener(){}};
   const context={document,window:{addEventListener(){}},fetch,normalizeAccountConfig,draftCanAutoBuild:()=>false,applicationDraft:()=>false,
+    mountPlatformTour:({trigger})=>{trigger.addEventListener('click',()=>tour.opens++);return{destroy(){tour.destroyed=true}}},
     disarmDraft(){},connectionActions(){},location:{replace(){},assign(){}},confirm:()=>true,crypto:{randomUUID:()=> 'synthetic-key'},URL,
     mountApplicationWorkspace:async({container})=>{container.querySelector=()=>({});return {show(){},hide(){}}}};
   vm.runInNewContext(workspaceSource+';globalThis.mount=mountAccountWorkspace',context);
   const api=await context.mount({getProject:()=>project,onLoad(){},onClear(){},onMessage:message=>messages.push(message)});
-  return {created,calls,messages,api,button:label=>created.find(item=>item.tagName==='BUTTON' && item.textContent===label)};
+  return {created,calls,messages,api,tour,button:label=>created.find(item=>item.tagName==='BUTTON' && item.textContent===label)};
 }
+
+test('Platform Tour is visible in the workspace sidebar and opening help makes no project or account requests',async()=>{
+  const ui=await workspaceFixture(),button=ui.button('Platform Tour'),before=JSON.stringify(ui.calls);
+  assert.ok(button);assert.equal(button.hidden,false);assert.equal(button.type,'button');
+  assert.ok(ui.created.find(item=>item.tagName==='ASIDE').children.includes(button));
+  await button.fire('click');assert.equal(ui.tour.opens,1);assert.equal(JSON.stringify(ui.calls),before);assert.deepEqual(ui.messages,[]);
+  ui.api.destroy();assert.equal(ui.tour.destroyed,true);
+});
 
 test('durable workspaces save with account labels and no temporary-storage warning',async()=>{
   const ui=await workspaceFixture();

@@ -1,0 +1,56 @@
+WEBVTT
+
+account-onboarding
+00:00:00.000 --> 00:00:15.000
+Create an account
+Choose Google or email. For email, verify the inbox link to continue. Set your optional preferences or skip them.
+
+new-project
+00:00:15.000 --> 00:00:30.000
+Start a project
+In your workspace, choose Websites → New project or Applications → New application. In the public Builder, choose New project. Enter your own idea.
+
+ai-builder
+00:00:30.000 --> 00:00:45.000
+Build with AI
+Describe the result, then choose Build page for a website or Build for an app. Wait for a complete preview and check its source label.
+
+ai-chat
+00:00:45.000 --> 00:01:00.000
+Refine in chat
+Describe one change. In Websites, choose Update page; in Applications, choose Update. Let the update finish before the next change.
+
+design
+00:01:00.000 --> 00:01:15.000
+Adjust the design
+Open Design. A website control starts a refinement. In applications, choose your theme, accent, type and spacing, then Apply design.
+
+preview
+00:01:15.000 --> 00:01:30.000
+Preview each screen
+Use Desktop, Tablet or Mobile to inspect the project. Try app forms with synthetic records, and choose Save to keep a record.
+
+versions
+00:01:30.000 --> 00:01:45.000
+Restore a version
+Once you have revisions, open History, inspect one, then Restore. In apps, this restores the design and structure; data records stay intact.
+
+save-reopen
+00:01:45.000 --> 00:02:00.000
+Save and reopen
+Save on this device keeps a local website. In your signed-in workspace, use Save to account and Saved websites. Data apps save to your account.
+
+connections
+00:02:00.000 --> 00:02:15.000
+Check connections
+In your signed-in workspace, open Integrations for availability and permissions. These tools are not connected here; Google sign-in is separate.
+
+export-publish
+00:02:15.000 --> 00:02:30.000
+Export or share
+Export downloads website HTML or an app ZIP/data. In your workspace, Publishing can share a saved website where enabled; it is not full app hosting.
+
+usage
+00:02:30.000 --> 00:02:45.000
+Check usage
+In your signed-in workspace, open More → Usage for measured build activity. Payments and credit purchases are off; no active checkout is offered.

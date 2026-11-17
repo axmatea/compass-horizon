@@ -133,13 +133,14 @@ function applyEditedHtml(html) {
   state.source='edited';state.sourcePending=false;state.remotePreviewCurrent=false
   history=appendRevision(history,revision)
   undoQueue=null
-  latestReply='Code changes applied.';saveMessage='';tell('Code applied. Save to keep it on this device.')
+  latestReply='Code changes applied.';saveMessage='';tell(accountMode ? 'Code applied. Save to your account or this device to keep it.' : 'Code applied. Save to keep it on this device.')
   paint()
   return {ok:true}
 }
 
 const designControls=document.createElement('details');designControls.className='website-design'
 const designTitle=document.createElement('summary');designTitle.textContent='Design';designControls.append(designTitle)
+designTitle.title='Change the look of your current website. Each completed change keeps a revision.'
 const visualFields=[['Theme',[['Light','Make it lighter'],['Dark','Make it darker']]],['Accent',[['Blue','Make it blue'],['Green','Make it green'],['Violet','Make it purple'],['Rose','Make it pink'],['Amber','Make it orange'],['Slate','Make it gray']]],['Type',[['Sans','Use sans font'],['Serif','Use serif font'],['Display','Use display font']]],['Spacing',[['Airy','Make it airy'],['Compact','Make it compact']]]]
 for(const [name,options] of visualFields){
   const label=document.createElement('label');label.append(name)
@@ -304,6 +305,7 @@ function paintStage() {
 
 function paintComposer() {
   const hasPage = Boolean(previewRender()?.html)
+  const firstUse=document.querySelector('#builder-first-use');if(firstUse)firstUse.hidden=hasPage
   composerLabel.textContent = selectedRevision ? 'Reviewing an earlier version' : hasPage ? 'What would you change?' : 'What would you like to make?'
   input.placeholder = hasPage ? 'Make it more minimal. Change the type. Add a section…' : 'Describe your next website…'
   examplePrompts.hidden = hasPage || state.busy || Boolean(selectedRevision)
@@ -808,6 +810,8 @@ function undoRevision(){
 }
 const undoButton=document.createElement('button');undoButton.type='button';undoButton.textContent='Undo';undoButton.setAttribute('data-website-undo','')
 const restoreButton=document.createElement('button');restoreButton.type='button';restoreButton.textContent='Restore revision';restoreButton.hidden=true;restoreButton.setAttribute('data-website-restore','')
+undoButton.title='Return to the previous completed revision. Your history is kept.'
+restoreButton.title='Make the selected revision current, then save to keep it.'
 document.querySelector('.history-details')?.append(undoButton,restoreButton)
 undoButton.addEventListener('click',undoRevision)
 restoreButton.addEventListener('click',()=>restoreRevision(selectedRevision))

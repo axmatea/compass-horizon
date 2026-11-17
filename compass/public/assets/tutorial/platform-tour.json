@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "kind": "interactive",
+  "title": "Platform Tour",
+  "video": null,
+  "captions": "/assets/tutorial/platform-tour.vtt",
+  "duration": 165,
+  "chapters": [
+    {
+      "id": "account-onboarding",
+      "title": "Create an account",
+      "start": 0,
+      "end": 15,
+      "instruction": "Choose Google or email. For email, verify the inbox link to continue. Set your optional preferences or skip them.",
+      "screen": "/assets/tutorial/signup-ddb3817498.webp",
+      "alt": "Email signup form with Google sign-in and empty account fields."
+    },
+    {
+      "id": "new-project",
+      "title": "Start a project",
+      "start": 15,
+      "end": 30,
+      "instruction": "In your workspace, choose Websites → New project or Applications → New application. In the public Builder, choose New project. Enter your own idea.",
+      "screen": "/assets/tutorial/workspace-app-45fae4aef9.webp",
+      "alt": "Application workspace with a New application control and a synthetic demo project."
+    },
+    {
+      "id": "ai-builder",
+      "title": "Build with AI",
+      "start": 30,
+      "end": 45,
+      "instruction": "Describe the result, then choose Build page for a website or Build for an app. Wait for a complete preview and check its source label.",
+      "screen": "/assets/tutorial/builder-desktop-c1e89e48ce.webp",
+      "alt": "Completed NOVA demo website in Builder, labeled Saved preview."
+    },
+    {
+      "id": "ai-chat",
+      "title": "Refine in chat",
+      "start": 45,
+      "end": 60,
+      "instruction": "Describe one change. In Websites, choose Update page; in Applications, choose Update. Let the update finish before the next change.",
+      "screen": "/assets/tutorial/builder-history-920f3fc470.webp",
+      "alt": "Website refinement composer and real revisions for the fictional NOVA project."
+    },
+    {
+      "id": "design",
+      "title": "Adjust the design",
+      "start": 60,
+      "end": 75,
+      "instruction": "Open Design. A website control starts a refinement. In applications, choose your theme, accent, type and spacing, then Apply design.",
+      "screen": "/assets/tutorial/builder-design-5c18075504.webp",
+      "alt": "Open Design controls beside the actual NOVA website preview."
+    },
+    {
+      "id": "preview",
+      "title": "Preview each screen",
+      "start": 75,
+      "end": 90,
+      "instruction": "Use Desktop, Tablet or Mobile to inspect the project. Try app forms with synthetic records, and choose Save to keep a record.",
+      "screen": "/assets/tutorial/builder-mobile-efd0417368.webp",
+      "alt": "Actual mobile-width website preview inside Builder."
+    },
+    {
+      "id": "versions",
+      "title": "Restore a version",
+      "start": 90,
+      "end": 105,
+      "instruction": "Once you have revisions, open History, inspect one, then Restore. In apps, this restores the design and structure; data records stay intact.",
+      "screen": "/assets/tutorial/builder-history-920f3fc470.webp",
+      "alt": "History with real saved website revisions and restore controls."
+    },
+    {
+      "id": "save-reopen",
+      "title": "Save and reopen",
+      "start": 105,
+      "end": 120,
+      "instruction": "Save on this device keeps a local website. In your signed-in workspace, use Save to account and Saved websites. Data apps save to your account.",
+      "screen": "/assets/tutorial/cloud-save-f12010c444.webp",
+      "alt": "Saved websites panel showing the synthetic NOVA project saved to the account."
+    },
+    {
+      "id": "connections",
+      "title": "Check connections",
+      "start": 120,
+      "end": 135,
+      "instruction": "In your signed-in workspace, open Integrations for availability and permissions. These tools are not connected here; Google sign-in is separate.",
+      "screen": "/assets/tutorial/integrations-4439c3e35c.webp",
+      "alt": "Real Connections panel showing that work-tool integrations are unavailable until configured."
+    },
+    {
+      "id": "export-publish",
+      "title": "Export or share",
+      "start": 135,
+      "end": 150,
+      "instruction": "Export downloads website HTML or an app ZIP/data. In your workspace, Publishing can share a saved website where enabled; it is not full app hosting.",
+      "screen": "/assets/tutorial/builder-export-cdad780f01.webp",
+      "alt": "Actual website Export menu with HTML download controls."
+    },
+    {
+      "id": "usage",
+      "title": "Check usage",
+      "start": 150,
+      "end": 165,
+      "instruction": "In your signed-in workspace, open More → Usage for measured build activity. Payments and credit purchases are off; no active checkout is offered.",
+      "screen": "/assets/tutorial/usage-39065e748c.webp",
+      "alt": "Actual Usage panel showing measured build activity: an accepted request with input/output token counts and failed attempts marked Token counts unavailable."
+    }
+  ]
+}

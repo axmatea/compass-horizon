@@ -3,6 +3,7 @@ import { applicationDraft } from '../applications/intent.mjs'
 import { connectionActions } from './connections.mjs'
 import { mountApplicationWorkspace } from '../applications/workspace.mjs'
 import { normalizeAccountConfig } from '../create/flow.mjs'
+import {mountPlatformTour} from '../help/platform-tour.mjs'
 function element(tag, text, className) {
   const node = document.createElement(tag)
   if (text) node.textContent = text
@@ -42,14 +43,16 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   studio.href='/studio';navProjects.type='button';navProjects.setAttribute('aria-current','page')
   const projects = element('button','Saved websites'), history = element('button','History'), usage = element('button','Usage')
   const settings = element('a','Settings'); settings.href='/create?view=account'
+  const tourButton=element('button','Platform Tour','platform-tour-launch');tourButton.type='button'
   const logout = element('button','Sign out')
   for (const button of [apps,websites,projects,history,usage,connections,billing,publishing,admin,logout]) button.type='button'
   const more=element('details',null,'workspace-more'),moreLabel=element('summary','More')
   more.append(moreLabel,projects,history,usage,billing,publishing,admin,logout)
   more.addEventListener('click',event=>{if(event.target?.tagName==='BUTTON')more.open=false})
-  sidebar.append(navProjects,studio,connections,settings,more)
+  sidebar.append(navProjects,studio,connections,settings,tourButton,more)
   admin.hidden=true
   document.querySelector('main').before(sidebar)
+  const tour=mountPlatformTour({trigger:tourButton})
   const modes=element('div',null,'workspace-modes');modes.setAttribute('role','group');modes.setAttribute('aria-label','Project type');modes.append(apps,websites);document.querySelector('.project-heading').append(modes)
   const note = element('p',durable?'':'Preview storage is temporary. Export your work.','account-preview-note')
   note.hidden=durable
@@ -88,6 +91,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
       save.disabled = applicationMode || saving || !project || signature===lastSaved
     },
     reset() { projectEpoch+=1; loadRequest+=1; cloudId=null; lastSaved=''; api.update() },
+    destroy() {tour.destroy();appWorkspace?.destroy?.();window.removeEventListener?.('focus',recheck);document.removeEventListener?.('visibilitychange',recheck)},
   }
   const recheck = () => { if(document.visibilityState !== 'hidden')void request('me').catch(error=>onMessage(error.message)) }
   window.addEventListener('focus',recheck)

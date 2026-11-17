@@ -78,3 +78,13 @@ test('security reauthentication keeps sign-in-only copy and preserves the existi
   assert.equal(ui.storage.getItem(DRAFT_KEY),ui.storedDraft)
   assert.deepEqual(ui.navigations,[])
 })
+
+test('the explicit account entry opens sign-in while preserving a pending project',async()=>{
+  const ui=await fixture({search:'?view=account',prompt:'Keep my unfinished website'})
+  assert.equal(ui.get('account-submit').textContent,'Sign in →')
+  assert.equal(ui.get('name-field').hidden,true)
+  assert.equal(ui.get('create-account-link').href,'/create?view=account')
+  assert.equal(ui.get('create-prompt').value,'Keep my unfinished website')
+  assert.equal(ui.storage.getItem(DRAFT_KEY),ui.storedDraft)
+  assert.deepEqual(ui.navigations,[])
+})

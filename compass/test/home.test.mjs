@@ -47,7 +47,8 @@ test('homepage starts with a single composer and examples stay simple prompts', 
   for (const idea of modeById('site').ideas) assert.ok(html.includes(`data-idea="${idea}"`));
   assert.match(html, /name="mode" value="site"/);
   const nav = html.match(/<nav class="menu"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
-  assert.equal((nav.match(/<a /g) || []).length, 3);
+  assert.match(nav,/href="\/create\?view=account"[^>]*>Sign in<\/a>/);
+  assert.match(nav,/data-platform-tour-trigger/);
   for (const mode of MODES) {
     assert.equal(mode.ideas.length, 3);
     for (const idea of mode.ideas) assert.ok(idea.length <= MAX_TEXT);
@@ -75,7 +76,7 @@ test('homepage tells the verified page-preview story and uses shared neutral fou
   assert.doesNotMatch(html, /<details class="build-details" open/);
   assert.equal((html.match(/<iframe\b[^>]*sandbox=""[^>]*hidden/g) || []).length, 2);
   assert.doesNotMatch(html, /<iframe\b(?![^>]*sandbox="")/);
-  assert.doesNotMatch(html, /<script(?![^>]*src="\/src\/site\/landing\.js")/);
+  assert.doesNotMatch(html, /<script(?![^>]*src="\/src\/site\/(?:landing\.js|public-navigation\.mjs)")/);
   assert.match(html, /rel="preload" as="font" type="font\/woff2" href="\/src\/site\/fonts\/inter-var-latin\.woff2" crossorigin/);
   await access(new URL('src/site/fonts/inter-var-latin.woff2', root));
   assert.match(await read('public/licenses/inter-OFL.txt'), /SIL OPEN FONT LICENSE/i);

@@ -152,7 +152,7 @@ function renderProviders() {
   if(appEntry)$('prompt-note').textContent=state.config?.persistence === 'durable' ? 'Data apps.' : 'Data apps in preview.'
   $('create-account-link').hidden = !state.config?.configured
   $('create-account-link').textContent = state.user ? 'Account' : 'Sign in'
-  $('create-account-link').href = state.user ? '/create?view=account' : '/create?signin=1'
+  $('create-account-link').href = '/create?view=account'
 }
 async function initialize() {
   const run = ++epoch

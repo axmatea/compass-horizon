@@ -8,9 +8,14 @@ Current production account, storage and provider activation status:
 COMPASS builds and refines websites, with functional data applications in the
 signed-in account workspace. The predominantly white public pages are `/`, `/demo`,
 `/plan`, `/studio` and `/create`; `/voice-demo` aliases `/demo`. The homepage
-preserves one prompt through `/create` and optional onboarding. Its separate
-**Try app preview** link opens the existing isolated account preview without
-transferring the original prompt to another origin.
+preserves one prompt through `/create` and optional onboarding. **Create a data
+app** opens the production account workspace through `/create?app=1` on the same
+origin. The **Platform Tour** opens an in-place guide without leaving a project.
+
+The tour has 11 chapters, captions, playback controls and real product screens.
+It currently uses the interactive walkthrough fallback because native recording
+was unavailable; no instructional video is shipped or represented as recorded.
+See [tutorial provenance](compass/public/assets/tutorial/README.md).
 
 The public website builder includes desktop/tablet/mobile previews, adjustable
 conversation panels, visual controls, safe HTML/CSS editing, conflict-aware code
