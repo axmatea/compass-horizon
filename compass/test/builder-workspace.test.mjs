@@ -31,7 +31,7 @@ class Element {
   focus() { this.focused=true; }
   async fire(name,event={}) { for(const handler of this.listeners[name] || []) await handler(event); }
 }
-async function workspace(fetchImpl) {
+async function workspace(fetchImpl,{pathname='/demo'}={}) {
   const nodes=new Map();
   for(const match of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)) {
     const node=new Element(); node.hidden=/\shidden(?:\s|>)/.test(match[0]); node.value=match[0].match(/\bvalue="([^"]*)"/)?.[1] || ''; nodes.set('#'+match[1],node);
@@ -47,9 +47,10 @@ async function workspace(fetchImpl) {
   const document={querySelector:selector=>nodes.get(selector),querySelectorAll:selector=>selector==='[data-starter]' ? examples : selector==='[data-refine]' ? refinements : [...examples,...refinements],createElement:()=>new Element(),addEventListener(){}};
   const values=new Map();
   const storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
-  const context={document,window:{},location:{href:'https://compass.test/demo'},URL,AbortController,setTimeout,clearTimeout,TextDecoder,fetch:fetchImpl,confirm:()=>true,
+  const context={document,window:{},location:{href:'https://compass.test'+pathname},URL,AbortController,setTimeout,clearTimeout,TextDecoder,fetch:fetchImpl,confirm:()=>true,
     createDictation:()=>null,createPreviewTools,mountPaneLayout,parseSse,cleanText,previewDoc,completedRevision,appendRevision,restoredProject,loadEditorPolicy:async()=>({rebaseEditedHtml}),
     createProjectStore:()=>createProjectStore({storage}),
+    readDraft:()=>null,mountAccountWorkspace:async()=>({update(){},reset(){}}),
   };
   vm.runInNewContext(client+'\nglobalThis.workspace={submit,loadProject,applyEditedHtml,restoreRevision,undoRevision,getState:()=>state,getHistory:()=>history};',context);
   return {...context.workspace,nodes,examples,refinements,copy,download,values};
@@ -57,6 +58,20 @@ async function workspace(fetchImpl) {
 const page=(version=1,theme='light')=>({sessionId:'s_test',version,source:'model',placeholder:false,intent:{business:'Atelier',kind:'studio',theme,accent:'sky',font:'sans',hero:'centered',sections:['contact']},html:'<!doctype html><html><body>'+theme+' '+version+'</body></html>',pending:[],reply:'Your page is ready.'});
 const json=data=>new Response(JSON.stringify(data),{headers:{'content-type':'application/json'}});
 const sse=events=>new Response(events.map(([event,data])=>'event: '+event+'\ndata: '+JSON.stringify(data)+'\n\n').join(''),{headers:{'content-type':'text/event-stream'}});
+
+test('workspace dirty status identifies the device copy while public builder wording stays unchanged',async()=>{
+  const result=page(),stamp='2026-11-17T00:00:00.000Z';
+  const revision=completedRevision({plan:{intent:result.intent,version:1},render:{html:result.html,version:1,pending:[]},source:'prepared'},'A saved website');
+  const project={id:'project_scope',name:'Saved website',createdAt:stamp,updatedAt:stamp,revisions:[revision]};
+  for(const [pathname,label]of [['/demo','Unsaved changes'],['/workspace','Device copy unsaved']]){
+    const ui=await workspace(()=>{throw Error('This label change must not request a build')},{pathname});
+    ui.loadProject(project);
+    ui.nodes.get('#project-name').value='Renamed website';await ui.nodes.get('#project-name').fire('input');
+    assert.equal(ui.nodes.get('#save-status').textContent,label);
+    assert.equal(ui.nodes.get('#save-project').disabled,false);
+    assert.equal(ui.getHistory().length,1);
+  }
+});
 
 test('builder prevents duplicate requests while keeping the next instruction editable',async()=>{
   let resolve,calls=0;

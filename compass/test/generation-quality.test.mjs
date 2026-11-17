@@ -49,6 +49,40 @@ test('booking pages expose useful form fields and never pretend to send or reser
   anchorsExist(result.page.html);
 });
 
+test('hero and navigation contact actions reach Contact for model copy and explicit labels without overriding the displayed label', () => {
+  const spec = { business: 'NOVA Studio', kind: 'creative studio', sections: ['gallery', 'features', 'contact'] };
+  const actions = html => [...body(html).matchAll(/<a class="btn" href="#([^"]+)">([^<]+)/g)].map(match => ({ target: match[1], label: match[2].trim().replaceAll('&#39;', "'") }));
+  for (const label of ['Get in touch', 'Contact', 'Contact us', 'CONTACT US', "Let's talk", 'Let’s talk', 'Enquire', 'Связаться']) {
+    for (const explicit of [false, true]) {
+      const copy = preparedCopy(spec, ['hero', ...spec.sections]);
+      copy.hero.cta = explicit ? 'Explore the work' : label;
+      const html = renderSite({ spec: explicit ? { ...spec, cta: label } : spec, copy, version: 1 });
+      assert.deepEqual(actions(html), [{ target: 'contact', label }, { target: 'contact', label }]);
+      assert.match(body(html), /href="#contact">Contact<\/a>/);
+      anchorsExist(html);
+    }
+  }
+  const copy = preparedCopy(spec, ['hero', ...spec.sections]);copy.hero.cta = 'Get in touch';
+  assert.deepEqual(actions(renderSite({ spec: { ...spec, cta: 'Explore the work' }, copy })), [
+    { target: 'gallery', label: 'Explore the work' }, { target: 'gallery', label: 'Explore the work' },
+  ], 'explicit non-contact copy still controls both the visible label and its existing destination');
+});
+
+test('contact routing never invents a missing section and preserves portfolio, property and booking defaults', () => {
+  for (const [spec, expected] of [
+    [{ kind: 'creative studio', cta: 'Get in touch', sections: ['gallery', 'features'] }, 'gallery'],
+    [{ kind: 'creative studio', cta: 'Explore the work', sections: ['gallery', 'contact'] }, 'gallery'],
+    [{ kind: 'real estate', cta: 'Explore properties', sections: ['products', 'contact'] }, 'products'],
+    [{ kind: 'booking', cta: 'Explore the work', sections: ['gallery', 'products', 'contact'] }, 'contact'],
+    [{ kind: 'project', cta: 'Get in touch', sections: [] }, 'hero'],
+    [{ kind: 'creative studio', cta: 'View contact sheets', sections: ['gallery', 'contact'] }, 'gallery'],
+  ]) {
+    const html = renderSite({ spec, copy: preparedCopy(spec, ['hero', ...spec.sections]), version: 1 });
+    const targets = [...body(html).matchAll(/<a class="btn" href="#([^"]+)">/g)].map(match => match[1]);
+    assert.deepEqual(targets, [expected, expected]);anchorsExist(html);
+  }
+});
+
 test('minimal, mobile and typography refinements change the rendered design while retaining the brief', async () => {
   const runtime = offline();
   const first = await runtime.runTurn(undefined, 'A website for an architecture studio called Atelier.');

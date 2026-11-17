@@ -99,7 +99,7 @@ export function renderSite({ spec, copy = null, pending = [], highlight = [], ve
   const d = DENSITY[density];
   const dark = spec.theme === 'dark';
   const sections = [...new Set((Array.isArray(spec.sections) ? spec.sections : []).filter(id => Object.hasOwn(NAV.en, id)))];
-  const target = primaryTarget({ ...spec, sections });
+  const target = primaryTarget({ ...spec, sections, cta: spec.cta || copy?.hero?.cta || words.choose });
   const brand = spec.business || titleCase(spec.kind || 'Your page');
   const nav = sections.filter(id => id !== 'signup').slice(0, 4).map(id => `<a href="#${id}">${esc(id === 'products' && profile === 'property' ? (lang === 'ru' ? 'Объекты' : 'Properties') : NAV[lang][id])}</a>`).join('');
   const pend = new Set(pending), changed = new Set(highlight);
