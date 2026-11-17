@@ -13,10 +13,11 @@ test('public entry points stay honest, bounded, accessible and connected', async
   const demo = await read('demo.html');
   const plan = await read('plan.html');
   const create = await read('create.html');
-  const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro', 'https://compass-web-preview-production.up.railway.app/create?app=1']);
+  const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro']);
+  const publicEntries = new Set(['/plan','/studio','/create','/create?view=account','/create?app=1','/privacy']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
     if (external.has(href) || href === '#watch') continue; // The server inserts this recording section.
-    assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || href === '/plan' || href === '/studio' || href === '/create' || href === '/privacy', href);
+    assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || publicEntries.has(href), href);
     if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
   }
   assert.match(html, /Your idea\./);

@@ -25,14 +25,13 @@
 <link rel="stylesheet" href="/src/site/landing.css">
 <link rel="stylesheet" href="/src/demo/demo.css">
 <script type="module" src="/src/demo/demo.js"></script>
+<script type="module" src="/src/site/public-navigation.mjs"></script>
 </head>
 <body class="demo-body">
 <a class="skip" href="#stage-intent">Skip to the demo</a>
-<header class="bar">
+<header class="bar" data-public-header>
 <a class="brand" href="/" aria-label="COMPASS homepage"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z"/></svg><span>COMPASS</span></a>
-<nav class="menu" id="primary-menu" aria-label="Primary"><a href="/">Home</a><a href="/demo">Demo</a><a href="/plan" aria-current="page">Plan</a></nav>
-<a class="pill" href="/#access">Request access</a>
-<button class="burger" type="button" aria-label="Menu" aria-controls="primary-menu" aria-expanded="false"><i></i><i></i></button>
+<nav class="menu" id="primary-menu" data-public-nav aria-label="Primary"><a href="/">Home</a><a href="/demo">Builder</a><a href="/plan" aria-current="page">Plan</a><a class="public-account-entry" data-public-account href="/create?view=account" title="Sign in to reopen your account projects">Sign in</a><button class="public-tour-trigger" type="button" data-platform-tour-trigger hidden>Platform Tour</button></nav>
 </header>
 <main class="demo" id="demo">
 <p class="eyebrow">Early access</p>

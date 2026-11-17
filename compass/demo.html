@@ -25,20 +25,21 @@
 <link rel="preload" as="font" type="font/woff2" href="/src/site/fonts/inter-var-latin.woff2" crossorigin>
 <link rel="stylesheet" href="/src/builder/builder.css">
 <script type="module" src="/src/builder/builder.js"></script>
+<script type="module" src="/src/site/public-navigation.mjs"></script>
 </head>
 <body>
 <a class="skip" href="#sd-input">Skip to the demo</a>
-<header class="bar">
+<header class="bar" data-public-header>
 <a class="brand" href="/" aria-label="COMPASS homepage"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z"/></svg>COMPASS <span>Builder</span></a>
-<nav aria-label="Site"><a href="/">Home</a><a href="/studio">Studio</a><a data-app-preview href="https://compass-web-preview-production.up.railway.app/create?app=1" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">App preview</a></nav>
+<nav data-public-nav aria-label="Site"><a href="/">Home</a><a href="/studio">Studio</a><a data-app-preview href="/create?app=1">Data apps</a><a class="public-account-entry" data-public-account href="/create?view=account" title="Sign in to reopen your account projects">Sign in</a><button class="public-tour-trigger" type="button" data-platform-tour-trigger hidden>Platform Tour</button></nav>
 </header>
 <main class="page">
 <div class="project-heading">
 <div><h1>Builder</h1></div>
-<div class="project-buttons"><button type="button" id="projects-toggle" class="button" aria-expanded="false" aria-controls="projects-panel" aria-label="Projects on this device">Projects</button><button type="button" id="reset" class="button">New project</button></div>
+<div class="project-buttons"><button type="button" id="projects-toggle" class="button" aria-expanded="false" aria-controls="projects-panel" aria-label="Projects on this device" title="Reopen websites saved in this browser">Device projects</button><button type="button" id="reset" class="button" title="Start a fresh website; unsaved changes are checked first">New project</button></div>
 </div>
 <section id="projects-panel" class="projects-panel" hidden aria-labelledby="projects-title">
-<div class="panel-heading"><div><h2 id="projects-title">Your saved projects</h2><p>Stored in this browser on this device. No account or cloud backup.</p></div><button type="button" id="projects-close" class="text-button">Close</button></div>
+<div class="panel-heading"><div><h2 id="projects-title">Saved on this device</h2><p>Stored in this browser on this device. No account or cloud backup.</p></div><button type="button" id="projects-close" class="text-button">Close</button></div>
 <ul id="projects-list" class="projects-list"></ul><p id="projects-status" role="status"></p>
 </section>
 <div class="sd" id="demo" data-state="idle">
@@ -51,9 +52,10 @@
 <div class="composer-heading"><label id="composer-label" for="sd-input">What would you like to make?</label><span class="status"><span class="orb" id="orb" data-state="idle" aria-hidden="true"></span><span id="orb-label" aria-live="polite">Ready</span></span></div>
 <form id="composer">
 <label class="sr" for="sd-input">Type to COMPASS</label>
-<textarea id="sd-input" name="text" maxlength="500" rows="2" autocomplete="off" placeholder="A minimal website for an architecture studio…"></textarea>
+<textarea id="sd-input" name="text" aria-describedby="builder-first-use" maxlength="500" rows="2" autocomplete="off" placeholder="A minimal website for an architecture studio…"></textarea>
 <div class="composer-actions"><button type="button" class="mic" id="mic" aria-pressed="false" aria-describedby="voice-privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><span>Speak</span></button><p class="hint" id="hint">Describe a page, then refine it.</p><span class="count" aria-label="Characters used" hidden><span id="count">0</span>/500</span><button type="button" id="cancel-build" hidden>Cancel</button><button type="submit" id="send" disabled>Build page</button></div>
 </form>
+<p id="builder-first-use" class="builder-first-use">Type an idea, build it, then ask for changes. Save or export when you’re ready.</p>
 <p class="interim" id="interim" hidden></p>
 <p class="voice-fallback" id="voice-fallback" hidden>Voice input is unavailable here. Type your idea instead.</p>
 <div id="example-prompts" class="prompt-examples" role="group" aria-label="Example prompts"><button type="button" data-starter="realestate">Real estate</button><button type="button" data-starter="booking">Booking</button><button type="button" data-starter="portfolio">Portfolio</button></div>
@@ -66,18 +68,18 @@
 <div class="chrome">
 <div class="preview-heading"><span class="preview-dot" aria-hidden="true"></span><span class="url" id="url">Your page preview</span><span class="preview-source" id="preview-source" hidden></span></div>
 <div class="preview-tools" data-preview-tools>
-<button type="button" class="preview-code-toggle" data-preview-code aria-expanded="false" disabled>Code</button>
+<button type="button" class="preview-code-toggle" data-preview-code aria-expanded="false" title="Review or edit HTML and CSS after building a page" disabled>Code</button>
 <div class="viewport-tabs" role="group" aria-label="Preview size">
 <button type="button" data-preview-view-button="web" aria-pressed="true">Desktop</button><button type="button" data-preview-view-button="tablet" aria-pressed="false">Tablet</button><button type="button" data-preview-view-button="phone" aria-pressed="false">Mobile</button><button type="button" data-preview-view-button="both" aria-pressed="false">Both</button>
 </div>
-<details class="export-menu"><summary>Export</summary><div class="preview-actions"><button type="button" data-preview-copy disabled>Copy brief</button><button type="button" data-preview-download disabled>Download HTML</button><a class="pill" id="open" hidden target="_blank" rel="noreferrer">Open page</a></div></details>
+<details class="export-menu"><summary title="Download this preview or copy its brief">Export</summary><div class="preview-actions"><button type="button" data-preview-copy disabled>Copy brief</button><button type="button" data-preview-download disabled>Download HTML</button><a class="pill" id="open" hidden target="_blank" rel="noreferrer">Open page</a></div></details>
 <p class="preview-status" data-preview-status role="status" aria-live="polite"></p>
 </div>
 </div>
 <p id="preview-phase" class="preview-phase" role="status" hidden></p>
 <div id="snapshot-note" class="snapshot-note" hidden><p id="snapshot-label"></p><button type="button" id="history-current" class="text-button">Back to current</button></div>
 <div class="empty" id="empty">
-<span class="empty-mark" aria-hidden="true"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z"/></svg></span><p>Your canvas. Your idea.</p>
+<span class="empty-mark" aria-hidden="true"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z"/></svg></span><p>Your canvas. Your idea.</p><small>Describe a website or choose an example, then select Build page. New here? Open Platform Tour for a quick guide.</small>
 </div>
 <div class="preview-devices" id="preview-devices" hidden>
 <div class="preview-web"><iframe class="frame" id="frame" title="Generated page preview" sandbox="" hidden></iframe></div>

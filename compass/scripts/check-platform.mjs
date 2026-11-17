@@ -11,4 +11,6 @@ async function check(path) {
     }
   }
 }
-for(const path of ['account','platform','billing','integrations','generation','sandbox','html','src/account','src/applications','src/create','src/builder','src/studio'])await check(path);
+for(const path of ['account','platform','billing','integrations','generation','sandbox','html','src/account','src/applications','src/create','src/builder','src/studio','src/help'])await check(path);
+const navigation=spawnSync(process.execPath,['--check','src/site/public-navigation.mjs'],{stdio:'inherit'});
+if(navigation.status!==0)process.exit(navigation.status||1);

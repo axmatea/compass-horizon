@@ -10,17 +10,18 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" as="font" type="font/woff2" href="/src/site/fonts/inter-var-latin.woff2" crossorigin>
 <link rel="stylesheet" href="/src/site/home.css"><script type="module" src="/src/site/landing.js"></script>
+<script type="module" src="/src/site/public-navigation.mjs"></script>
 </head>
 <body>
 <a class="skip" href="#intent">Skip to the builder</a>
-<header class="bar">
+<header class="bar" data-public-header>
 <a class="brand" href="#top" aria-label="COMPASS homepage"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M4 12 15 5v16L4 28Zm14-4 10 6v14l-10-6Z"/></svg><span>COMPASS</span></a>
-<nav class="menu" aria-label="Primary"><a href="#watch">Watch the film</a><a href="/studio">Studio</a><a class="nav-start" href="/demo">Build <span aria-hidden="true">↗</span></a></nav>
+<nav class="menu" data-public-nav aria-label="Primary"><a class="public-nav-secondary" href="#watch">Watch the film</a><a href="/studio">Studio</a><a class="nav-start" href="/demo">Build <span aria-hidden="true">↗</span></a><a class="public-account-entry" data-public-account href="/create?view=account" title="Sign in to reopen your account projects">Sign in</a><button class="public-tour-trigger" type="button" data-platform-tour-trigger hidden>Platform Tour</button></nav>
 </header>
 <main>
 <section class="hero" id="top" aria-labelledby="hero-title">
 <div class="wrap">
-<div class="hero-heading"><h1 id="hero-title">Your idea.<br><em>Its first page.</em></h1><p class="lede">Build websites. Try data apps in preview.</p><p class="hero-links"><a class="btn btn-primary" href="/demo">Website builder</a><a class="text-link app-preview-entry" href="https://compass-web-preview-production.up.railway.app/create?app=1" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Try app preview <span aria-hidden="true">↗</span></a></p></div>
+<div class="hero-heading"><h1 id="hero-title">Your idea.<br><em>Its first page.</em></h1><p class="lede">Build websites and working data apps.</p><p class="hero-links"><a class="btn btn-primary" href="/demo">Website builder</a><a class="text-link app-preview-entry" href="/create?app=1">Create a data app <span aria-hidden="true">↗</span></a></p></div>
 <div class="inline-studio" aria-label="Try COMPASS here">
 <form class="composer" id="composer" novalidate>
 <input type="hidden" name="mode" value="site">
