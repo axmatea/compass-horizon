@@ -5,15 +5,21 @@ Canonical source: [axmatea/compass-horizon](https://github.com/axmatea/compass-h
 Current production account, storage and provider activation status:
 [Production services](docs/PRODUCTION_SERVICES.md).
 
-COMPASS starts from an app reference or an original idea, then builds and refines
-websites and functional data applications in the signed-in account workspace.
+COMPASS opens with a curated template marketplace for websites and mobile apps.
+Browse six original templates and try their live previews. Mobile families include
+responsive web and editable iOS/Android source editions. Purchases remain off;
+prices and commercial terms are not approved. See
+[template marketplace](docs/TEMPLATE_MARKETPLACE.md) for delivery and verification boundaries.
+
+The existing Builder starts from an app reference or an original idea, then builds
+and refines websites and functional data applications in the signed-in workspace.
 The predominantly white public pages are `/`, `/demo`,
-`/plan`, `/studio` and `/create`; `/voice-demo` aliases `/demo`. The homepage
+`/plan`, `/studio` and `/create`; `/voice-demo` aliases `/demo`. The Builder
 preserves one prompt through `/create` and optional onboarding. **Create a data
 app** opens the production account workspace through `/create?app=1` on the same
 origin. The **Platform Tour** opens an in-place guide without leaving a project.
 
-**Start from an app** accepts an app name or public link, then lets the user name
+In Builder, **Start from an app** accepts an app name or public link, then lets the user name
 their own project, choose Website or Data app, and edit its sections or fields.
 The reviewed plan follows the same account/onboarding and builder handoff as an
 idea. Reference planning stays local: COMPASS does not fetch the supplied page or

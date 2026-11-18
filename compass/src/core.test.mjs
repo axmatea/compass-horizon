@@ -14,33 +14,28 @@ test('public entry points stay honest, bounded, accessible and connected', async
   const plan = await read('plan.html');
   const create = await read('create.html');
   const external = new Set(['https://aimedia.global', 'https://jarrarcpa.pro']);
-  const publicEntries = new Set(['/plan','/studio','/create','/create?view=account','/create?app=1','/privacy']);
+  const publicEntries = new Set(['/','/plan','/studio','/create','/create?view=account','/create?app=1','/privacy']);
   for (const [, href] of html.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
     if (external.has(href) || href === '#watch') continue; // The server inserts this recording section.
     assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || publicEntries.has(href), href);
     if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
   }
-  assert.match(html, /Show it\./);
-  assert.match(html, /Make it yours\./);
+  assert.match(html, /templates/i);
+  assert.match(html, /type="search"/);
   assert.match(html, /href="\/demo"/);
-  assert.match(html, /class="voice-loop"/);
-  for (const page of [html, demo, plan]) assert.match(page, /id="mic"/);
+  for (const page of [demo, plan]) assert.match(page, /id="mic"/);
   const voice = await read('src/demo/voice.mjs');
   const demoJs = await read('src/demo/demo.js');
   assert.match(voice, /webkitSpeechRecognition/);
   assert.doesNotMatch(voice + demoJs, /MediaRecorder|getUserMedia|webkitSpeechRecognition\(\)|new WebSocket|EventSource/);
   assert.match(html, /id="compass-video"/);
-  assert.match(html, /id="early-access"/);
-  assert.match(html, /id="early-access"[^>]*action="#access"/);
   assert.doesNotMatch(html, /action="mailto:/);
   assert.match(html, /aria-live="polite"/);
-  assert.match(html, /name="hp"/);
   assert.doesNotMatch(html + demo + plan, /not connected|not on this page yet|coming soon|lorem ipsum|FIXME|TBD/i);
-  assert.match(html, /id="how"/);
   assert.match(html, /property="og:image" content="https:\/\/mycompass\.world\/assets\/og\.jpg"/);
   await access(new URL('public/assets/og.jpg', root));
   assert.doesNotMatch(html + demo + plan, /vincent/i);
-  assert.match(html, /NAŸL · AX Media Global/);
+  assert.match(html, /AX Media Global/);
   assert.match(plan, /NAŸL · AX Media Global/);
   assert.doesNotMatch(html, /action="https?:/);
   assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.html')).sort(), ['create.html', 'demo.html', 'index.html', 'plan.html', 'privacy.html', 'studio.html']);

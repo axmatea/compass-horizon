@@ -1,0 +1,10 @@
+Copyright (c) 2026 AX Media Global.
+
+Original COMPASS template source.
+
+PREVIEW ONLY. Commercial license terms have not been approved.
+This package does not grant a paid license, activate an order, or represent a
+completed purchase. No commercial licensing terms are supplied or implied.
+
+Third-party dependencies are not vendored in this package. Their own licenses
+apply separately when installed; see DEPENDENCIES.md where included.

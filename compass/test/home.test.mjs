@@ -38,17 +38,14 @@ async function turn(origin, state, text) {
   return response.status;
 }
 
-test('homepage starts with a single composer and examples stay simple prompts', async () => {
+test('homepage leads with templates while preserving builder and account navigation', async () => {
   const html = await read('index.html');
-  assert.ok(html.includes(briefMock('site')));
-  assert.doesNotMatch(html, /Starter previews|showcase-item|\/demo\?starter=/);
-  assert.match(html, /id="studio"[^>]*hidden/);
-  assert.doesNotMatch(html, /Fresh bread, baked before you wake/);
-  for (const idea of modeById('site').ideas) assert.ok(html.includes(`data-idea="${idea}"`));
-  assert.match(html, /name="mode" value="site"/);
-  const nav = html.match(/<nav class="menu"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
-  assert.match(nav,/href="\/create\?view=account"[^>]*>Sign in<\/a>/);
-  assert.match(nav,/data-platform-tour-trigger/);
+  assert.match(html, /type="search"/);
+  assert.match(html, /data-public-nav/);
+  assert.match(html, /href="\/demo"/);
+  assert.match(html, /href="\/create\?view=account"/);
+  assert.match(html, /data-platform-tour-trigger/);
+  assert.doesNotMatch(html, /id="composer"|id="intent"|id="studio"/);
   for (const mode of MODES) {
     assert.equal(mode.ideas.length, 3);
     for (const idea of mode.ideas) assert.ok(idea.length <= MAX_TEXT);
@@ -59,45 +56,19 @@ test('homepage starts with a single composer and examples stay simple prompts', 
   for (const [label, text] of REVISIONS) assert.ok(label && text.length <= MAX_TEXT);
 });
 
-test('homepage tells the verified page-preview story and uses shared neutral foundations', async () => {
+test('template storefront keeps local assets, an honest preview story and neutral foundations', async () => {
   const html = await read('index.html');
-  const visible = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<head>[\s\S]*?<\/head>/, '').replace(/<[^>]+>/g, ' ');
-  assert.match(visible, /Show it\.[\s\S]*Make it yours\./);
-  assert.match(html, /id="start-from-app"[^>]*>Start from an app/);
-  assert.match(html, /id="start-from-idea"[^>]*>Start from an idea/);
-  assert.match(visible, /Preview only;/);
-  assert.match(visible, /nothing is published/);
-  assert.match(visible, /Built by a team that already ships/);
-  assert.match(visible, /Nayl Ahmadulin/);
-  assert.match(visible, /\$240K ARR/);
-  assert.match(visible, /Jarrar CPA Pro/);
-  assert.deepEqual(visible.match(/\$[\d,.]+K?\s*ARR/g) || [], ['$240K ARR']);
-  assert.doesNotMatch(visible, /\bACV\b|recurring revenue|Lovable|Bolt|Replit|production-ready|native apps|unlimited|\bMRR\b|customers|testimonial|trusted by|backed by|funded|raised|Vincent/i);
-  assert.match(html, /id="story"/);
-  assert.match(html, /<details class="build-details">/);
-  assert.doesNotMatch(html, /<details class="build-details" open/);
-  assert.equal((html.match(/<iframe\b[^>]*sandbox=""[^>]*hidden/g) || []).length, 2);
-  assert.doesNotMatch(html, /<iframe\b(?![^>]*sandbox="")/);
-  assert.doesNotMatch(html, /<script(?![^>]*src="\/src\/site\/(?:landing\.js|public-navigation\.mjs)")/);
+  assert.match(html, /templates/i);
+  assert.match(html, /src="\/src\/marketplace\/marketplace\.mjs"/);
+  assert.doesNotMatch(html, /<script\b(?![^>]*\bsrc=)[^>]*>/);
+  assert.doesNotMatch(html, /\bMRR\b|testimonial|trusted by|backed by|funded|raised|Vincent/i);
+  assert.match(html, /id="compass-video"/);
   assert.match(html, /rel="preload" as="font" type="font\/woff2" href="\/src\/site\/fonts\/inter-var-latin\.woff2" crossorigin/);
   await access(new URL('src/site/fonts/inter-var-latin.woff2', root));
   assert.match(await read('public/licenses/inter-OFL.txt'), /SIL OPEN FONT LICENSE/i);
-  const css = await read('src/site/home.css');
-  const tokens = await read('src/site/tokens.css');
-  assert.match(css, /@import '\.\/tokens\.css'/);
-  assert.match(tokens, /--accent:#3455e8/);
-  assert.doesNotMatch(tokens, /--teal|--green|--wash/);
-  assert.match(css, /prefers-reduced-motion:reduce/);
-  assert.match(css, /\.watch\b/);
-  assert.match(css, /\.player \.poster/);
-  assert.match(css, /\.story\b/);
+  const css = await read('src/marketplace/marketplace.css');
+  assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /https?:\/\//);
-  const landing = await read('src/site/landing.js');
-  assert.match(landing, /'\/api\/site\/turn'/);
-  assert.match(landing, /text\/event-stream/);
-  assert.match(landing, /autoSubmit: false/);
-  assert.doesNotMatch(landing, /onSubmit: text/);
-  for (const [, value] of landing.matchAll(/(?:inner|outer)HTML\s*=\s*([^\n;]+)/g)) assert.match(value, /^(?:briefMock\(mode\)|ideasMock\(mode\)|item\.mock\(mode\)|PENDING)(?:$|\s)/, value);
 });
 
 test('builder client follows a streamed turn, a revision and the prepared label', async (t) => {

@@ -26,5 +26,5 @@ export function createReferenceLauncher({trigger,defaultTarget='website',beforeC
     return pending
   }
   trigger.addEventListener('click',launch)
-  return {destroy(){disposed=true;trigger.removeEventListener('click',launch);planner?.destroy()}}
+  return {open(){if(disposed)return;if(planner){beforeOpen?.();return planner.open()}return launch()},destroy(){disposed=true;trigger.removeEventListener('click',launch);planner?.destroy()}}
 }

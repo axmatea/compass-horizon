@@ -32,21 +32,13 @@ test('studio voices stay hidden until approved sourced quotes exist', () => {
   assert.deepEqual(visibleTestimonials(), []);
 });
 
-test('homepage and studio pages share the confirmed investor facts', async () => {
+test('marketplace links to Studio where the confirmed investor facts remain available', async () => {
   const home = await read('index.html');
   const studio = await read('studio.html');
   const page = await read('src/site/studio-page.js');
-  assert.match(home, /id="story"/);
-  assert.match(home, /Built by a team that already ships/);
-  assert.match(home, /Nayl Ahmadulin/);
-  assert.match(home, /\$240K ARR/);
-  assert.match(home, /href="https:\/\/aimedia\.global"/);
-  assert.match(home, /href="https:\/\/jarrarcpa\.pro"/);
   assert.match(home, /href="\/studio"/);
-  const howAt = home.indexOf('id="how"');
-  const storyAt = home.indexOf('id="story"');
-  const accessAt = home.indexOf('id="access"');
-  assert.ok(howAt > 0 && storyAt > howAt && accessAt > storyAt);
+  assert.match(home, /href="https:\/\/aimedia\.global"/);
+  assert.doesNotMatch(home, /id="story"|\$240K ARR/);
   assert.match(studio, /id="people-title">The team\./);
   assert.match(studio, /\$240K ARR/);
   assert.match(studio, /Products for CPAs, developers and fintech/);

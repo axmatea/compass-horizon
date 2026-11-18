@@ -42,3 +42,13 @@ test('a failed load reports an actionable error and the same entry can retry',as
   await button.click();assert.match(errors.at(-1),/Try again/)
   await button.click();assert.equal(loads,2);assert.equal(opens,1);assert.equal(errors.at(-1),'')
 })
+
+test('an explicit shared-link open can reopen the planner without starting a build',async()=>{
+  const button=trigger();let opens=0,loads=0,guards=0
+  const launcher=createReferenceLauncher({trigger:button,beforeContinue:()=>{guards++;return true},load:async()=>{
+    loads++;return{mountReferenceStart:()=>({open(){opens++},destroy(){}})}
+  }})
+  await launcher.open();await launcher.open()
+  assert.equal(loads,1);assert.equal(opens,2);assert.equal(guards,0)
+  launcher.destroy();await launcher.open();assert.equal(opens,2)
+})
