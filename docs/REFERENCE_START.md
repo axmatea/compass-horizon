@@ -1,9 +1,10 @@
 # Starting a COMPASS project
 
-The homepage has two entry points. **Start from an idea** keeps editable voice
-input and offers an explicit Website/Data app choice. **Start from an app** opens
-an in-place reference planner. Existing Builder projects and the account sidebar
-also offer the reference planner.
+The homepage now leads with the template marketplace. Builder retains the two
+original starting paths under New project: **Start from an idea** keeps editable
+voice input, while **Start from an app** opens the reference planner. The account
+sidebar also offers the reference planner. Shared `/?start=app` links open the
+planner in Builder without starting generation.
 
 The planner accepts an app name or a public HTTP(S) link. Familiar references
 suggest a supported pattern: a website, project tracker, CRM, inventory, or

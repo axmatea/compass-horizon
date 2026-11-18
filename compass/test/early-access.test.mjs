@@ -131,8 +131,8 @@ test('homepage plays the approved founder film unless DEMO_VIDEO_URL overrides i
     const demoHtml = await (await fetch(plain.origin + '/demo')).text();
     assert.equal((await fetch(plain.origin + '/')).status, 200);
     assert.equal((await fetch(plain.origin + '/demo')).status, 200);
-    assert.match(home, /id="hero-secondary">Request access/);
-    assert.match(home, /href="#watch">Watch the film/);
+    assert.match(home, /id="template-catalog"/);
+    assert.match(home, /href="#film"[^>]*>Watch the film/);
     assert.match(home, /id="watch-player"/);
     assert.match(home, /<video[^>]*preload="none"/);
     assert.match(home, /playsinline/);
@@ -156,8 +156,8 @@ test('homepage plays the approved founder film unless DEMO_VIDEO_URL overrides i
   const film = await listen({ DEMO_VIDEO_URL: 'https://cdn.example.com/compass.mp4' }, async () => new Response(''), { 'index.html': index, 'demo.html': demo });
   try {
     const home = await (await fetch(film.origin + '/')).text();
-    assert.match(home, /id="hero-secondary">Request access/);
-    assert.match(home, /href="#watch">Watch the film/);
+    assert.match(home, /id="template-catalog"/);
+    assert.match(home, /href="#film"[^>]*>Watch the film/);
     assert.match(home, /id="watch"/);
     assert.match(home, /<video[^>]*poster="\/assets\/promo\/compass-promo\.webp"/);
     assert.match(home, /src="https:\/\/cdn\.example\.com\/compass\.mp4"/);
@@ -181,8 +181,8 @@ test('homepage plays the approved founder film unless DEMO_VIDEO_URL overrides i
     const insecure = await listen({ DEMO_VIDEO_URL: 'http://cdn.example.com/compass.mp4' }, async () => new Response(''), { 'index.html': index, 'demo.html': demo });
     try {
       const hidden = await (await fetch(insecure.origin + '/')).text();
-      assert.match(hidden, /id="hero-secondary">Request access/);
-      assert.match(hidden, /href="#watch">Watch the film/);
+      assert.match(hidden, /id="template-catalog"/);
+      assert.match(hidden, /href="#film"[^>]*>Watch the film/);
       assert.match(hidden, /src="\/assets\/promo\/compass-promo\.mp4"/);
       assert.doesNotMatch(hidden, /http:\/\/cdn\.example\.com|Watch the video/);
     } finally {

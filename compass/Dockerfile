@@ -14,6 +14,7 @@ COPY generation ./generation
 COPY sandbox ./sandbox
 COPY integrations ./integrations
 COPY billing ./billing
+COPY marketplace ./marketplace
 COPY usage.mjs ./
 RUN npm run build
 RUN npm prune --omit=dev
@@ -36,6 +37,7 @@ COPY generation ./generation
 COPY sandbox ./sandbox
 COPY integrations ./integrations
 COPY billing ./billing
+COPY marketplace ./marketplace
 COPY usage.mjs ./
 # Railway attaches a fresh root-owned /data volume only when the container starts.
 COPY scripts/verify-private-storage.mjs ./scripts/verify-private-storage.mjs

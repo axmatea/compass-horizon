@@ -10,6 +10,7 @@ import { applyHomepage } from './homepage.mjs';
 import { createSiteBuilder, publicTurn, sessionIdFrom, validateResumeIntent, MAX_TEXT } from './builder/index.mjs';
 import { createAccountAuth,isAccountDatabaseAsset,accountClientAddress } from './account/auth.mjs';
 import { createAccountApi } from './account/http.mjs';
+import {handleTemplateRequest} from './marketplace/http.mjs';
 import {inspectStorage} from './account/storage.mjs';
 import {createBackupService} from './account/backup.mjs';
 import {startBackupSchedule} from './account/backup-scheduler.mjs';
@@ -112,6 +113,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
           revision: env.RAILWAY_GIT_COMMIT_SHA || env.COMPASS_REVISION || 'local' }); return;
       }
       if (pathname === '/api/config' && req.method === 'GET') { json(200, { demoVideoUrl: demoVideoUrl(env) }); return; }
+      if(handleTemplateRequest(req,res,url))return;
       if (await accounts.handleNode(req,res)) return;
       if (await accountApi(req,res)) return;
       if (pathname === '/api/early-access') {
@@ -183,6 +185,9 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
       if (pathname === '/api' || pathname.startsWith('/api/')) { text(404, 'No application API is available.'); return; }
       if (!['GET', 'HEAD'].includes(req.method)) { res.setHeader('Allow', 'GET, HEAD'); text(405, 'Method not allowed'); return; }
       const normalized = pathname.replace(/\/$/, '') || '/';
+      if(normalized==='/' && url.searchParams.get('start')==='app') {
+        res.writeHead(302,{Location:'/demo?start=app','Cache-Control':'no-store'});res.end();return;
+      }
       if (normalized === '/demo' || normalized === '/voice-demo') { await allowTrustedPreview(res); await serveFile(req, res, root, '/demo.html', text,env); return; }
       if (normalized === '/plan') { await serveFile(req, res, root, '/plan.html', text,env); return; }
       if (normalized === '/studio') { await serveFile(req, res, root, '/studio.html', text,env); return; }

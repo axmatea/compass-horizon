@@ -880,3 +880,9 @@ async function startDraft() {
   await submit(handoffDraft.prompt)
 }
 if (handoffDraft?.ready) void startDraft()
+// Older shared homepage links still open the reference planner in Builder.
+// Opening never writes a draft or starts generation.
+if(!accountMode && !handoffDraft?.ready && new URL(location.href).searchParams.get('start')==='app') {
+  const menu=referenceTrigger?.closest('details');if(menu)menu.open=true
+  referenceTrigger?.focus();void referenceLauncher?.open()
+}
