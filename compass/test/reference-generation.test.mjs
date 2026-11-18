@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {BUILD_TYPES,normalizeReference,compileReferenceBrief} from '../src/start/reference.mjs'
 import {createApplicationManifest,referenceApplicationSelection,validateApplicationRecord} from '../generation/manifest.mjs'
+import {createApplicationBundle,exportApplicationZip,renderApplicationPreview} from '../generation/index.mjs'
 import {applicationPlan} from '../platform/model.mjs'
 import {createSiteBuilder} from '../builder/index.mjs'
 import {referenceWebsiteSelection,interpretSite} from '../builder/interpret.mjs'
@@ -59,6 +60,27 @@ test('explicit app plans skip configured providers while ordinary ideas and late
   const renamed={...prepared.manifest,title:'North operations'}
   const later=await applicationPlan({text:'Rename this workspace North operations',previous:prepared.manifest,env:mockEnv,fetchImpl:async()=>{calls++;return response(renamed)}})
   assert.equal(calls,2);assert.equal(later.source,'model');assert.equal(later.manifest.title,'North operations')
+})
+
+test('reference app previews and exported source show concise purpose descriptions with honest generation provenance',async()=>{
+  for(const [kind,description] of [['tracker','Project tracker'],['crm','Contacts'],['booking','Booking records'],['inventory','Inventory']]) {
+    const plan=compileReferenceBrief({reference:normalizeReference('Notion').value,type:kind,name:'North',features:BUILD_TYPES.find(type=>type.id===kind).defaultFeatures,notes:'Make it compact.'})
+    assert.equal(plan.ok,true)
+    let calls=0
+    const result=await applicationPlan({text:plan.prompt,env:mockEnv,fetchImpl:()=>{calls++;throw Error('A reviewed plan needs no provider')}})
+    assert.equal(calls,0);assert.equal(result.source,'prepared');assert.equal(result.modelUsed,false)
+    assert.equal(result.manifest.description,description);assert.ok(result.manifest.description.length<=15)
+    const preview=await renderApplicationPreview(result.manifest)
+    assert.ok(preview.includes(`description&quot;:&quot;${description}&quot;`))
+    for(const instruction of ['Create an original','Fields:','White, minimal design','Reference:','Notion','Make it compact.'])assert.ok(!preview.includes(instruction),instruction)
+    const bundle=await createApplicationBundle(result.manifest)
+    const exported=bundle.files.find(file=>file.path==='manifest.json')
+    assert.deepEqual(JSON.parse(exported.content),result.manifest)
+    assert.ok(exportApplicationZip(bundle).includes(Buffer.from(exported.content)))
+    assert.ok(plan.prompt.includes('Reference: Notion (notion.so).'),'reference context remains in the original project brief')
+  }
+  const ordinary='A project tracker called North with notes'
+  assert.equal(createApplicationManifest(ordinary).description,ordinary)
 })
 
 test('actual prepared website builds omit deselected profile sections and keep the new brand',async()=>{

@@ -47,7 +47,8 @@ export function createApplicationManifest(prompt, {preferences = {}} = {}) {
   if (sans) theme.font = 'sans';
   else if (/\b(?:serif|editorial)\b/i.test(appearance)) theme.font = 'serif';
   for (const accent of ['indigo','blue','slate','rose','amber']) if (new RegExp(`\\b${accent}\\b`,'i').test(appearance)) theme.accent = accent;
-  return validateApplicationManifest({schema:1,title,description:clean(prompt,240),kind,theme,entity:selection?.entity || structuredClone(KINDS[kind])});
+  const description=selection ? {tracker:'Project tracker',crm:'Contacts',booking:'Booking records',inventory:'Inventory'}[kind] : clean(prompt,240);
+  return validateApplicationManifest({schema:1,title,description,kind,theme,entity:selection?.entity || structuredClone(KINDS[kind])});
 }
 
 export function refineApplicationManifest(value,instruction) {
