@@ -6,6 +6,7 @@ import { readDraft, clearDraft, writeDraft, draftCanAutoBuild, disarmDraft } fro
 import { mountAccountWorkspace } from '../account/workspace.mjs'
 import { operationKey, clearOperation } from '../account/operation.mjs'
 import { mountPaneLayout } from './pane-layout.mjs'
+import {createReferenceLauncher} from '../start/launcher.mjs'
 import '../account/workspace.css'
 
 const accountMode = new URL(location.href).pathname.replace(/\/$/,'') === '/workspace'
@@ -595,6 +596,13 @@ sound.addEventListener('click', () => {
 function discardCurrent() {
   return !isDirty() || confirm('Start another project without saving these changes on this device?')
 }
+function canStartReference({allowBusy=false}={}) {
+  if(state.busy && !allowBusy){tell('Wait for this build to finish before starting another project.');return false}
+  if(previewTools.hasUnappliedEdits?.() || input.value.trim())return confirm('Start another project without keeping your current unsaved work?')
+  return discardCurrent()
+}
+const referenceTrigger=document.querySelector('#reference-start')
+const referenceLauncher=referenceTrigger?createReferenceLauncher({trigger:referenceTrigger,defaultTarget:'website',beforeContinue:canStartReference,beforeOpen:()=>dictation?.stop(),onError:message=>tell(message)}):null
 function clearCurrent() {
   epoch += 1
   for (const controller of requestControllers) controller.abort()
@@ -632,7 +640,7 @@ function clearCurrent() {
   setOrb('idle')
   paint()
 }
-reset.addEventListener('click', () => { if (discardCurrent()) { clearCurrent(); input.focus() } })
+reset.addEventListener('click', () => { if (canStartReference({allowBusy:true})) { clearCurrent(); input.focus();const menu=reset.closest?.('details');if(menu)menu.open=false } })
 
 form.addEventListener('submit', (event) => { event.preventDefault(); submit(input.value) })
 input.addEventListener('input', () => { if (dictation?.active) dictation.stop(); count.textContent = String(input.value.length); paintProject() })
@@ -843,6 +851,9 @@ if (requestedProject) {
 paint()
 
 const accountReady = accountMode ? mountAccountWorkspace({
+  beforeNewProject:canStartReference,
+  beforeReferenceOpen:()=>dictation?.stop(),
+  onReference:options=>createReferenceLauncher(options),
   getProject:()=>state.busy || !history.length ? null : {name:projectName.value.trim() || 'Untitled project',revisions:history},
   onLoad:project=>{
     if (!discardCurrent()) return false

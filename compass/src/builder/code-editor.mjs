@@ -67,5 +67,5 @@ export function createCodeEditor({document:doc,container,getHtml,getBase=()=>'',
   revert.addEventListener('click',discardDraft)
   close.addEventListener('click',onClose)
   container.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();onClose()}})
-  return {open,update}
+  return {open,update,get hasUnappliedEdits(){return initialized && field.value!==original}}
 }

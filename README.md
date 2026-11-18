@@ -5,12 +5,23 @@ Canonical source: [axmatea/compass-horizon](https://github.com/axmatea/compass-h
 Current production account, storage and provider activation status:
 [Production services](docs/PRODUCTION_SERVICES.md).
 
-COMPASS builds and refines websites, with functional data applications in the
-signed-in account workspace. The predominantly white public pages are `/`, `/demo`,
+COMPASS starts from an app reference or an original idea, then builds and refines
+websites and functional data applications in the signed-in account workspace.
+The predominantly white public pages are `/`, `/demo`,
 `/plan`, `/studio` and `/create`; `/voice-demo` aliases `/demo`. The homepage
 preserves one prompt through `/create` and optional onboarding. **Create a data
 app** opens the production account workspace through `/create?app=1` on the same
 origin. The **Platform Tour** opens an in-place guide without leaving a project.
+
+**Start from an app** accepts an app name or public link, then lets the user name
+their own project, choose Website or Data app, and edit its sections or fields.
+The reviewed plan follows the same account/onboarding and builder handoff as an
+idea. Reference planning stays local: COMPASS does not fetch the supplied page or
+recover its source. Only the public hostname or app name enters the build brief;
+URL paths, query parameters and fragments are omitted. Selected fields and
+sections are enforced for prepared and model builds. **Start from an idea** keeps
+editable dictation and offers Website or Data app explicitly. See
+[reference starts](docs/REFERENCE_START.md) for behavior and boundaries.
 
 The tour has 11 chapters, captions, playback controls and real product screens.
 It currently uses the interactive walkthrough fallback because native recording

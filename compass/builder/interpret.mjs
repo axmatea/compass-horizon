@@ -3,6 +3,7 @@
 import { completeJson, loadLlm } from '../llm.mjs';
 import { SITE_FIELDS, SECTIONS, normalizeSection } from './spec.mjs';
 import { profileFor } from './design.mjs';
+import {referenceAppearanceNotes} from '../src/start/reference.mjs';
 
 const SECTION_PATTERNS = [
   ['features', /\b(features?|benefits?|services?)\b/],
@@ -19,10 +20,27 @@ function mentioned(text, pattern) {
   return pattern.test(text);
 }
 
+export function referenceWebsiteSelection(text) {
+  if(typeof text!=='string')return null;
+  const header=text.match(/^Create an original website for a business called "([^"\u0000-\u001f\u007f]{1,60})"\./);
+  if(!header)return null;
+  const tail=text.slice(header[0].length);
+  if(!tail.startsWith(' Sections:'))return null;
+  const selected=tail.match(/^ Sections: ([^.]{1,100})\./),sections=selected?.[1].split(',').map(value=>value.trim());
+  if(!sections?.length || sections.length>5 || new Set(sections).size!==sections.length
+    || sections.some(section=>!['features','products','gallery','contact','faq'].includes(section))
+    || !header[1].trim() || /[<>\\]/.test(header[1])) {
+    throw Object.assign(new Error('Choose supported website sections.'),{code:'invalid_reference_plan',status:400});
+  }
+  return {business:header[1],sections,notes:referenceAppearanceNotes(tail.slice(selected[0].length))};
+}
+
 export function interpretLocal(state, text) {
   const intent = state?.intent || {};
   const isNew = !intent.kind && !intent.business;
-  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  const input = String(text || '').replace(/\s+/g, ' ').trim();
+  const reference = isNew ? referenceWebsiteSelection(input) : null;
+  const raw = reference ? `Website for a business called "${reference.business}". ${reference.notes}` : input;
   const lower = raw.toLowerCase();
   const set = {};
   const add = [];
@@ -99,6 +117,15 @@ export function interpretLocal(state, text) {
   const button = raw.match(/\b(?:button|cta) (?:should say|says|is)\s+["“]?([^"”]+)["”]?/i);
   if (button) set.cta = button[1].trim().slice(0, 30);
 
+  // User-reviewed reference plans are exact: default sections or a reference's
+  // branding cannot override the new project's name and selected sections.
+  if(reference) {
+    const appearance=reference.notes ? interpretLocal({intent:{kind:'project',business:reference.business}},reference.notes).set : {};
+    Object.assign(set,{theme:'light',font:'sans',density:'airy',hero:'centered',accent:'slate',tone:'minimal'});
+    for(const field of ['theme','font','density','hero','accent','tone'])if(appearance[field]!=null)set[field]=appearance[field];
+    set.business=reference.business;set.sections=reference.sections;add.length=0;remove.length=0;
+  }
+
   const copyFields = ['business', 'kind', 'audience', 'tone', 'hero', 'headline', 'subhead', 'cta'];
   const tool = (isNew || add.length || copyFields.some((key) => set[key] != null)) && (isNew || set.kind || intent.kind || set.business || intent.business) ? 'write_copy' : null;
   const bits = [];
@@ -162,6 +189,7 @@ export async function interpretSite({ state, text, env, fetchImpl, signal }) {
   if (!result.json) return { ...local, source: 'prepared' };
   const parsed = validateSiteInterpretation(result.json);
   const existing = Boolean(state?.intent?.kind || state?.intent?.business);
+  const reference = !existing ? referenceWebsiteSelection(String(text || '').replace(/\s+/g,' ').trim()) : null;
   if (!existing && !parsed.set.kind && !parsed.set.business) return { ...local, source: 'prepared' };
   // Explicit rendering commands remain reliable even if a model omits them.
   // These are bounded enum values derived from the visitor's words, not HTML.
@@ -169,6 +197,10 @@ export async function interpretSite({ state, text, env, fetchImpl, signal }) {
     if (local.set[field] != null && (existing || parsed.set[field] == null || ['theme', 'density', 'mobile'].includes(field))) parsed.set[field] = local.set[field];
   }
   if (!parsed.reply) parsed.reply = local.reply;
+  if(reference) {
+    parsed.set.business=reference.business;parsed.set.sections=reference.sections;parsed.add_sections=[];parsed.remove_sections=[];parsed.tool='write_copy';
+    for(const field of ['theme','font','density','hero','accent','tone'])if(local.set[field]!=null)parsed.set[field]=local.set[field];
+  }
   if (!parsed.tool && (local.tool === 'write_copy') && (Object.keys(parsed.set).length || parsed.add_sections.length)) parsed.tool = 'write_copy';
   if (!Object.keys(parsed.set).length && !parsed.add_sections.length && !parsed.remove_sections.length) return { ...local, source: 'prepared' };
   return { ...parsed, source: 'model' };

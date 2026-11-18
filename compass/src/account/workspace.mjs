@@ -10,7 +10,7 @@ function element(tag, text, className) {
   if (className) node.className = className
   return node
 }
-export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage,initialDraft,onDraftBuilt}) {
+export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage,initialDraft,onDraftBuilt,beforeNewProject=()=>true,beforeReferenceOpen,onReference}) {
   let mountedOwner = null
   async function requestRaw(path, options={}) {
     const response = await fetch('/api/account/'+path, {credentials:'same-origin',cache:'no-store',...options,
@@ -44,12 +44,14 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   const projects = element('button','Saved websites'), history = element('button','History'), usage = element('button','Usage')
   const settings = element('a','Settings'); settings.href='/create?view=account'
   const tourButton=element('button','Platform Tour','platform-tour-launch');tourButton.type='button'
+  const referenceButton=element('button','Start from an app','workspace-reference-start');referenceButton.type='button';referenceButton.hidden=typeof onReference!=='function'
+  const referenceStatus=element('p','','workspace-start-status');referenceStatus.hidden=true;referenceStatus.setAttribute('role','status')
   const logout = element('button','Sign out')
   for (const button of [apps,websites,projects,history,usage,connections,billing,publishing,admin,logout]) button.type='button'
   const more=element('details',null,'workspace-more'),moreLabel=element('summary','More')
   more.append(moreLabel,projects,history,usage,billing,publishing,admin,logout)
   more.addEventListener('click',event=>{if(event.target?.tagName==='BUTTON')more.open=false})
-  sidebar.append(navProjects,studio,connections,settings,tourButton,more)
+  sidebar.append(navProjects,referenceButton,studio,connections,settings,tourButton,referenceStatus,more)
   admin.hidden=true
   document.querySelector('main').before(sidebar)
   const tour=mountPlatformTour({trigger:tourButton})
@@ -69,6 +71,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   const websiteSurface=document.querySelector('.sd'), websiteButtons=document.querySelector('.project-buttons')
   const appContainer=element('section'); appContainer.hidden=true; document.querySelector('main').append(appContainer)
   let appWorkspace=null, applicationMode=false, panelEpoch=0
+  const referenceLauncher=typeof onReference==='function'?onReference({trigger:referenceButton,defaultTarget:'app',beforeContinue:()=>applicationMode?appWorkspace?.canLeave?.()===true:beforeNewProject(),beforeOpen:()=>applicationMode?appWorkspace?.pauseInput?.():beforeReferenceOpen?.(),onError:message=>{referenceStatus.textContent=message;referenceStatus.hidden=!message}}):null
   function selectMode(appMode) {
     panelEpoch+=1;loadRequest+=1
     applicationMode=appMode; appContainer.hidden=!appMode; websiteSurface.hidden=appMode; websiteButtons.hidden=appMode
@@ -91,7 +94,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
       save.disabled = applicationMode || saving || !project || signature===lastSaved
     },
     reset() { projectEpoch+=1; loadRequest+=1; cloudId=null; lastSaved=''; api.update() },
-    destroy() {tour.destroy();appWorkspace?.destroy?.();window.removeEventListener?.('focus',recheck);document.removeEventListener?.('visibilitychange',recheck)},
+    destroy() {referenceLauncher?.destroy();tour.destroy();appWorkspace?.destroy?.();window.removeEventListener?.('focus',recheck);document.removeEventListener?.('visibilitychange',recheck)},
   }
   const recheck = () => { if(document.visibilityState !== 'hidden')void request('me').catch(error=>onMessage(error.message)) }
   window.addEventListener('focus',recheck)

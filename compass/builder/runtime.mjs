@@ -4,6 +4,7 @@ import { createState, applyUpdate, hasSite } from './spec.mjs';
 import { renderSite } from './render.mjs';
 import { copyPlan } from './copy.mjs';
 import { onboardingIntent } from '../src/create/draft.mjs';
+import {referenceWebsiteSelection,interpretLocal} from './interpret.mjs';
 
 const CLAIM = /\b(published|deployed|deploying|launched|went live|is live|now live|booked|reserved|paid|booking confirmed|appointment confirmed|payment received|message sent|email sent|request sent)\b/i;
 const shortId = (prefix) => `${prefix}_${randomUUID().slice(0, 8)}`;
@@ -133,12 +134,18 @@ export function createSiteRuntime({ interpret, tool, now = () => Date.now(), ses
       // Keep the original prompt and its business/domain interpretation intact.
       if (!session.state.version && preferences) {
         const design = {...onboardingIntent(preferences)};
+        const reference=referenceWebsiteSelection(String(text || '').replace(/\s+/g,' ').trim());
+        const appearanceText=reference?.notes ?? text;
+        if(reference) {
+          const explicit=interpretLocal({intent:{kind:'project',business:reference.business}},reference.notes).set;
+          for(const field of ['font','theme','density','hero','accent'])if(explicit[field]!=null)delete design[field];
+        }
         // Explicit words in the original brief take precedence over defaults.
-        if (/\b(?:serif|sans|font|typography|editorial)\b/i.test(text)) delete design.font;
-        if (/\b(?:dark|light|white|black)\b/i.test(text)) delete design.theme;
-        if (/\b(?:compact|airy|minimal|spacious|dense)\b/i.test(text)) delete design.density;
-        if (/\b(?:split|centered|poster)\b/i.test(text)) delete design.hero;
-        if (/\b(?:gold|emerald|green|coral|sky|violet|rose|amber|slate|blue|red|pink|purple)\b/i.test(text)) delete design.accent;
+        if (/\b(?:serif|sans|font|typography|editorial)\b/i.test(appearanceText)) delete design.font;
+        if (/\b(?:dark|light|white|black)\b/i.test(appearanceText)) delete design.theme;
+        if (/\b(?:compact|airy|minimal|spacious|dense)\b/i.test(appearanceText)) delete design.density;
+        if (/\b(?:split|centered|poster)\b/i.test(appearanceText)) delete design.hero;
+        if (/\b(?:gold|emerald|green|coral|sky|violet|rose|amber|slate|blue|red|pink|purple)\b/i.test(appearanceText)) delete design.accent;
         interp = {...interp,set:{...interp.set,...design}};
       }
       fromModel = interp.source === 'model';

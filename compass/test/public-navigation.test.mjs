@@ -51,7 +51,8 @@ test('every public page has a labeled tour launch and returning users have a sig
   }
   for(const page of ['index','demo']){
     const html=await readFile(new URL('../'+page+'.html',import.meta.url),'utf8')
-    assert.match(html,/href="\/create\?app=1"/,page)
+    if(page==='index')assert.match(html,/data-idea-target="app"/,page)
+    else assert.match(html,/href="\/create\?app=1"/,page)
     assert.doesNotMatch(html,/compass-web-preview-production/,page)
   }
 })

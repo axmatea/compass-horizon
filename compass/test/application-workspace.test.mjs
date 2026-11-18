@@ -27,7 +27,7 @@ class Node {
   querySelectorAll(selector){if(selector==='[data-resize-pane]')return this.handles || [];const all=this.all();if(selector==='[data-restore-version]')return all.filter(node=>node.dataset.restoreVersion!=null);if(selector==='[data-asset-selected]')return all.filter(node=>node.dataset.assetSelected!=null);return []}
 }
 const tick=async()=>{for(let n=0;n<8;n++)await new Promise(resolve=>setImmediate(resolve))}
-async function fixture(){
+async function fixture({confirm=()=>true}={}){
   const nodes=new Map(),container=new Node(),body=new Node(),layout=new Node(),events=new Map(),calls=[]
   layout.handles=['projects','conversation'].map(name=>{const node=new Node();node.dataset.resizePane=name;return node})
   Object.defineProperty(container,'innerHTML',{set(value){for(const match of value.matchAll(/<([a-z]+)([^>]*\bdata-aw="([^"]+)"[^>]*)>/g)){const node=new Node(match[1]);node.hidden=/\bhidden\b/.test(match[2]);nodes.set(match[3],node)}nodes.get('composer-label').append(new Node('span'));nodes.get('design-form').elements=Object.fromEntries(['mode','accent','font','density'].map(key=>[key,{value:''}]))}})
@@ -54,11 +54,22 @@ async function fixture(){
     if(path.endsWith('/assets/asset_fixture'))return new Response(new Blob(['image'],{type:'image/png'}),{headers})
     throw Error('Unexpected raw '+path)
   }
-  const context={console,document:{body,createElement:tag=>new Node(tag)},window:{addEventListener:(type,fn)=>events.set(type,fn),removeEventListener(){}},crypto:webcrypto,URL,Blob,Response,TextEncoder,AbortController,setTimeout,atob,structuredClone,confirm:()=>true,navigator:{clipboard:{writeText:async()=>{}}},createDictation:()=>null,draftCanAutoBuild:()=>false,disarmDraft(){},validateApplicationManifest,validateApplicationBridgeMessage,applicationResultOutcome,requireApplicationVersion,mountPaneLayout}
+  const context={console,document:{body,createElement:tag=>new Node(tag)},window:{addEventListener:(type,fn)=>events.set(type,fn),removeEventListener(){}},crypto:webcrypto,URL,Blob,Response,TextEncoder,AbortController,setTimeout,atob,structuredClone,confirm,navigator:{clipboard:{writeText:async()=>{}}},createDictation:()=>null,draftCanAutoBuild:()=>false,disarmDraft(){},validateApplicationManifest,validateApplicationBridgeMessage,applicationResultOutcome,requireApplicationVersion,mountPaneLayout}
   vm.runInNewContext(client+';globalThis.mount=mountApplicationWorkspace',context)
   const api=await context.mount({container,request,requestRaw:raw,userId:'owner_fixture'});await api.open(app.id)
   return {api,nodes,calls,events,container,get app(){return app},failManifest(value=true){failManifest=value},tick}
 }
+
+test('new reference planning cannot leave an open application or its pending work without an explicit choice',async()=>{
+  const prompts=[],ui=await fixture({confirm:message=>{prompts.push(message);return false}})
+  const original=ui.api.currentApplication,before=ui.calls.length
+  ui.nodes.get('input').value='Keep this unsent change'
+  assert.equal(ui.api.canLeave(),false)
+  assert.equal(ui.api.currentApplication,original)
+  assert.equal(ui.nodes.get('input').value,'Keep this unsent change')
+  assert.equal(ui.calls.length,before);assert.equal(prompts.length,1)
+  assert.match(prompts[0],/records are kept/)
+})
 
 test('manifest editor applies the exact expected version and retains the buffer and preview after failure',async()=>{
   const ui=await fixture();await ui.nodes.get('code-tab').fire('click');await tick()

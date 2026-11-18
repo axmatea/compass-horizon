@@ -24,6 +24,7 @@ WORKDIR /app
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/src/demo/catalog.mjs ./src/demo/catalog.mjs
 COPY --from=build /app/src/create/draft.mjs ./src/create/draft.mjs
+COPY --from=build /app/src/start/reference.mjs ./src/start/reference.mjs
 COPY --from=build /app/src/builder/project-store.mjs ./src/builder/project-store.mjs
 COPY --from=build /app/node_modules ./node_modules
 COPY server.mjs llm.mjs demo-api.mjs early-access.mjs homepage.mjs ./

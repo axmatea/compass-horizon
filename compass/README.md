@@ -8,9 +8,12 @@ verification and password recovery were tested on 16 November 2026. Private
 persistent storage and encrypted S3 backup/restore are verified. Payments remain
 off. See ../docs/PRODUCTION_SERVICES.md for current activation status and
 ../docs/ACCOUNT_FOUNDATION.md for the account architecture.
-The homepage preserves a typed or dictated prompt through /create and optional
-onboarding. /demo is the full-screen website builder. A separate explicitly
-labelled app-preview entry opens the existing isolated account service.
+The homepage offers **Start from an app** and **Start from an idea**, preserving
+the reviewed plan or typed/dictated prompt through /create and optional
+onboarding. The reference planner accepts names/public links and creates an
+original project from user-selected sections or data fields; it does not fetch
+another app or recover its code. /demo is the full-screen website builder.
+Data-app entry uses the production account service on the same origin.
 /voice-demo serves that same builder. /plan is the product-plan preview.
 /studio holds the studio, confirmed team information and approved statements.
 Old Studio subroutes and other retired sections return 410.
