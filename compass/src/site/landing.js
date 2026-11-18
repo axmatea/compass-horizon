@@ -5,6 +5,7 @@ import { createStudio, beginTurn, applyEvent, applyResult, closeTurn, briefRows,
 import { createDictation } from '../demo/voice.mjs'
 import { createPreviewTools } from './preview-tools.mjs'
 import { writeDraft } from '../create/draft.mjs'
+import { mountReferenceStart } from '../start/start.mjs'
 
 const $ = selector => document.querySelector(selector)
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -65,12 +66,17 @@ const screens = [
 ]
 const HINT = hint?.textContent || ''
 const PENDING = stepsEl?.innerHTML || ''
-const ideaLabels = ['Bakery', 'AI company', 'Portfolio']
-function compactIdeas() { ideas?.querySelectorAll('button').forEach((button, index) => { button.textContent = ideaLabels[index] || button.textContent }) }
+const websiteIdeas = [['Bakery','A website for my bakery'],['AI company','A dark, cinematic page for an AI company'],['Portfolio','A wedding photographer portfolio']]
+const appIdeas = [['Projects','A project tracker for my team.'],['CRM','A CRM for my studio.'],['Inventory','An inventory app for my shop.']]
+function compactIdeas() {
+  const examples=ideaTarget==='app'?appIdeas:websiteIdeas
+  ideas?.querySelectorAll('button').forEach((button,index)=>{if(examples[index]){button.textContent=examples[index][0];button.dataset.idea=examples[index][1]}})
+}
 
 let state = createStudio()
 let epoch = 0
 let mode = composer?.elements.mode?.value || 'site'
+let ideaTarget = 'website'
 let soundOn = false
 let listening = null
 let remotePreviewCurrent = false
@@ -352,14 +358,30 @@ function setSound(on) {
 
 function startCreation(raw) {
   if (dictation?.active) dictation.stop()
-  const result = writeDraft({prompt:String(raw || '').trim(),ready:false})
+  const result = writeDraft({prompt:String(raw || '').trim(),preferences:{projectType:ideaTarget==='app'?'internal-tool':'website'},ready:false})
   if (!result.ok) {
     hint.textContent = result.error === 'invalid-prompt' ? 'Describe your idea in 3–500 characters.' : 'This browser could not keep your draft. Your text is still here.'
     intent.focus()
     return
   }
-  location.assign('/create')
+  location.assign(ideaTarget==='app'?'/create?app=1':'/create')
 }
+
+const referenceTrigger=$('#start-from-app')
+if(referenceTrigger){
+  referenceTrigger.addEventListener('click',()=>{if(dictation?.active)dictation.stop();stopListening()})
+  const referenceStart=mountReferenceStart({trigger:referenceTrigger})
+  if(new URLSearchParams(location.search).get('start')==='app')referenceStart.open()
+}
+$('#start-from-idea')?.addEventListener('click',event=>{event.preventDefault();intent.scrollIntoView({behavior:reduce?'auto':'smooth',block:'center'});intent.focus({preventScroll:true})})
+for(const button of document.querySelectorAll('[data-idea-target]'))button.addEventListener('click',()=>{
+  ideaTarget=button.dataset.ideaTarget==='app'?'app':'website'
+  for(const choice of document.querySelectorAll('[data-idea-target]'))choice.setAttribute('aria-pressed',String(choice.dataset.ideaTarget===ideaTarget))
+  $('#idea-label').textContent=ideaTarget==='app'?'Describe your app':'Describe your idea'
+  intent.placeholder=ideaTarget==='app'?'A project tracker for my team.':'A clean website for a design studio.'
+  compactIdeas()
+  intent.focus()
+})
 
 if (stage && composer) {
   changes.replaceChildren(...REVISIONS.map(([label, text]) => {

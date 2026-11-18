@@ -51,7 +51,7 @@ test('verification status identifies the actual signed-in account rather than at
   assert.deepEqual(calls,[]);
 });
 
-async function workspaceFixture({config=durableConfig,billing={mode:'disabled',billingEnabled:false,creditsEnabled:false,offers:[]}}={}) {
+async function workspaceFixture({config=durableConfig,billing={mode:'disabled',billingEnabled:false,creditsEnabled:false,offers:[]},onReference,beforeNewProject,canLeaveApp=()=>true}={}) {
   const created=[],selectors=new Map(),calls=[],messages=[],tour={opens:0,destroyed:false};
   const make=tag=>{const item=new Node(tag);created.push(item);return item};
   for(const selector of ['main','h1','.project-heading','.project-buttons','.sd','.skip','#projects-panel','[data-app-preview]'])selectors.set(selector,make());
@@ -67,9 +67,9 @@ async function workspaceFixture({config=durableConfig,billing={mode:'disabled',b
   const context={document,window:{addEventListener(){}},fetch,normalizeAccountConfig,draftCanAutoBuild:()=>false,applicationDraft:()=>false,
     mountPlatformTour:({trigger})=>{trigger.addEventListener('click',()=>tour.opens++);return{destroy(){tour.destroyed=true}}},
     disarmDraft(){},connectionActions(){},location:{replace(){},assign(){}},confirm:()=>true,crypto:{randomUUID:()=> 'synthetic-key'},URL,
-    mountApplicationWorkspace:async({container})=>{container.querySelector=()=>({});return {show(){},hide(){}}}};
+    mountApplicationWorkspace:async({container})=>{container.querySelector=()=>({});return {show(){},hide(){},canLeave:canLeaveApp}}};
   vm.runInNewContext(workspaceSource+';globalThis.mount=mountAccountWorkspace',context);
-  const api=await context.mount({getProject:()=>project,onLoad(){},onClear(){},onMessage:message=>messages.push(message)});
+  const api=await context.mount({getProject:()=>project,onLoad(){},onClear(){},onMessage:message=>messages.push(message),onReference,beforeNewProject});
   return {created,calls,messages,api,tour,button:label=>created.find(item=>item.tagName==='BUTTON' && item.textContent===label)};
 }
 
@@ -79,6 +79,19 @@ test('Platform Tour is visible in the workspace sidebar and opening help makes n
   assert.ok(ui.created.find(item=>item.tagName==='ASIDE').children.includes(button));
   await button.fire('click');assert.equal(ui.tour.opens,1);assert.equal(JSON.stringify(ui.calls),before);assert.deepEqual(ui.messages,[]);
   ui.api.destroy();assert.equal(ui.tour.destroyed,true);
+});
+
+test('account reference entry uses the active project guard and never starts a build by mounting',async()=>{
+  let launcher,disposed=false,websiteChecks=0,appChecks=0
+  const ui=await workspaceFixture({beforeNewProject:()=>{websiteChecks++;return false},canLeaveApp:()=>{appChecks++;return false},onReference:options=>{launcher=options;return{destroy(){disposed=true}}}})
+  assert.equal(ui.button('Start from an app').hidden,false)
+  const before=ui.calls.length
+  assert.equal(launcher.defaultTarget,'app');assert.equal(launcher.beforeContinue(),false);assert.equal(appChecks,1)
+  await ui.button('Websites').fire('click')
+  assert.equal(launcher.beforeContinue(),false);assert.equal(websiteChecks,1)
+  assert.equal(ui.calls.length,before)
+  launcher.onError('Retry the planner');assert.ok(ui.created.some(node=>node.textContent==='Retry the planner' && node.hidden===false))
+  ui.api.destroy();assert.equal(disposed,true)
 });
 
 test('durable workspaces save with account labels and no temporary-storage warning',async()=>{

@@ -14,7 +14,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   if (!container || typeof request !== 'function' || !APP_ID.test(userId || '')) throw TypeError('An authenticated application workspace is required.')
   container.classList.add('application-workspace')
   container.dataset.layout = ['balanced','preview','conversation'].includes(preferences.workspaceLayout) ? preferences.workspaceLayout : 'balanced'
-  container.innerHTML = `<div class="aw-heading"><h2>Projects</h2><button type="button" data-aw="new">New application</button></div>
+  container.innerHTML = `<div class="aw-heading"><h2>Projects</h2><button type="button" data-aw="new">Start from an idea</button></div>
 <div class="aw-layout"><aside class="aw-projects" aria-label="Your applications"><div class="aw-section-heading"><h3>Applications</h3><button type="button" data-aw="refresh-projects" aria-label="Refresh projects">↻</button></div><ul data-aw="projects"></ul><p data-aw="project-status" role="status"></p></aside><div class="aw-resize" data-resize-pane="projects" aria-label="Resize projects panel"></div>
 <section class="aw-canvas" aria-label="Application preview"><div class="aw-toolbar"><div><h3 data-aw="title">Your next application</h3><p data-aw="source"></p></div><div class="aw-tabs" role="group" aria-label="Application view"><button type="button" data-aw="preview-tab" aria-pressed="true">Preview</button><button type="button" data-aw="code-tab" aria-pressed="false" disabled>Code</button></div></div>
 <div class="aw-actions"><div class="aw-tabs" role="group" aria-label="Preview width"><button type="button" data-aw="desktop" aria-pressed="true">Desktop</button><button type="button" data-aw="tablet" aria-pressed="false">Tablet</button><button type="button" data-aw="mobile" aria-pressed="false">Mobile</button></div><div class="aw-tabs"><button type="button" data-aw="undo" disabled>Undo</button><button type="button" data-aw="assets-tab" aria-pressed="false" disabled>Assets</button><button type="button" data-aw="download" disabled>Export</button></div></div>
@@ -194,6 +194,12 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     if (state.busy || !discardEditor()) return
     state.epoch++;state.current = null;state.source = null;state.editor=null;state.revisions=[];state.assets=[];state.assetEpoch++;clearAssetUrls();$('asset-list').replaceChildren();state.pending = null;state.frame?.remove();state.frame = null;state.frameApplication = null;bridgeRequests.clear()
     dictation?.stop();$('settings-meta').textContent = '';$('empty').hidden = false;$('title').textContent = 'Your next application';$('source').textContent = '';$('conversation').replaceChildren();$('history').replaceChildren();$('file-content').textContent = '';$('file').replaceChildren();$('input').value = '';$('count').textContent = '0/2000';$('composer-label').firstChild.textContent = 'What would you like to build?';showView('preview');lock(false);status('');$('input').focus()
+  }
+  function canLeave() {
+    if(state.busy){status('Wait for this build to finish before starting another project.',true);return false}
+    // A record form lives in the isolated frame. Ask before leaving an open
+    // application, including edits the parent cannot inspect inside that frame.
+    return !(state.current || state.editor?.dirty || $('input').value.trim()) || confirm('Start another project? Apply or save pending edits first. Your saved application and records are kept.')
   }
   async function loadSourceBundle() {
     if (!state.current) throw Error('Open a completed application first.')
@@ -404,5 +410,5 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   if (initialDraft?.ready && !authorizedDraft) {disarmDraft({id:initialDraft.id});initialDraft = null;status('Review your idea with this account before building.',true)}
   lock(false);await refresh()
   if (authorizedDraft && typeof initialDraft.prompt === 'string' && initialDraft.prompt.length <= 500 && APP_ID.test(initialDraft.id || '')) {$('input').value = initialDraft.prompt;$('count').textContent = initialDraft.prompt.length + '/2000';await build(initialDraft.prompt)}
-  return {show() {container.hidden = false},hide() {dictation?.stop();container.hidden = true},refresh,open:openApplication,getSource:loadSourceBundle,destroy() {dictation?.stop();state.cancelController?.abort();state.disposed = true;state.epoch++;state.assetEpoch++;clearAssetUrls();paneLayout.destroy();container.removeEventListener('keydown',shortcuts);state.frame?.remove();window.removeEventListener('message',bridge);bridgeRequests.clear();container.replaceChildren()},get currentApplication() {return state.current}}
+  return {show() {container.hidden = false},hide() {dictation?.stop();container.hidden = true},pauseInput(){dictation?.stop()},refresh,open:openApplication,getSource:loadSourceBundle,canLeave,destroy() {dictation?.stop();state.cancelController?.abort();state.disposed = true;state.epoch++;state.assetEpoch++;clearAssetUrls();paneLayout.destroy();container.removeEventListener('keydown',shortcuts);state.frame?.remove();window.removeEventListener('message',bridge);bridgeRequests.clear();container.replaceChildren()},get currentApplication() {return state.current}}
 }

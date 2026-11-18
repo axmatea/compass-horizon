@@ -20,8 +20,8 @@ test('public entry points stay honest, bounded, accessible and connected', async
     assert(href.startsWith('#') || /^\/demo(?:\?starter=(?:studio|bakery|portfolio))?$/.test(href) || publicEntries.has(href), href);
     if (href.startsWith('#')) assert(html.includes(`id="${href.slice(1)}"`), href);
   }
-  assert.match(html, /Your idea\./);
-  assert.match(html, /Its first page\./);
+  assert.match(html, /Show it\./);
+  assert.match(html, /Make it yours\./);
   assert.match(html, /href="\/demo"/);
   assert.match(html, /class="voice-loop"/);
   for (const page of [html, demo, plan]) assert.match(page, /id="mic"/);

@@ -131,5 +131,5 @@ export function createPreviewTools({ root, surface, getPlan, getRender, isBusy =
     }
   }
   update()
-  return { update, setView, openCode }
+  return { update, setView, openCode,hasUnappliedEdits:()=>Boolean(editor?.hasUnappliedEdits) }
 }

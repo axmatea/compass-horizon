@@ -1,10 +1,14 @@
 import {loadLlm,completeJson} from '../llm.mjs';
 import {createApplicationManifest,refineApplicationManifest,validateApplicationManifest} from '../generation/index.mjs';
+import {referenceApplicationSelection} from '../generation/manifest.mjs';
 
 // Models propose a bounded data schema. They never supply executable source.
 // User records, OAuth tokens and account/session data never enter this context.
 export async function applicationPlan({text,previous=null,preferences={},env,fetchImpl}) {
   const local=previous?refineApplicationManifest(previous,text):{manifest:createApplicationManifest(text,{preferences}),changed:true};
+  // A reviewed reference plan already fixes every bounded schema and design
+  // choice. Build it directly, without spending a provider call or claiming AI.
+  if(!previous && referenceApplicationSelection(text))return {...local,source:'prepared',modelUsed:false};
   if(previous&&local.changed)return {...local,source:'prepared',modelUsed:false};
   const clients=loadLlm(env,fetchImpl).clients;
   if(!clients.length)return {...local,source:'prepared',modelUsed:false};

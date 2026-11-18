@@ -28,7 +28,7 @@ function busy(value) {
   state.busy = value
   document.querySelectorAll('.create-card button,.create-card input,.create-card textarea,.create-card select').forEach(control => { control.disabled = value })
   $('account-submit').textContent = value ? 'Continuing…' : state.signup ? 'Create account →' : 'Sign in →'
-  $('start-building').textContent = value ? 'Preparing…' : state.flowMode === 'profile' ? 'Save choices →' : 'Start building →'
+  $('start-building').textContent = value ? 'Preparing…' : state.flowMode === 'profile' ? 'Save choices →' : appEntry && state.guest ? 'Build website preview →' : 'Start building →'
   $('create-card')?.setAttribute('aria-busy',String(value))
 }
 function signedIn(value) {
@@ -87,7 +87,7 @@ function show(step,{focus = true} = {}) {
   const returning = state.flowMode !== 'project' && !state.draft
   const editing = state.flowMode === 'profile'
   const titles = {prompt:'What will you make?',auth:reauthenticating ? 'Sign in again.' : returning ? state.signup ? 'Create your account.' : 'Welcome back.' : 'Keep your idea.',onboarding:editing ? 'Your direction.' : 'Make it yours.',manage:{account:'Your account.',recover:'Recover your account.',reset:'A new password.',verify:'Verify your email.'}[state.flowMode] || 'Your account.'}
-  const descriptions = {prompt:'Start with an idea.',auth:reauthenticating ? 'Sign in to view your security settings.' : state.signup ? 'Create an account to save your work.' : returning ? 'Sign in to your workspace.' : 'Sign in to save your work.',onboarding:'Two choices. Both optional.',manage:'Account settings.'}
+  const descriptions = {prompt:'Start with an idea.',auth:reauthenticating ? 'Sign in to view your security settings.' : state.signup ? 'Create an account to save your work.' : returning ? 'Sign in to your workspace.' : 'Sign in to save your work.',onboarding:appEntry && state.guest ? 'Website preview. Data apps need an account.' : 'Two choices. Both optional.',manage:'Account settings.'}
   $('create-title').textContent = titles[step]
   $('create-lede').textContent = descriptions[step]
   $('step-label').textContent = editing ? 'Preferences' : returning ? 'Your workspace' : step === 'onboarding' ? 'A direction for your project' : 'A new project'
@@ -96,11 +96,11 @@ function show(step,{focus = true} = {}) {
   $('auth-summary').hidden = !state.draft
   $('onboarding-summary').hidden = !state.draft || editing
   $('create-draft-note').hidden = returning
-  $('start-building').textContent = editing ? 'Save choices →' : 'Start building →'
+  $('start-building').textContent = editing ? 'Save choices →' : appEntry && state.guest ? 'Build website preview →' : 'Start building →'
   $('skip-onboarding').textContent = editing ? 'Back' : 'Skip'
-  $('capability-note').hidden = editing
+  $('capability-note').hidden = editing || appEntry && state.guest
   if (step === 'onboarding') {
-    showPreferences(editing ? state.profilePreferences : state.draft?.preferences ?? state.profilePreferences)
+    showPreferences(editing ? state.profilePreferences : applicationEntryPreferences(state.draft?.preferences ?? state.profilePreferences,{appEntry,guest:state.guest}))
     $('save-scope').textContent = state.guest || !state.user ? 'Your choices stay in this tab.'
       : state.config?.persistence === 'durable' ? 'Save choices to your account.' : 'Preview account · data may reset.'
   }
@@ -168,12 +168,12 @@ async function initialize() {
       const session = await api.session()
       if (run !== epoch) return
       bindIdentity(signedIn(session) ? session.user : null)
-      if (state.user && state.flowMode !== 'signin' && (state.flowMode==='profile' || !Object.keys(state.draft?.preferences || {}).length)) {
+      if (state.user && state.flowMode !== 'signin' && (['profile','project'].includes(state.flowMode) || !Object.keys(state.draft?.preferences || {}).length)) {
         try {
           const profile = await api.profile()
           if (run !== epoch) return
           state.profilePreferences = normalizePreferences(profile?.preferences)
-          if (state.draft && state.flowMode!=='profile') state.draft.preferences = state.profilePreferences
+          if (state.draft && state.flowMode!=='profile') state.draft.preferences = normalizePreferences({...state.profilePreferences,...state.draft.preferences})
         } catch(error) {
           if (isAccountChanged(error)) { requireAccountChoice(error); return }
           if (state.flowMode === 'profile') {
@@ -225,12 +225,12 @@ async function authenticate(event) {
       state.flowMode = 'account'
       api.setReturnMode('account')
     }
-    if (state.flowMode !== 'signin' && (state.flowMode==='profile' || !Object.keys(state.draft?.preferences || {}).length)) {
+    if (state.flowMode !== 'signin' && (['profile','project'].includes(state.flowMode) || !Object.keys(state.draft?.preferences || {}).length)) {
       try {
         const profile = await api.profile()
         if (run !== epoch) return
         state.profilePreferences = normalizePreferences(profile?.preferences)
-        if (state.draft && state.flowMode!=='profile') state.draft.preferences = state.profilePreferences
+        if (state.draft && state.flowMode!=='profile') state.draft.preferences = normalizePreferences({...state.profilePreferences,...state.draft.preferences})
       } catch(error) {
         if (isAccountChanged(error)) { requireAccountChoice(error); return }
         if (state.flowMode === 'profile') {
@@ -269,7 +269,8 @@ async function finish(skip = false) {
   if (state.busy) return
   const profileOnly = state.flowMode === 'profile'
   if (profileOnly && skip) { location.assign('/workspace'); return }
-  const choices = skip ? {} : preferences()
+  // The chosen build target is part of the idea, not optional personalization.
+  const choices = skip ? normalizePreferences({projectType:state.draft?.preferences?.projectType}) : preferences()
   if (!profileOnly && !persist({choices})) return
   const run = ++epoch
   busy(true)

@@ -62,7 +62,9 @@ test('homepage starts with a single composer and examples stay simple prompts', 
 test('homepage tells the verified page-preview story and uses shared neutral foundations', async () => {
   const html = await read('index.html');
   const visible = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<head>[\s\S]*?<\/head>/, '').replace(/<[^>]+>/g, ' ');
-  assert.match(visible, /Your idea\.[\s\S]*Its first page\./);
+  assert.match(visible, /Show it\.[\s\S]*Make it yours\./);
+  assert.match(html, /id="start-from-app"[^>]*>Start from an app/);
+  assert.match(html, /id="start-from-idea"[^>]*>Start from an idea/);
   assert.match(visible, /Preview only;/);
   assert.match(visible, /nothing is published/);
   assert.match(visible, /Built by a team that already ships/);

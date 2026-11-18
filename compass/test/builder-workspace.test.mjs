@@ -7,6 +7,7 @@ import { parseSse, cleanText, previewDoc } from '../src/site/studio.mjs';
 import { createProjectStore, completedRevision, appendRevision, restoredProject } from '../src/builder/project-store.mjs';
 import { mountPaneLayout } from '../src/builder/pane-layout.mjs';
 import { rebaseEditedHtml } from '../html/edit.mjs';
+import {createReferenceLauncher} from '../src/start/launcher.mjs';
 
 // Run the real client against a small DOM adapter and controllable network.
 // Browser layout and native speech are checked separately; these cases guard
@@ -48,7 +49,7 @@ async function workspace(fetchImpl,{pathname='/demo'}={}) {
   const values=new Map();
   const storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
   const context={document,window:{},location:{href:'https://compass.test'+pathname},URL,AbortController,setTimeout,clearTimeout,TextDecoder,fetch:fetchImpl,confirm:()=>true,
-    createDictation:()=>null,createPreviewTools,mountPaneLayout,parseSse,cleanText,previewDoc,completedRevision,appendRevision,restoredProject,loadEditorPolicy:async()=>({rebaseEditedHtml}),
+    createDictation:()=>null,createPreviewTools,createReferenceLauncher,mountPaneLayout,parseSse,cleanText,previewDoc,completedRevision,appendRevision,restoredProject,loadEditorPolicy:async()=>({rebaseEditedHtml}),
     createProjectStore:()=>createProjectStore({storage}),
     readDraft:()=>null,mountAccountWorkspace:async()=>({update(){},reset(){}}),
   };

@@ -1,4 +1,5 @@
 import {validateApplicationManifest,validateApplicationRecord} from './templates/lib/schema.mjs';
+import {referenceAppearanceNotes} from '../src/start/reference.mjs';
 export {validateApplicationManifest,validateApplicationRecord};
 const field = (key,label,type = 'text',required = false,options) => ({key,label,type,required,...(options ? {options} : {})});
 const KINDS = {
@@ -9,20 +10,44 @@ const KINDS = {
 };
 const clean = (value,max) => String(value).replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);
 
+// The reference planner emits a small declarative header. It cannot name new
+// field types, services or code. Keeping this explicit selection authoritative
+// also prevents a reference name (e.g. Booking.com) from changing a tracker.
+export function referenceApplicationSelection(prompt) {
+  if(typeof prompt!=='string')return null;
+  const header=prompt.match(/^Create an original (project tracker|CRM|booking records|inventory) app called "([^"\u0000-\u001f\u007f]{1,60})"\./);
+  if(!header)return null;
+  const tail=prompt.slice(header[0].length);
+  if(!tail.startsWith(' Fields:'))return null;
+  const selected=tail.match(/^ Fields: ([^.]{1,100})\./);
+  const kind={'project tracker':'tracker',CRM:'crm','booking records':'booking',inventory:'inventory'}[header[1]];
+  const keys=selected?.[1].split(',').map(value=>value.trim());
+  if(!keys?.length || keys.length>8 || new Set(keys).size!==keys.length
+    || keys.some(key=>!KINDS[kind].fields.some(field=>field.key===key))
+    || !keys.includes(KINDS[kind].fields[0].key) || !header[2].trim() || /[<>\\]/.test(header[2])) {
+    throw Object.assign(new Error('Choose supported fields and keep the main record field.'),{code:'invalid_reference_plan',status:400});
+  }
+  return {kind,title:header[2],notes:referenceAppearanceNotes(tail.slice(selected[0].length)),entity:{...structuredClone(KINDS[kind]),fields:keys.map(key=>structuredClone(KINDS[kind].fields.find(field=>field.key===key)))}};
+}
+
 export function createApplicationManifest(prompt, {preferences = {}} = {}) {
   if (typeof prompt !== 'string' || prompt.trim().length < 3 || prompt.length > 2000) throw Object.assign(new Error('Describe the application in 3–2000 characters.'),{code:'invalid_prompt'});
-  const kind = /\b(book|booking|reservation|appointment)\b/i.test(prompt) ? 'booking'
+  const selection=referenceApplicationSelection(prompt);
+  const kind = selection?.kind || (/\b(book|booking|reservation|appointment)\b/i.test(prompt) ? 'booking'
     : /\b(inventory|stock|warehouse|quantity)\b/i.test(prompt) ? 'inventory'
       : /\bcrm\b/i.test(prompt) ? 'crm'
         : /\b(task|tasks|to-do|todo|project tracker)\b/i.test(prompt) ? 'tracker'
-          : /\b(contact|contacts|customer|customers|lead|leads)\b/i.test(prompt) ? 'crm' : 'tracker';
+          : /\b(contact|contacts|customer|customers|lead|leads)\b/i.test(prompt) ? 'crm' : 'tracker');
   const named = prompt.match(/\b(?:called|named)\s+["“]?([\p{L}\p{N}][\p{L}\p{N} &'’-]{1,63})/iu)?.[1];
-  const title = clean(named?.split(/\s+(?:with|and|that|for|using|where)\s+/i)[0] || {crm:'Contact workspace',booking:'Booking workspace',inventory:'Inventory workspace',tracker:'Project tracker'}[kind],64);
-  const theme = {mode:/\bdark\b/i.test(prompt) ? 'dark' : 'light',accent:'indigo',font:preferences.visualDirection === 'editorial' ? 'serif' : 'sans',density:'comfortable'};
-  if (/\bcompact\b/i.test(prompt)) theme.density = 'compact';
-  if (/\bserif|editorial\b/i.test(prompt)) theme.font = 'serif';
-  for (const accent of ['indigo','blue','slate','rose','amber']) if (new RegExp(`\\b${accent}\\b`,'i').test(prompt)) theme.accent = accent;
-  return validateApplicationManifest({schema:1,title,description:clean(prompt,240),kind,theme,entity:structuredClone(KINDS[kind])});
+  const title = selection?.title || clean(named?.split(/\s+(?:with|and|that|for|using|where)\s+/i)[0] || {crm:'Contact workspace',booking:'Booking workspace',inventory:'Inventory workspace',tracker:'Project tracker'}[kind],64);
+  const appearance=selection ? selection.notes : prompt;
+  const theme = {mode:/\bdark\b/i.test(appearance) ? 'dark' : 'light',accent:'indigo',font:preferences.visualDirection === 'editorial' ? 'serif' : 'sans',density:'comfortable'};
+  if (/\bcompact\b/i.test(appearance)) theme.density = 'compact';
+  const sans=/\bsans(?:[\s-]+serif)?\b/i.test(appearance);
+  if (sans) theme.font = 'sans';
+  else if (/\b(?:serif|editorial)\b/i.test(appearance)) theme.font = 'serif';
+  for (const accent of ['indigo','blue','slate','rose','amber']) if (new RegExp(`\\b${accent}\\b`,'i').test(appearance)) theme.accent = accent;
+  return validateApplicationManifest({schema:1,title,description:clean(prompt,240),kind,theme,entity:selection?.entity || structuredClone(KINDS[kind])});
 }
 
 export function refineApplicationManifest(value,instruction) {

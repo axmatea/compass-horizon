@@ -20,7 +20,7 @@
       "title": "Start a project",
       "start": 15,
       "end": 30,
-      "instruction": "In your workspace, choose Websites → New project or Applications → New application. In the public Builder, choose New project. Enter your own idea.",
+      "instruction": "Choose Start from an app to review a reference plan, or Start from an idea to describe your own project. In Websites and the public Builder, both choices are under New project.",
       "screen": "/assets/tutorial/workspace-app-45fae4aef9.webp",
       "alt": "Application workspace with a New application control and a synthetic demo project."
     },
