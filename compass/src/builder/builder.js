@@ -87,7 +87,7 @@ let lastSavedSignature = ''
 let saveMessage = ''
 let historyKey = ''
 const requestControllers = new Set()
-let websitePaneLayout = accountMode ? null : mountPaneLayout({root:document.querySelector('.sd-shell'),owner:'device',scope:'websites',defaults:{conversation:320}})
+let websitePaneLayout = accountMode ? null : mountPaneLayout({root:document.querySelector('.sd-shell'),owner:'device',scope:'websites',defaults:{conversation:360}})
 const projectStore = createProjectStore()
 const projectName = document.querySelector('#project-name')
 const saveButton = document.querySelector('#save-project')
@@ -308,7 +308,7 @@ function paintComposer() {
   const hasPage = Boolean(previewRender()?.html)
   const firstUse=document.querySelector('#builder-first-use');if(firstUse)firstUse.hidden=hasPage
   composerLabel.textContent = selectedRevision ? 'Reviewing an earlier version' : hasPage ? 'What would you change?' : 'What would you like to make?'
-  input.placeholder = hasPage ? 'Make it more minimal. Change the type. Add a section…' : 'Describe your next website…'
+  input.placeholder = hasPage ? 'Make it more minimal. Change the type. Add a section…' : 'A minimal website for an architecture studio…'
   examplePrompts.hidden = hasPage || state.busy || Boolean(selectedRevision)
   refinePrompts.hidden = !hasPage || state.busy || Boolean(selectedRevision)
   for (const button of document.querySelectorAll('[data-starter], [data-refine]')) button.disabled = state.busy || Boolean(selectedRevision)
@@ -868,7 +868,7 @@ const accountReady = accountMode ? mountAccountWorkspace({
   onMessage:message=>tell(message),
   initialDraft:handoffDraft,
   onDraftBuilt:id=>{if(handoffDraft?.id===id){clearDraft({id});handoffDraft=null;initialPreferences=null}},
-}).then(api=>{accountWorkspace=api;if(api?.userId){websitePaneLayout?.destroy();websitePaneLayout=mountPaneLayout({root:document.querySelector('.sd-shell'),owner:api.userId,scope:'websites',defaults:{conversation:320}})}paint(); return api}) : Promise.resolve(null)
+}).then(api=>{accountWorkspace=api;if(api?.userId){websitePaneLayout?.destroy();websitePaneLayout=mountPaneLayout({root:document.querySelector('.sd-shell'),owner:api.userId,scope:'websites',defaults:{conversation:360}})}paint(); return api}) : Promise.resolve(null)
 
 async function startDraft() {
   if (accountMode && !await accountReady) return
