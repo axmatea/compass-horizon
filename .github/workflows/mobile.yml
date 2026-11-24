@@ -97,13 +97,16 @@ jobs:
             const runtimes = Object.entries(JSON.parse(readFileSync(0,"utf8")).devices)
               .filter(([runtime]) => runtime.startsWith("com.apple.CoreSimulator.SimRuntime.iOS-"))
               .sort(([a], [b]) => b.localeCompare(a, undefined, {numeric:true}));
-            const device = runtimes.flatMap(([, devices]) => devices)
-              .find(item => item.isAvailable && item.name.startsWith("iPhone"));
+            const phones = runtimes.map(([, devices]) => devices.filter(item => item.isAvailable && item.name.startsWith("iPhone")))
+              .find(devices => devices.length) ?? [];
+            const device = phones.find(item => item.name.endsWith(" Pro")) ?? phones[0];
             if (!device) process.exit(1);
             process.stdout.write(device.udid);
           ')
           xcrun simctl bootstatus "$device" -b
+          echo "Installing $bundle_id on the booted simulator"
           xcrun simctl install "$device" "$product"
+          echo "Launching $bundle_id"
           xcrun simctl launch "$device" "$bundle_id"
           sleep 5
           xcrun simctl spawn "$device" launchctl list | awk -v bundle="$bundle_id" '
@@ -116,7 +119,14 @@ jobs:
         timeout-minutes: 5
         env:
           SIMULATOR_DEVICE: ${{ steps.ios_startup.outputs.device }}
-        run: xcrun simctl io "$SIMULATOR_DEVICE" screenshot "$RUNNER_TEMP/native-artifacts/ios-startup.png"
+        run: |
+          output="$RUNNER_TEMP/native-artifacts/ios-startup.png"
+          if ! capture=$(xcrun simctl io "$SIMULATOR_DEVICE" screenshot "$output" 2>&1); then
+            printf '%s\n' "$capture" >&2
+            [[ "$capture" == *'Cannot choose between'*'LCD (primary)'* ]]
+            xcrun simctl io "$SIMULATOR_DEVICE" screenshot --display=1 "$output"
+          fi
+          test -s "$output"
       - name: Compile and verify an Android QA APK
         id: android_build
         if: runner.os == 'Linux'
