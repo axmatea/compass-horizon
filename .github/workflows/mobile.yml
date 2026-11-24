@@ -86,8 +86,9 @@ jobs:
           ditto -c -k --keepParent "$product" "$RUNNER_TEMP/native-artifacts/ios-simulator.zip"
           test -s "$RUNNER_TEMP/native-artifacts/ios-simulator.zip"
       - name: Verify iOS Simulator startup
+        id: ios_startup
         if: runner.os == 'macOS'
-        timeout-minutes: 5
+        timeout-minutes: 12
         run: |
           product=$(find "$RUNNER_TEMP/ios-product" -mindepth 1 -maxdepth 1 -type d -name '*.app' -print -quit)
           bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$product/Info.plist")
@@ -101,7 +102,6 @@ jobs:
             if (!device) process.exit(1);
             process.stdout.write(device.udid);
           ')
-          trap 'xcrun simctl shutdown "$device" >/dev/null 2>&1 || true' EXIT
           xcrun simctl bootstatus "$device" -b
           xcrun simctl install "$device" "$product"
           xcrun simctl launch "$device" "$bundle_id"
@@ -110,7 +110,13 @@ jobs:
             index($0,bundle) && $1 ~ /^[1-9][0-9]*$/ { print; running=1 }
             END { exit !running }
           '
-          xcrun simctl io "$device" screenshot "$RUNNER_TEMP/native-artifacts/ios-startup.png"
+          echo "device=$device" >> "$GITHUB_OUTPUT"
+      - name: Capture iOS Simulator startup screen
+        if: ${{ steps.ios_startup.outcome == 'success' }}
+        timeout-minutes: 5
+        env:
+          SIMULATOR_DEVICE: ${{ steps.ios_startup.outputs.device }}
+        run: xcrun simctl io "$SIMULATOR_DEVICE" screenshot "$RUNNER_TEMP/native-artifacts/ios-startup.png"
       - name: Compile and verify an Android QA APK
         id: android_build
         if: runner.os == 'Linux'
