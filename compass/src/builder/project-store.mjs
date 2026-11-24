@@ -72,7 +72,7 @@ export function normalizeRevision(value) {
   return {
     id:value.id, at, prompt:clean(value.prompt,500), number:integer(value.number) || 1,
     plan:{intent,version}, render:{html,version,pending:[]},
-    source:['model','edited'].includes(value.source) ? value.source : 'prepared', placeholder:Boolean(value.placeholder),
+    source:['model','edited','template'].includes(value.source) ? value.source : 'prepared', placeholder:Boolean(value.placeholder),
     ...(value.documentBase && safeSavedHtml(value.documentBase) ? {documentBase:safeSavedHtml(value.documentBase)} : {}),
   }
 }

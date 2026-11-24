@@ -1,13 +1,14 @@
-import {applicationEntryPreferences} from '../applications/intent.mjs'
+import {applicationDraft,applicationEntryPreferences} from '../applications/intent.mjs'
 import {readDraft,writeDraft,validPrompt,normalizePreferences} from './draft.mjs'
 import {createAccountApi,allowedEmail,safeSocialRedirect,accountErrorText,isAccountChanged,resolveCreateEntry,AccountRequestError} from './flow.mjs'
 import {createAccountViews,accountEntry} from './manage.mjs'
 
 const $ = id => document.getElementById(id)
 const api = createAccountApi()
-const appEntry=new URL(location.href).searchParams.get('app')==='1'
+const initialDraft = readDraft()
+const appEntry=new URL(location.href).searchParams.get('app')==='1' || applicationDraft({...initialDraft,ready:true})
 if(appEntry)$('continue-guest').textContent='Try website demo instead'
-const state = {config:null,user:null,draft:readDraft(),profilePreferences:{},guest:false,busy:false,signup:true,step:'prompt',flowMode:'project'}
+const state = {config:null,user:null,draft:initialDraft,profilePreferences:{},guest:false,busy:false,signup:true,step:'prompt',flowMode:'project'}
 const providerNames = {google:'Google',github:'GitHub',apple:'Apple'}
 const accountForm = $('account-form')
 const onboardingForm = $('onboarding-form')
@@ -86,8 +87,8 @@ function show(step,{focus = true} = {}) {
   if(step !== 'manage')views.cancel()
   const returning = state.flowMode !== 'project' && !state.draft
   const editing = state.flowMode === 'profile'
-  const titles = {prompt:'What will you make?',auth:reauthenticating ? 'Sign in again.' : returning ? state.signup ? 'Create your account.' : 'Welcome back.' : 'Keep your idea.',onboarding:editing ? 'Your direction.' : 'Make it yours.',manage:{account:'Your account.',recover:'Recover your account.',reset:'A new password.',verify:'Verify your email.'}[state.flowMode] || 'Your account.'}
-  const descriptions = {prompt:'Start with an idea.',auth:reauthenticating ? 'Sign in to view your security settings.' : state.signup ? 'Create an account to save your work.' : returning ? 'Sign in to your workspace.' : 'Sign in to save your work.',onboarding:appEntry && state.guest ? 'Website preview. Data apps need an account.' : 'Two choices. Both optional.',manage:'Account settings.'}
+  const titles = {prompt:'What would you like to make?',auth:reauthenticating ? 'Sign in again.' : returning ? state.signup ? 'Create your account.' : 'Welcome back.' : 'Keep your idea.',onboarding:editing ? 'Your direction.' : 'Make it yours.',manage:{account:'Your account.',recover:'Recover your account.',reset:'A new password.',verify:'Verify your email.'}[state.flowMode] || 'Your account.'}
+  const descriptions = {prompt:appEntry ? 'Describe a data app and the records it will manage.' : 'Describe your website.',auth:reauthenticating ? 'Sign in to view your security settings.' : state.signup ? 'Create an account to save your work.' : returning ? 'Sign in to your workspace.' : 'Sign in to save your work.',onboarding:appEntry && state.guest ? 'Website preview. Data apps need an account.' : 'Two choices. Both optional.',manage:'Account settings.'}
   $('create-title').textContent = titles[step]
   $('create-lede').textContent = descriptions[step]
   $('step-label').textContent = editing ? 'Preferences' : returning ? 'Your workspace' : step === 'onboarding' ? 'A direction for your project' : 'A new project'

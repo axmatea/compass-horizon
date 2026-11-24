@@ -20,7 +20,22 @@
 <nav class="menu" data-public-nav aria-label="Primary"><a class="public-nav-secondary" href="#catalog" aria-current="page">Templates</a><a href="/studio">Studio</a><a href="/demo">Build your own <span aria-hidden="true">↗</span></a><a class="public-account-entry" data-public-account href="/create?view=account" title="Sign in to reopen your account projects">Sign in</a><button class="public-tour-trigger" type="button" data-platform-tour-trigger hidden>Platform Tour</button></nav>
 </header>
 <main id="top">
-<section class="market-intro wrap" aria-labelledby="market-title"><h1 id="market-title">Your next build.</h1><p>Websites. Mobile apps. Yours to shape.</p></section>
+<section class="market-intro wrap" aria-labelledby="market-title">
+  <h1 id="market-title">What would you like to build?</h1>
+  <form class="market-start-form" id="market-start" method="post" action="/create" hidden>
+    <label class="sr" for="market-idea">Describe your project</label>
+    <textarea id="market-idea" name="idea" rows="2" minlength="3" maxlength="500" required placeholder="A project tracker for a small design studio…"></textarea>
+    <div class="market-start-actions">
+      <fieldset><legend class="sr">Project type</legend>
+        <label><input type="radio" name="projectType" value="app" checked><span>Data app</span></label>
+        <label><input type="radio" name="projectType" value="website"><span>Website</span></label>
+      </fieldset>
+      <button class="market-start-button" type="submit">Build <span aria-hidden="true">↗</span></button>
+    </div>
+    <p class="market-start-status" id="market-start-status" role="status"></p>
+  </form>
+  <noscript><p><a href="/create">Start a project ↗</a></p></noscript>
+</section>
 <section class="market-catalog wrap" id="catalog" aria-label="Templates">
 <div class="market-toolbar"><div class="market-filters" role="group" aria-label="Template type"><button type="button" data-template-kind="all" aria-pressed="true">All</button><button type="button" data-template-kind="website" aria-pressed="false">Websites</button><button type="button" data-template-kind="mobile" aria-pressed="false">Mobile apps</button></div><label class="market-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span class="sr">Search templates</span><input id="template-search" type="search" placeholder="Search templates" maxlength="120" autocomplete="off"></label></div>
 <p class="market-link-error" id="template-link-error" role="status" hidden></p>

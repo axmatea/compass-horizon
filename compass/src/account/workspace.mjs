@@ -19,7 +19,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
       const data=await response.json().catch(()=>({}))
       if (response.status===401 || data.error==='account_changed') {onClear({accountChanged:data.error==='account_changed'});location.replace('/create');throw Error('Sign in again to continue.')}
       const messages={project_limit:'This account reached its website limit.',application_limit:'This account reached its application limit.',insufficient_credits:'Not enough available credits.',billing_external_blocked:'Payments are not available yet.',integration_external_blocked:'This connection needs its provider configuration.',version_conflict:'The project changed. Your edits are kept. Reopen the project before applying them.',asset_in_use:'Remove the image from logo and hero before deleting it.',asset_file_limit:'This project supports 8 active images.',asset_application_quota:'This project reached its 4 MB image limit, including retained revisions.',asset_owner_quota:'This account reached its 16 MB image limit, including retained revisions.',invalid_asset:'Choose a valid PNG or JPEG up to 512 KB and 5 megapixels.',invalid_manifest:'Manifest is invalid. Your edits are kept.'}
-      throw Error(messages[data.error] || 'This request could not finish. Try again. Your current work is kept.')
+      throw Object.assign(Error(messages[data.error] || 'This request could not finish. Try again. Your current work is kept.'), {code:data.error})
     }
     return response
   }

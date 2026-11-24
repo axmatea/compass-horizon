@@ -5,6 +5,7 @@ import vm from 'node:vm'
 import {readDraft,writeDraft,validPrompt,normalizePreferences,DRAFT_KEY} from '../src/create/draft.mjs'
 import {resolveCreateEntry} from '../src/create/flow.mjs'
 import {accountEntry} from '../src/create/manage.mjs'
+import {applicationDraft,applicationEntryPreferences} from '../src/applications/intent.mjs'
 
 const source=(await readFile(new URL('../src/create/create.js',import.meta.url),'utf8'))
   .replace(/^import .+\n/gm,'').replace(/\ninitialize\(\)\s*$/,'\nglobalThis.started=initialize()')
@@ -33,7 +34,7 @@ async function fixture({search='?signin=1',prompt,signedIn=false}={}) {
   }
   const context={URL,document:{getElementById:get,querySelectorAll:()=>all,addEventListener(){}},window:{addEventListener(){}},
     location:{href:'https://compass.example/create'+search,search,assign:path=>navigations.push(path)},history:{replaceState(){}},
-    createAccountApi:()=>api,createAccountViews:()=>({cancel(){},render(){}}),accountEntry,resolveCreateEntry,
+    createAccountApi:()=>api,createAccountViews:()=>({cancel(){},render(){}}),accountEntry,resolveCreateEntry,applicationDraft,applicationEntryPreferences,
     readDraft:()=>readDraft({storage}),writeDraft:value=>writeDraft(value,{storage}),validPrompt,normalizePreferences,
   }
   vm.runInNewContext(source,context);await context.started

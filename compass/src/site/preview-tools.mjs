@@ -117,12 +117,22 @@ export function createPreviewTools({ root, surface, getPlan, getRender, isBusy =
     }
   })
 
+  function setExportState(ready) {
+    if (!exportMenu) return
+    exportMenu.classList?.toggle('is-inert', !ready)
+    const summary = exportMenu.querySelector('summary')
+    if (!summary) return
+    summary.setAttribute('aria-disabled', ready ? 'false' : 'true')
+    if (ready) summary.removeAttribute('tabindex')
+    else { summary.tabIndex = -1; exportMenu.open = false }
+  }
   function update() {
     const render = getRender()
     const ready = canExportPreview(render, isBusy(), getPlan())
     if (copy) copy.disabled = copying || !ready || !briefText(getPlan())
     if (download) download.disabled = !ready
     source.disabled=!ready || loading
+    setExportState(ready)
     if(!ready){codePanel.hidden=true;source.setAttribute('aria-expanded','false')}
     editor?.update()
     if ((render?.html || '') !== lastHtml) {

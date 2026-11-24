@@ -8,6 +8,7 @@ import {mountPaneLayout} from '../builder/pane-layout.mjs'
 export {validateApplicationBridgeMessage} from './bridge.mjs'
 
 const APP_ID = /^[A-Za-z0-9_-]{1,80}$/
+const APP_KINDS = {tracker:'Project tracker',crm:'CRM',booking:'Booking records',inventory:'Inventory'}
 const element = (tag,text,className) => {const node = document.createElement(tag);if (text != null) node.textContent = String(text);if (className) node.className = className;return node}
 
 export async function mountApplicationWorkspace({container,request,requestRaw,userId,onMessage = () => {},onDraftBuilt = () => {},initialDraft,preferences = {}} = {}) {
@@ -23,9 +24,13 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
 <section class="aw-code" data-aw="code" aria-label="Application source" hidden><div class="aw-file-toolbar"><label>File<select data-aw="file"></select></label><button type="button" data-aw="copy-file">Copy</button></div><p data-aw="file-meta" class="aw-file-meta"></p><pre data-aw="read-only-source" tabindex="0"><code data-aw="file-content"></code></pre><label class="aw-editor-label" data-aw="editor-label" hidden><span class="sr">Edit manifest.json</span><textarea data-aw="manifest-editor" spellcheck="false" aria-label="Edit manifest.json"></textarea></label><div class="aw-editor-actions" data-aw="editor-actions" hidden><p data-aw="editor-status" role="status"></p><button type="button" data-aw="reload-manifest">Discard edits</button><button type="button" data-aw="apply-manifest" disabled>Apply manifest</button></div></section>
 <section class="aw-assets" data-aw="assets" aria-label="Project images" hidden><div data-aw="dropzone" class="aw-dropzone"><label>Drop an image here<input data-aw="upload-asset" type="file" accept="image/png,image/jpeg"></label><p>PNG or JPEG · up to 512 KB</p></div><p data-aw="asset-quota" class="aw-file-meta"></p><div data-aw="asset-list" class="aw-asset-list"></div></section>
 <details class="aw-history"><summary>History</summary><p>Restore a revision. Records stay intact.</p><ol data-aw="history"></ol></details></section><div class="aw-resize" data-resize-pane="conversation" aria-label="Resize conversation panel"></div>
-<aside class="aw-conversation" aria-label="Build your application"><form data-aw="composer"><label data-aw="composer-label">What would you like to build?<textarea data-aw="input" rows="5" maxlength="2000" placeholder="A CRM for my studio…" required></textarea></label><div class="aw-compose-actions"><button type="button" data-aw="voice" aria-pressed="false">Speak</button><span data-aw="count">0/2000</span><button type="submit" data-aw="submit">Build</button></div><button type="button" data-aw="cancel-build" class="aw-cancel" hidden>Cancel</button></form><p data-aw="voice-status" class="aw-status" role="status"></p><p data-aw="status" class="aw-status" role="status" aria-live="polite"></p><ol data-aw="conversation" class="aw-messages"></ol><details class="aw-runtime-details"><summary>Project settings</summary><p data-aw="settings-meta"></p><button type="button" data-aw="download-data" disabled>Export records</button><button type="button" data-aw="delete-current" disabled>Delete application</button><details><summary>Runtime &amp; shortcuts</summary><p>Trusted application runtime. The isolated preview has no account token or network access.</p><p>⌘ / Ctrl + Enter: apply or build<br>⌘ / Ctrl + Shift + F: files<br>Escape: cancel or stop voice</p><p>Voice uses your browser’s speech service. Only submitted text reaches COMPASS.</p></details></details></aside></div>`
+<aside class="aw-conversation" aria-label="Build your application"><form data-aw="composer"><label data-aw="composer-label">What would you like to build?<textarea id="application-prompt" data-aw="input" rows="5" maxlength="2000" placeholder="A CRM for my studio…" required></textarea></label><div class="aw-compose-actions"><button type="button" data-aw="voice" aria-pressed="false">Speak</button><span data-aw="count">0/2000</span><button type="button" data-aw="request-plan">Plan</button><button type="submit" data-aw="submit">Build</button></div><button type="button" data-aw="cancel-build" class="aw-cancel" hidden>Cancel</button></form><p data-aw="voice-status" class="aw-status" role="status"></p><p data-aw="status" class="aw-status" role="status" aria-live="polite"></p>
+<section class="aw-plan" data-aw="plan" aria-label="Build plan" hidden><h3 data-aw="plan-heading" tabindex="-1">Build plan</h3><p class="aw-plan-source" data-aw="plan-source"></p><p class="aw-plan-title" data-aw="plan-title"></p><h4 data-aw="plan-kind"></h4><ul data-aw="plan-fields" aria-label="Proposed record fields"></ul><details data-aw="plan-source-details"><summary>Edit plan JSON</summary><label><span class="sr">Plan manifest</span><textarea data-aw="plan-editor" rows="8" maxlength="32768" spellcheck="false" aria-label="Plan manifest"></textarea></label></details><p class="aw-plan-warning" data-aw="plan-warning" role="status"></p><div class="aw-plan-actions"><button type="button" data-aw="discard-plan">Discard</button><button type="button" data-aw="apply-plan">Build from plan</button></div></section>
+<ol data-aw="conversation" class="aw-messages"></ol><details class="aw-runtime-details"><summary>Project settings</summary><p data-aw="settings-meta"></p><button type="button" data-aw="download-data" disabled>Export records</button><button type="button" data-aw="delete-current" disabled>Delete application</button><details><summary>Runtime &amp; shortcuts</summary><p>Trusted application runtime. The isolated preview has no account token or network access.</p><p>⌘ / Ctrl + Enter: apply or build<br>⌘ / Ctrl + Shift + F: files<br>Escape: cancel or stop voice</p><p>Voice uses your browser’s speech service. Only submitted text reaches COMPASS.</p></details></details></aside></div>`
   const $ = key => container.querySelector(`[data-aw="${key}"]`)
   const state = {current:null,epoch:0,busy:false,frame:null,frameApplication:null,frameEpoch:0,disposed:false,pending:null,source:null,viewport:'desktop',view:'preview',cancelController:null,editor:null,revisions:[],assets:[],assetEpoch:0,assetUrls:new Set()}
+  let planDraft = null
+  let planRequest = null
   const paneLayout=mountPaneLayout({root:container.querySelector('.aw-layout'),owner:userId,defaults:{conversation:preferences.workspaceLayout==='preview'?260:preferences.workspaceLayout==='conversation'?380:310}})
   const bridgeRequests = new Map()
   let undoTargets=null,undoRestoring=false
@@ -56,6 +61,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     if (!value) container.querySelectorAll('[data-restore-version]').forEach(button => {button.disabled = Number(button.dataset.restoreVersion) === state.current?.version})
     $('submit').textContent = value ? 'Working…' : state.current ? 'Update' : 'Build'
     updateEditorStatus()
+    updatePlanStatus()
     if (state.frame) state.frame.inert = value
   }
   function fillDesign() {
@@ -141,20 +147,23 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   }
   async function openApplication(id) {
     if (state.busy || !APP_ID.test(id) || !discardEditor()) return
+    const changeProject = id !== state.current?.id
+    if (changeProject && !confirmDiscardPlan()) return
     const run = ++state.epoch;lock(true);status('Opening application…')
-    try {const result = await request('apps/' + encodeURIComponent(id));await paint(applicationFrom(result),run,id);if (run !== state.epoch) return;state.editor=null;$('conversation').replaceChildren();await history();await refresh();status('')}
+    try {const result = await request('apps/' + encodeURIComponent(id));await paint(applicationFrom(result),run,id);if (run !== state.epoch) return;if(changeProject)clearPlan();state.editor=null;$('conversation').replaceChildren();await history();await refresh();status('')}
     catch(error) {if (run === state.epoch) status(error.message || 'Couldn’t open. Try again.',true)}
     finally {if (run === state.epoch) lock(false)}
   }
   async function removeApplication(id,button) {
     if (state.busy || !APP_ID.test(id)) return
     if (button.dataset.confirm !== 'yes') {button.dataset.confirm = 'yes';button.textContent = 'Confirm deletion';return}
+    if (state.current?.id === id && (!discardEditor() || !confirmDiscardPlan())) return
     const run = ++state.epoch;lock(true);status('Deleting application…')
     try {
       await request('apps/' + encodeURIComponent(id),{method:'DELETE'})
       if (state.disposed || run !== state.epoch) return
       lock(false)
-      if (state.current?.id === id) reset()
+      if (state.current?.id === id) reset({confirmed:true})
       await refresh();status('Application deleted.')
     } catch(error) {if (!state.disposed && run === state.epoch) status(error.message || 'Couldn’t delete. Try again.',true)}
     finally {if (!state.disposed && run === state.epoch) lock(false)}
@@ -164,34 +173,132 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     if (state.pending?.context !== context) state.pending = {context,key:creating && initialDraft?.ready && initialDraft.prompt === text ? 'application_draft_' + initialDraft.id : 'application_' + crypto.randomUUID()}
     return state.pending.key
   }
-  async function build(text) {
-    if (state.busy || typeof text !== 'string' || text.trim().length < 3 || text.length > 2000) {status('Describe your application in 3–2000 characters.',true);return}
-    if(!discardEditor())return
+  function confirmDiscardPlan() {
+    return !planDraft || confirm('Discard the current build plan? Your saved projects and records are kept.')
+  }
+  function clearPlan() {
+    planDraft = null
+    $('plan-editor').value = ''
+    $('plan-source-details').open = false
+    $('plan').hidden = true
+  }
+  function readPlanManifest() {
+    try {return validateApplicationManifest(JSON.parse($('plan-editor').value))}
+    catch {return null}
+  }
+  function planMatchesProject(plan) {
+    return plan.appId === (state.current?.id ?? null) && plan.baseVersion === (state.current?.version ?? null)
+  }
+  function updatePlanStatus() {
+    const manifest = planDraft && readPlanManifest()
+    const stale = planDraft && (planDraft.stale || !planMatchesProject(planDraft))
+    $('apply-plan').disabled = state.busy || !manifest || Boolean(stale)
+    $('plan-warning').textContent = stale ? 'This project changed. Copy your edits or make a new plan.' : planDraft && !manifest ? 'Enter a valid application manifest.' : ''
+    $('plan-editor').setAttribute('aria-invalid', String(Boolean(planDraft && !manifest)))
+    $('plan-title').textContent = manifest?.title || ''
+    $('plan-kind').textContent = manifest ? APP_KINDS[manifest.kind] + ' · ' + manifest.entity.plural : ''
+    $('plan-fields').replaceChildren(...(manifest?.entity.fields || []).map(field => element('li', field.label)))
+  }
+  async function preparePlan(text) {
+    if (state.busy) return
+    text = text.trim()
+    if (text.length < 3 || text.length > 2000) {
+      status('Describe your application in 3–2000 characters.', true)
+      return
+    }
+    if (!confirmDiscardPlan()) return
     dictation?.stop()
-    const creating = !state.current, targetId = state.current?.id, endpoint = creating ? 'apps' : path('refine'), key = operation(text,creating)
+    const appId = state.current?.id ?? null
+    const baseVersion = state.current?.version ?? null
+    const context = JSON.stringify([appId, baseVersion, text])
+    if (planRequest?.context !== context) planRequest = {context, key:'plan_' + crypto.randomUUID()}
+    const run = ++state.epoch
+    state.cancelController = new AbortController()
+    lock(true)
+    status('Preparing a plan…')
+    try {
+      const result = await request(appId ? path('plan') : 'apps/plan', {
+        method:'POST', headers:{'idempotency-key':planRequest.key},
+        body:JSON.stringify({text,...(appId ? {version:baseVersion} : {})}), signal:state.cancelController.signal,
+      })
+      if (state.disposed || run !== state.epoch) return
+      const manifest = validateApplicationManifest(result?.manifest)
+      if (!manifest || result.baseVersion !== baseVersion || !['model','prepared'].includes(result.source)) {
+        throw Error('The plan response was incomplete.')
+      }
+      planDraft = {text,appId,baseVersion,stale:false,receipt:null}
+      planRequest = null
+      $('plan-editor').value = JSON.stringify(manifest,null,2)
+      $('plan-source-details').open = false
+      $('plan-source').textContent = result.source === 'model' && result.modelUsed === true ? 'AI proposal' : 'Prepared proposal'
+      $('apply-plan').textContent = appId ? 'Apply changes' : 'Build from plan'
+      $('plan').hidden = false
+      $('plan-heading').focus()
+      status('')
+    } catch(error) {
+      if (run !== state.epoch) return
+      if (error.code === 'previous_build_failed') planRequest = null
+      status(error.message || 'Couldn’t prepare a plan. Your instruction is kept.',true)
+    } finally {
+      if (run === state.epoch) {state.cancelController = null;lock(false)}
+    }
+  }
+  function applyPlan() {
+    if (!planDraft || state.busy || $('apply-plan').disabled) return
+    const manifest = readPlanManifest()
+    if (!manifest || !planMatchesProject(planDraft) || planDraft.stale) return
+    void build(planDraft.text,{reviewedManifest:manifest})
+  }
+  async function build(text,{reviewedManifest}={}) {
+    if (state.busy || typeof text !== 'string' || text.trim().length < 3 || text.length > 2000) {status('Describe your application in 3–2000 characters.',true);return}
+    if(!discardEditor() || (!reviewedManifest && !confirmDiscardPlan()))return
+    dictation?.stop()
+    const creating = !state.current, targetId = state.current?.id
+    let endpoint = creating ? 'apps' : path('refine')
+    let body = JSON.stringify({text})
+    let key
+    if (reviewedManifest) {
+      endpoint = creating ? 'apps/build-plan' : path('build-plan')
+      body = JSON.stringify({text,manifest:reviewedManifest,...(creating ? {} : {version:planDraft.baseVersion})})
+      if (planDraft.receipt?.body !== body) planDraft.receipt = {body,key:'apply_plan_' + crypto.randomUUID()}
+      key = planDraft.receipt.key
+    } else key = operation(text,creating)
     const run = ++state.epoch;state.cancelController = new AbortController();lock(true);status(creating ? 'Creating application…' : 'Updating application…')
     try {
-      const result = await request(endpoint,{method:'POST',headers:{'idempotency-key':key},body:JSON.stringify({text}),signal:state.cancelController.signal})
+      const result = await request(endpoint,{method:'POST',headers:{'idempotency-key':key},body,signal:state.cancelController.signal})
       if (run !== state.epoch) return
       const outcome = applicationResultOutcome(result,{creating})
       if (!outcome.changed && !creating) {
         // A completed no-op is not a revision. Keep its idempotency receipt,
         // current frame, source label, history and editable instruction intact.
         state.cancelController = null;$('cancel-build').hidden = true
+        if (reviewedManifest) clearPlan()
         message(text,outcome.message);status(outcome.message)
         return
       }
       const app = applicationFrom(result);await paint(app,run,targetId)
       if (run !== state.epoch) return
-      state.editor=null;state.pending = null;state.cancelController = null;$('cancel-build').hidden = true;$('input').value = '';$('count').textContent = '0/2000'
+      state.editor=null;state.pending = null;state.cancelController = null;$('cancel-build').hidden = true
+      clearPlan()
+      if (!reviewedManifest || $('input').value.trim() === text) {$('input').value = '';$('count').textContent = '0/2000'}
       message(text,outcome.message)
       if (creating && initialDraft?.ready && initialDraft.prompt === text) {const id = initialDraft.id;initialDraft = null;onDraftBuilt(id)}
       await Promise.allSettled([history(),refresh()]);status('Saved to your account.')
-    } catch(error) {if (run === state.epoch) status(error.message || 'Couldn’t finish. Your last application and instruction are kept.',true)}
+    } catch(error) {
+      if (run === state.epoch) {
+        if (reviewedManifest) {
+          if (error.code === 'previous_build_failed') planDraft.receipt = null
+          if (error.code === 'version_conflict' || /project changed/i.test(error.message)) planDraft.stale = true
+        }
+        status(error.message || 'Couldn’t finish. Your last application and instruction are kept.',true)
+      }
+    }
     finally {if (run === state.epoch) {state.cancelController = null;lock(false)}}
   }
-  function reset() {
-    if (state.busy || !discardEditor()) return
+  function reset({confirmed=false}={}) {
+    if (state.busy || (!confirmed && (!discardEditor() || !confirmDiscardPlan()))) return
+    clearPlan()
+    planRequest = null
     state.epoch++;state.current = null;state.source = null;state.editor=null;state.revisions=[];state.assets=[];state.assetEpoch++;clearAssetUrls();$('asset-list').replaceChildren();state.pending = null;state.frame?.remove();state.frame = null;state.frameApplication = null;bridgeRequests.clear()
     dictation?.stop();$('settings-meta').textContent = '';$('empty').hidden = false;$('title').textContent = 'Your next application';$('source').textContent = '';$('conversation').replaceChildren();$('history').replaceChildren();$('file-content').textContent = '';$('file').replaceChildren();$('input').value = '';$('count').textContent = '0/2000';$('composer-label').firstChild.textContent = 'What would you like to build?';showView('preview');lock(false);status('');$('input').focus()
   }
@@ -199,7 +306,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     if(state.busy){status('Wait for this build to finish before starting another project.',true);return false}
     // A record form lives in the isolated frame. Ask before leaving an open
     // application, including edits the parent cannot inspect inside that frame.
-    return !(state.current || state.editor?.dirty || $('input').value.trim()) || confirm('Start another project? Apply or save pending edits first. Your saved application and records are kept.')
+    return !(state.current || state.editor?.dirty || planDraft || $('input').value.trim()) || confirm('Start another project? Apply or save pending edits first. Your saved application and records are kept.')
   }
   async function loadSourceBundle() {
     if (!state.current) throw Error('Open a completed application first.')
@@ -359,6 +466,13 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   $('voice').addEventListener('click',() => {if (state.busy || !dictation) return;if (dictation.active) dictation.stop();else {const input = $('input'), start = input.selectionStart ?? input.value.length, end = input.selectionEnd ?? start;voiceSelection = {prefix:input.value.slice(0,start),suffix:input.value.slice(end)};dictation.start()}})
   function cancelBuild(){if (!state.cancelController) return;state.epoch++;state.cancelController.abort();state.cancelController = null;lock(false);status('Stopped waiting. Instruction kept; retry to check the result.')}
   $('cancel-build').addEventListener('click',cancelBuild)
+  $('request-plan').addEventListener('click',() => {void preparePlan($('input').value)})
+  $('plan-editor').addEventListener('input',updatePlanStatus)
+  $('apply-plan').addEventListener('click',applyPlan)
+  $('discard-plan').addEventListener('click',() => {
+    if (state.busy) return
+    clearPlan();status('');$('request-plan').focus()
+  })
   $('composer').addEventListener('submit',event => {event.preventDefault();void build($('input').value)})
   $('input').addEventListener('input',() => {$('count').textContent = $('input').value.length + '/2000'})
   $('input').addEventListener('keydown',event => {if (event.key === 'Escape') dictation?.stop();if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {event.preventDefault();void build($('input').value)}})
