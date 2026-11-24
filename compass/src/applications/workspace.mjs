@@ -1,6 +1,6 @@
 import './workspace.css'
 import {validateApplicationManifest} from '../../generation/templates/lib/schema.mjs'
-import {validateApplicationBridgeMessage} from './bridge.mjs'
+import {validateApplicationBridgeMessage,validateCrmBridgeMessage} from './bridge.mjs'
 import {createDictation} from '../demo/voice.mjs'
 import {draftCanAutoBuild,disarmDraft} from '../create/draft.mjs'
 import {applicationResultOutcome,requireApplicationVersion} from './result.mjs'
@@ -10,6 +10,8 @@ export {validateApplicationBridgeMessage} from './bridge.mjs'
 
 const APP_ID = /^[A-Za-z0-9_-]{1,80}$/
 const APP_KINDS = {tracker:'Project tracker',crm:'CRM',booking:'Booking records',inventory:'Inventory'}
+const CRM_MODULES = ['Clients','Contacts','Pipeline','Follow-ups','Proposals','Revenue']
+const CRM_BRIDGE_ERRORS = {version_conflict:'stale_preview',record_version_conflict:'record_conflict',crm_record_in_use:'record_in_use',crm_reference_missing:'invalid_reference',crm_record_limit:'record_limit',invalid_record:'invalid_record',not_found:'not_found',account_rate_limited:'rate_limited'}
 const element = (tag,text,className) => {const node = document.createElement(tag);if (text != null) node.textContent = String(text);if (className) node.className = className;return node}
 
 export async function mountApplicationWorkspace({container,request,requestRaw,userId,onMessage = () => {},onDraftBuilt = () => {},initialDraft,preferences = {}} = {}) {
@@ -53,8 +55,8 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     for (const node of container.querySelectorAll('button,select,textarea,input')) node.disabled = value
     $('download-data').disabled=value || !state.current;$('code-tab').disabled = value || !state.current;$('download').disabled = value || !state.current;$('apply-design').disabled = value || !state.current
     $('delete-current').disabled = value || !state.current
-    $('assets-tab').disabled=value || !state.current
-    $('upload-asset').disabled=value || !state.current
+    $('assets-tab').disabled=value || !state.current || Boolean(state.current?.manifest.crm)
+    $('upload-asset').disabled=value || !state.current || Boolean(state.current?.manifest.crm)
     $('undo').disabled=value || (undoTargets ? !undoTargets.length : !state.revisions.some(revision=>revision.version<state.current?.version))
     if(!value){for(const button of container.querySelectorAll('[data-asset-selected]'))button.disabled=button.dataset.assetSelected==='true';$('copy-file').disabled=state.source?.files.find(file=>file.path===$('file').value)?.encoding==='base64'}
     $('voice').disabled = value || !dictation
@@ -92,9 +94,10 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     requireApplicationVersion(response,app.version)
     const html = await response.text()
     if (state.disposed || run !== state.epoch) return
-    if (!html.startsWith('<!doctype html>') || html.length > 300000) throw Error('The application preview was incomplete.')
+    if (!html.startsWith('<!doctype html>') || html.length > (app.manifest.crm?640000:300000)) throw Error('The application preview was incomplete.')
     if(!undoRestoring)undoTargets=null
     state.current = app;state.source = null;state.assetEpoch++;clearAssetUrls();state.assets=[];$('asset-list').replaceChildren()
+    $('assets-tab').hidden=Boolean(app.manifest.crm)
     $('title').textContent = app.manifest.title
     $('source').textContent = app.source === 'model' ? 'AI build' : 'Prepared build'
     $('settings-meta').textContent = `${app.manifest.kind.toUpperCase()} · Version ${app.version}`
@@ -136,6 +139,13 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
       restore.type = 'button';restore.disabled = revision.version === state.current.version
       restore.addEventListener('click',()=>restoreRevision(revision.version))
       const heading=element('div',null,'aw-revision-heading');heading.append(label,restore);row.append(heading)
+      if (revision.buildReport) {
+        const summary=element('summary','Build details'), details=element('details'), lines=element('ul')
+        const outcome=revision.buildReport.outcome
+        lines.append(element('li',outcome==='repaired'?'CRM configuration repaired and verified.':outcome==='prepared'?'Prepared CRM configuration verified.':'CRM configuration verified.'))
+        for (const diagnostic of (revision.buildReport.diagnostics||[]).slice(0,8)) lines.append(element('li',diagnostic))
+        details.append(summary,lines);row.append(details)
+      }
       if(Array.isArray(revision.changes) && revision.changes.length){const changes=element('details'),summary=element('summary',revision.changes.length+' file changes'),list=element('ul');changes.append(summary,list);for(const file of revision.changes.slice(0,40)){if(typeof file.path!=='string')continue;const item=element('li',`${file.type} · ${file.path}`);if(file.sha256)item.title='SHA-256 '+file.sha256;list.append(item)}row.append(changes)}
       $('history').append(row)
     }
@@ -207,8 +217,9 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     $('plan-warning').textContent = staleContext ? 'Project context changed. Make a new plan. Your edits are kept.' : stale ? 'This project changed. Copy your edits or make a new plan.' : planDraft && !manifest ? 'Enter a valid application manifest.' : ''
     $('plan-editor').setAttribute('aria-invalid', String(Boolean(planDraft && !manifest)))
     $('plan-title').textContent = manifest?.title || ''
-    $('plan-kind').textContent = manifest ? APP_KINDS[manifest.kind] + ' · ' + manifest.entity.plural : ''
-    $('plan-fields').replaceChildren(...(manifest?.entity.fields || []).map(field => element('li', field.label)))
+    $('plan-kind').textContent = manifest ? (manifest.crm?'Consulting CRM':APP_KINDS[manifest.kind] + ' · ' + manifest.entity.plural) : ''
+    const fields=manifest?.crm?CRM_MODULES:(manifest?.entity.fields||[]).map(field=>field.label)
+    $('plan-fields').replaceChildren(...fields.map(label=>element('li',label)))
   }
   async function preparePlan(text) {
     if (state.busy) return
@@ -241,7 +252,9 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
       planRequest = null
       $('plan-editor').value = JSON.stringify(manifest,null,2)
       $('plan-source-details').open = false
-      $('plan-source').textContent = result.source === 'model' && result.modelUsed === true ? 'AI proposal' : 'Prepared proposal'
+      const source = result.source === 'model' && result.modelUsed === true ? 'AI proposal' : 'Prepared proposal'
+      const diagnostic = result.buildReport?.diagnostics?.join(' ')
+      $('plan-source').textContent = diagnostic ? source + ' · ' + diagnostic : source
       $('apply-plan').textContent = appId ? 'Apply changes' : 'Build from plan'
       $('plan').hidden = false
       $('plan-heading').focus()
@@ -319,6 +332,7 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     planRequest = null
     contextPanel.selectProject(null)
     state.epoch++;state.current = null;state.source = null;state.editor=null;state.revisions=[];state.assets=[];state.assetEpoch++;clearAssetUrls();$('asset-list').replaceChildren();state.pending = null;state.frame?.remove();state.frame = null;state.frameApplication = null;bridgeRequests.clear()
+    $('assets-tab').hidden=false
     dictation?.stop();$('settings-meta').textContent = '';$('empty').hidden = false;$('title').textContent = 'Your next application';$('source').textContent = '';$('conversation').replaceChildren();$('history').replaceChildren();$('file-content').textContent = '';$('file').replaceChildren();$('input').value = '';$('count').textContent = '0/2000';$('composer-label').firstChild.textContent = 'What would you like to build?';showView('preview');lock(false);status('');$('input').focus()
   }
   function canLeave() {
@@ -447,12 +461,14 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
   async function bridge(event) {
     const frame = state.frame, app = state.current, frameEpoch = state.frameEpoch
     if (!frame || !app || state.disposed || event.source !== frame.contentWindow || state.frameApplication !== app.id) return
-    const input = validateApplicationBridgeMessage(event.data,app.manifest)
+    const crm=Boolean(app.manifest.crm)
+    if (crm && event.origin!=='null') return
+    const input = crm?validateCrmBridgeMessage(event.data):validateApplicationBridgeMessage(event.data,app.manifest)
     if (!input) return
-    const reply = data => {if (!state.disposed && state.frame === frame && state.current?.id === app.id && state.frameEpoch === frameEpoch) frame.contentWindow.postMessage({type:'compass-app-response',requestId:input.requestId,...data},'*')}
-    if ((state.busy && !['list','asset'].includes(input.action)) || bridgeInFlight >= 8) {reply({ok:false,error:'The application is updating. Try again in a moment.'});return}
+    const reply = data => {if (!state.disposed && state.frame === frame && state.current?.id === app.id && state.frameEpoch === frameEpoch) frame.contentWindow.postMessage({type:crm?'compass-crm-response':'compass-app-response',requestId:input.requestId,...data},'*')}
+    if ((state.busy && !['list','asset'].includes(input.action)) || bridgeInFlight >= 8) {reply({ok:false,error:crm?'rate_limited':'The application is updating. Try again in a moment.'});return}
     if (bridgeRequests.has(input.requestId)) {const saved = bridgeRequests.get(input.requestId);if (saved) reply(saved);return}
-    if (bridgeRequests.size >= 500) {reply({ok:false,error:'Reopen this application to continue.'});return}
+    if (bridgeRequests.size >= 500) {reply({ok:false,error:crm?'stale_preview':'Reopen this application to continue.'});return}
     bridgeRequests.set(input.requestId,null)
     bridgeInFlight++
     try {
@@ -463,12 +479,18 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
         // Do not retain full image bytes for hundreds of replay IDs.
         bridgeRequests.set(input.requestId,{ok:false,error:'Request the image with a new request ID.'});reply(response);return
       }
-      const endpoint = 'apps/' + encodeURIComponent(app.id) + '/records' + (input.id ? '/' + encodeURIComponent(input.id) : '')
+      const resource=crm?'/crm/'+input.entity:'/records'
+      const endpoint = 'apps/' + encodeURIComponent(app.id) + resource + (input.id ? '/' + encodeURIComponent(input.id) : '')
       const options = {method:{list:'GET',create:'POST',update:'PUT',delete:'DELETE'}[input.action]}
-      if (['create','update'].includes(input.action)) options.body = JSON.stringify({data:input.data})
-      const result = await request(endpoint,options), response = {ok:true,...(input.action === 'list' ? {records:result.records} : result.record ? {record:result.record} : {})}
-      bridgeRequests.set(input.requestId,JSON.stringify(response).length <= 8192 ? response : {ok:false,error:'This request completed. Refresh to see the result.'});reply(response)
-    } catch {const response = {ok:false,error:'This request could not finish. Try again.'};bridgeRequests.set(input.requestId,response);reply(response)}
+      if (crm) options.headers={'x-compass-app-version':String(app.version),...(input.action==='delete'?{'x-compass-record-version':String(input.version)}:{})}
+      if (['create','update'].includes(input.action)) options.body = JSON.stringify({data:input.data,...(crm&&input.id?{version:input.version}:{})})
+      const result = await request(endpoint,options)
+      const response = crm?{data:result}:{ok:true,...(input.action === 'list' ? {records:result.records} : result.record ? {record:result.record} : {})}
+      bridgeRequests.set(input.requestId,JSON.stringify(response).length <= 8192 ? response : {ok:false,error:crm?'refresh_required':'This request completed. Refresh to see the result.'});reply(response)
+    } catch (error) {
+      const code=Object.hasOwn(CRM_BRIDGE_ERRORS,error?.code)?CRM_BRIDGE_ERRORS[error.code]:'request_failed'
+      const response = {ok:false,error:crm?code:'This request could not finish. Try again.'};bridgeRequests.set(input.requestId,response);reply(response)
+    }
     finally {bridgeInFlight--}
   }
   window.addEventListener('message',bridge)

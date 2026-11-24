@@ -10,6 +10,7 @@ import { applyHomepage } from './homepage.mjs';
 import { createSiteBuilder, publicTurn, sessionIdFrom, validateResumeIntent, MAX_TEXT } from './builder/index.mjs';
 import { createAccountAuth,isAccountDatabaseAsset,accountClientAddress } from './account/auth.mjs';
 import { createAccountApi } from './account/http.mjs';
+import { createCrmPreviewRenderer } from './generation/crm/preview.mjs';
 import {handleTemplateRequest} from './marketplace/http.mjs';
 import {inspectStorage} from './account/storage.mjs';
 import {createBackupService} from './account/backup.mjs';
@@ -59,7 +60,8 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
   };
   const site = createSiteBuilder({ env, fetchImpl });
   const accounts = createAccountAuth({env});
-  const accountApi = createAccountApi({auth:accounts,env,fetchImpl,rateLimitNow:accountRateNow});
+  const crmPreview = createCrmPreviewRenderer(root);
+  const accountApi = createAccountApi({auth:accounts,env,fetchImpl,rateLimitNow:accountRateNow,crmPreview});
   let backups,backupSchedule;
   const backupStartup=(async()=>{
     await accounts.ready;
@@ -73,7 +75,8 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
     await accounts.ready;if(!accounts.publicConfig().configured)return;
     previewScriptPolicy ||= Promise.all(['client-core.js','bridge.js'].map(name=>readFile(new URL('./generation/templates/public/'+name,import.meta.url),'utf8')))
       .then(parts=>"'sha256-"+createHash('sha256').update(parts.join('\n')).digest('base64')+"'");
-    res.setHeader('Content-Security-Policy',csp.replace("script-src 'self'","script-src 'self' "+await previewScriptPolicy));
+    const hashes=await Promise.all([previewScriptPolicy,crmPreview.scriptHash().catch(()=>null)]);
+    res.setHeader('Content-Security-Policy',csp.replace("script-src 'self'","script-src 'self' "+hashes.filter(Boolean).join(' ')));
   };
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -207,7 +210,7 @@ export function createCompassServer({ env = process.env, fetchImpl = fetch,accou
       if (retired.test(normalized)) { text(410, 'This section has been retired. Visit the COMPASS homepage at /.'); return; }
       const page = normalized === '/' || normalized === '/index.html';
       if (page) { await serveHtml(req, res, root, '/index.html', env, text); return; }
-      if (pathname.endsWith('.html') || pathname.split('/').some(part => part.startsWith('.')) || !types[extname(pathname)]) {
+      if (normalized.startsWith('/internal-crm/') || pathname.endsWith('.html') || pathname.split('/').some(part => part.startsWith('.')) || !types[extname(pathname)]) {
         text(404, 'Not found'); return;
       }
       await serveFile(req, res, root, pathname, text,env);

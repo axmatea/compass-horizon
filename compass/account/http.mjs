@@ -5,12 +5,12 @@ import {createPlatformApi,readBody as body,readRawBody,integrationCallback,publi
 import {inspectStorage} from './storage.mjs';
 import {createAccountRateLimiter} from './rate-limit.mjs';
 
-export function createAccountApi({ auth, env, fetchImpl,rateLimitNow=Date.now }) {
+export function createAccountApi({ auth, env, fetchImpl,rateLimitNow=Date.now,crmPreview }) {
   const limiter=createAccountRateLimiter({now:rateLimitNow});
   let site;
   const owners = new Map();
   let store,platform;
-  const services=()=>{store ||= createAccountStore(auth.database);platform ||= createPlatformApi({database:auth.database,env,fetchImpl,accountStore:store});return platform};
+  const services=()=>{store ||= createAccountStore(auth.database);platform ||= createPlatformApi({database:auth.database,env,fetchImpl,accountStore:store,crmPreview});return platform};
   return async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const publication=url.pathname.match(/^\/published\/([A-Za-z0-9_-]{1,80})$/);

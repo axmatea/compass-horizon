@@ -1,0 +1,6 @@
+node_modules/
+public/crm.js
+public/crm.css
+data/
+*.sqlite*
+.env*

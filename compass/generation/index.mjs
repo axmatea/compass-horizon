@@ -5,15 +5,23 @@ import {createHash} from 'node:crypto';
 import {createApplicationManifest,refineApplicationManifest,validateApplicationManifest,validateApplicationRecord} from './manifest.mjs';
 export {createApplicationManifest,refineApplicationManifest,validateApplicationManifest,validateApplicationRecord};
 const FILES = ['package.json','package-lock.json','README.md','Dockerfile','.gitignore','.dockerignore','server.mjs','lib/schema.mjs','public/index.html','public/client-core.js','public/app.js','public/styles.css','test/smoke.test.mjs'];
+const CRM_FILES = ['package.json','package-lock.json','README.md','Dockerfile','.gitignore','.dockerignore','server.mjs','build.mjs','build-config.mjs','tsconfig.json','lib/schema.mjs','lib/records.mjs','lib/store.mjs','public/index.html','src/main.tsx','src/App.tsx','src/Dashboard.tsx','src/Editor.tsx','src/client.ts','src/presentation.ts','src/styles.css','src/types.ts','test/smoke.test.mjs'];
+const CRM_TEMPLATE = 'compass-consulting-crm-v1';
 const sha = value => createHash('sha256').update(value).digest('hex');
 const escape = value => String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const trusted = path => readFile(new URL('./templates/' + path,import.meta.url),'utf8');
 
 let cachedTemplateFiles;
+let cachedCrmFiles;
 function sourceFiles(value,{assets=[],trustedAssets=false}={}) {
   const manifest=validateApplicationManifest(value);
   if(!manifest)throw Object.assign(new Error('Invalid application manifest.'),{code:'invalid_manifest'});
   if(!Array.isArray(assets)||assets.length>ASSET_LIMITS.activeFiles)throw Error('Invalid application assets.');
+  if(manifest.crm) {
+    if(assets.length)throw Error('CRM attachments are unsupported.');
+    cachedCrmFiles ||= CRM_FILES.map(path=>({path,content:readFileSync(new URL(path==='lib/schema.mjs'?'./templates/lib/schema.mjs':'./crm/template/'+path,import.meta.url),'utf8')}));
+    return {manifest,files:[...cachedCrmFiles.map(file=>({...file})),{path:'manifest.json',content:JSON.stringify(manifest,null,2)+'\n'}]};
+  }
   const ids=new Set();let total=0;
   const images=assets.map(asset=>{
     if(typeof asset.id!=='string'||!/^asset_[a-zA-Z0-9_-]{1,74}$/.test(asset.id)||ids.has(asset.id))throw Error('Invalid application asset.');ids.add(asset.id);
@@ -36,7 +44,7 @@ export function createApplicationFileMetadata(value,options) {
 }
 export async function createApplicationBundle(value,options) {
   const {manifest,files}=sourceFiles(value,options);
-  return{schema:1,template:'compass-crud-v1',manifest,files,sha256:sha(JSON.stringify(files))};
+  return{schema:1,template:manifest.crm?CRM_TEMPLATE:'compass-crud-v1',manifest,files,sha256:sha(JSON.stringify(files))};
 }
 
 export async function renderApplicationPreview(value) {
@@ -58,11 +66,14 @@ const CRC_TABLE = Array.from({length:256},(_,n) => {for(let i=0;i<8;i++)n = n & 
 function crc32(bytes) {let crc = 0xffffffff;for (const byte of bytes) crc = CRC_TABLE[(crc ^ byte) & 255] ^ crc >>> 8;return (crc ^ 0xffffffff) >>> 0;}
 
 export function exportApplicationZip(bundle) {
-  if (bundle?.template !== 'compass-crud-v1' || !Array.isArray(bundle.files) || bundle.files.length < FILES.length + 1 || bundle.files.length > FILES.length + 2 + ASSET_LIMITS.activeFiles) throw Error('Invalid application bundle.');
-  const allowed = new Set([...FILES,'manifest.json','assets.json']), seen = new Set(), local = [], central = [];
+  const crm=bundle?.template===CRM_TEMPLATE;
+  const templates=crm?CRM_FILES:FILES;
+  const minimum=templates.length+1;
+  if ((!crm&&bundle?.template!=='compass-crud-v1')||!Array.isArray(bundle.files)||bundle.files.length<minimum||bundle.files.length>minimum+(crm?0:1+ASSET_LIMITS.activeFiles)) throw Error('Invalid application bundle.');
+  const allowed = new Set([...templates,'manifest.json',...(crm?[]:['assets.json'])]), seen = new Set(), local = [], central = [];
   let offset = 0, total = 0;
   for (const file of bundle.files) {
-    const binary=/^public\/assets\/asset_[a-zA-Z0-9_-]{1,74}\.(?:png|jpg)$/.test(file.path);
+    const binary=!crm&&/^public\/assets\/asset_[a-zA-Z0-9_-]{1,74}\.(?:png|jpg)$/.test(file.path);
     if ((!allowed.has(file.path)&&!binary) || (binary ? file.encoding!=='base64' || !/^[A-Za-z0-9+/]*={0,2}$/.test(file.content||'') : file.encoding!==undefined) || seen.has(file.path) || typeof file.content !== 'string') throw Error('Invalid source path.');
     seen.add(file.path);
     const name = Buffer.from(file.path), bytes = Buffer.from(file.content,binary?'base64':'utf8'), crc = crc32(bytes);

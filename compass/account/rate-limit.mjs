@@ -4,6 +4,7 @@ export const ACCOUNT_RATE_RULES=Object.freeze({
   read:Object.freeze({limit:300,windowMs:60000}),
   mutation:Object.freeze({limit:60,windowMs:60000}),
   connect:Object.freeze({limit:10,windowMs:600000}),
+  githubImport:Object.freeze({limit:12,windowMs:60000}),
   billing:Object.freeze({limit:10,windowMs:60000}),
 });
 export function createAccountRateLimiter({now=Date.now,maxOwners=1000}={}) {
@@ -12,6 +13,7 @@ export function createAccountRateLimiter({now=Date.now,maxOwners=1000}={}) {
   const rulesFor=(method,path)=>{
     const rules=['GET','HEAD'].includes(method)?['read']:['mutation'];
     if(method==='POST'&&/^\/api\/account\/integrations\/[a-z-]+\/connect$/.test(path))rules.push('connect');
+    if(method==='POST'&&/^\/api\/account\/apps\/[A-Za-z0-9_-]{1,80}\/github-import\/(review|apply)$/.test(path))rules.push('githubImport');
     if(method==='POST'&&/^\/api\/account\/billing\/(checkout|portal|cancel)$/.test(path))rules.push('billing');
     return rules;
   };

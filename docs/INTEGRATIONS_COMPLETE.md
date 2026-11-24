@@ -227,6 +227,16 @@ explicitly uncertain: inspect the remote branch before making a newly reviewed
 request with its current head. `clientMutationId` is correlation only; the
 durable owner-scoped receipt and atomic head precondition enforce safety.
 
+## Reviewed GitHub manifest import
+
+In the staging workspace, open a saved application, then open **Integrations → GitHub → Import app manifest**. Enter a public repository and branch containing the root `manifest.json` from a COMPASS application export. **Review manifest** shows the current and proposed manifests and the GitHub commit. **Apply manifest** saves an ordinary COMPASS revision and records the full commit in its history. Reopen the application to view that revision.
+
+The provider reads repository metadata and the exact branch ref, then reads the pinned commit, its root tree, and the manifest blob. It verifies the blob hash, UTF-8 encoding, and schema. Only a regular `manifest.json` up to 32 KiB is accepted. The import preserves local image assets, app type, CRM configuration, and records. It accepts compatible visual and metadata changes and compatible field additions. Raw repository files stay outside the workspace and model context.
+
+Apply requires a review ticket bound to the account, GitHub grant, application revision, and Project Context version. The ticket expires after five minutes. The service rechecks repository identity and branch head on apply and checks application and context versions in the save transaction. If either system changed since review, request a new review. Reconnecting GitHub also invalidates older tickets. GitHub requests for import are read-only.
+
+Staging requires `COMPASS_INTEGRATIONS_MODE=staging`, `COMPASS_GITHUB_MANIFEST_IMPORT=true`, the existing random 32-byte integration encryption key, and an owned GitHub OAuth app or GitHub App with the staging callback. A GitHub App needs Contents read permission for the selected repository. Use an authorized public test repository for provider validation. The tested fixtures use official endpoint shapes and require no real tokens. Production domains remain outside the staging integration gate. Automatic branch synchronization and private repository source import require further work. [Git database API](https://docs.github.com/en/rest/git), [GitHub App permissions](https://docs.github.com/en/rest/authentication/permissions-required-for-github-apps)
+
 ## Validation and primary references
 
 Run on Node 22.23.4 (no HTTP listener or external request required):

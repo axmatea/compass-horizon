@@ -3,6 +3,7 @@ import * as oauth from 'oauth4webapi';
 import { IntegrationError, fail, ownerId, stagingConfig, secretBox, createTransport, responseJSON } from './security.mjs';
 import { providerIds, providerDefinition, readProvider, validateReadInput } from './providers.mjs';
 import { createGitHubExporter } from './github-export.mjs';
+import { createGitHubManifestImporter } from './github-import.mjs';
 export { IntegrationError } from './security.mjs';
 
 const random = () => randomBytes(32).toString('base64url');
@@ -15,6 +16,7 @@ export function createIntegrations({ database, env = {}, fetchImpl = fetch, now 
   const config = stagingConfig(env);
   const enabled = !!(config && database?.prepare && database?.exec);
   const box = enabled ? secretBox(config.key) : null;
+  const githubManifestImport = enabled && env.COMPASS_GITHUB_MANIFEST_IMPORT === 'true';
   const transport = createTransport(fetchImpl);
   const clock = () => Number(now());
   if (enabled) database.exec(`
@@ -68,7 +70,8 @@ export function createIntegrations({ database, env = {}, fetchImpl = fetch, now 
     }
     return { provider, label: def.label, configured, state, connected: state === 'connected', scopes,
       permissions: [...def.permissions, ...(exportEnabled ? ['Export reviewed files to an explicitly selected public feature branch'] : [])],
-      ...(def.limitation ? { limitation: def.limitation } : {}), publicRepositoryExport: exportEnabled };
+      ...(def.limitation ? { limitation: def.limitation } : {}), publicRepositoryExport: exportEnabled,
+      ...(provider === 'github' && githubManifestImport && configured ? { manifestImport: true } : {}) };
   }
   function status(owner) {
     ownerId(owner);
@@ -196,13 +199,13 @@ export function createIntegrations({ database, env = {}, fetchImpl = fetch, now 
     }
     return { row, token };
   }
-  async function apiRequest(owner, provider, lease, url, options = {}) {
+  async function apiRequest(owner, provider, lease, url, options = {}, limit) {
     requireConfigured(owner, provider); active(owner, provider, lease.row);
     const headers = new Headers(options.headers);
     headers.set('authorization', `Bearer ${lease.token.accessToken}`); headers.set('accept', 'application/json');
     if (provider === 'github') { headers.set('accept', 'application/vnd.github+json'); headers.set('x-github-api-version', '2026-03-10'); headers.set('user-agent', 'COMPASS-Staging-Integrations'); }
     if (provider === 'notion') headers.set('notion-version', '2026-03-11');
-    const response = await transport(url, { ...options, headers });
+    const response = await transport(url, { ...options, headers }, limit);
     active(owner, provider, lease.row);
     if (response.status === 401) { invalidate(owner, provider, lease.row); fail(409, 'integration_reconnect_required'); }
     if (!response.ok) fail(response.status === 429 ? 429 : 502, response.status === 429 ? 'integration_rate_limited' : 'integration_provider_rejected');
@@ -255,6 +258,7 @@ export function createIntegrations({ database, env = {}, fetchImpl = fetch, now 
       ...(details.def.prefix === 'GOOGLE' ? { notice: 'Google revocation can also invalidate other grants for this OAuth application.' } : {}) };
   }
   const exporter = enabled ? createGitHubExporter({ database, now: clock }) : null;
+  const importer = githubManifestImport ? createGitHubManifestImporter({ box, now: clock }) : null;
   async function exportGitHub(owner, input) {
     requireConfigured(owner, 'github');
     if (env.COMPASS_GITHUB_PUBLIC_EXPORT !== 'true') fail(403, 'integration_export_not_enabled');
@@ -262,5 +266,16 @@ export function createIntegrations({ database, env = {}, fetchImpl = fetch, now 
     if (!lease.token.publicRepositoryExport || !lease.token.appMode && !lease.token.scopes.includes('public_repo')) fail(403, 'integration_export_grant_required');
     return exporter(owner, input, { request: (url, options) => apiRequest(owner, 'github', lease, url, options) });
   }
-  return Object.freeze({ status, connect, callback, disconnect, read, exportGitHub });
+  async function importGitHubManifest(owner, operation, input, { application, contextVersion }) {
+    requireConfigured(owner, 'github');
+    if (!importer) fail(403, 'integration_import_not_enabled');
+    const lease = await access(owner, 'github');
+    const result = await importer[operation](owner, input, { application, contextVersion, generation: lease.row.generation,
+      request: (url, options, limit) => apiRequest(owner, 'github', lease, url, options, limit) });
+    active(owner, 'github', lease.row);
+    return result;
+  }
+  return Object.freeze({ status, connect, callback, disconnect, read, exportGitHub,
+    reviewGitHubManifest: (owner, input, scope) => importGitHubManifest(owner, 'review', input, scope),
+    applyGitHubManifest: (owner, ticket, scope) => importGitHubManifest(owner, 'apply', ticket, scope) });
 }
