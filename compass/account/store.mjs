@@ -58,14 +58,20 @@ export function createAccountStore(database) {
     // New/imported projects always get a server-generated id. Updating another
     // owner's id returns the same 404 as a missing project.
     const existing = input?.projectId ? getProject(owner, input.projectId) : null;
+    const expected=input?.expectedUpdatedAt;
+    if (expected!==undefined && (!existing || typeof expected!=='string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(expected))) reject(400,'invalid_project_version');
+    if (expected!==undefined&&expected!==existing.updatedAt) reject(409,'project_version_conflict');
     const id = existing?.id || 'p_' + randomUUID();
     if (!existing && database.prepare('SELECT count(*) AS n FROM compass_project WHERE owner = ?').get(owner).n >= 20) reject(409, 'project_limit');
-    const at = stamp();
+    const at = new Date(Math.max(Date.now(),existing?Date.parse(existing.updatedAt)+1:0)).toISOString();
     const project = normalizeProject({ id, name:input?.name, revisions:input?.revisions, createdAt:existing?.createdAt || at, updatedAt:at });
     if (!project) reject(400, 'invalid_project');
     if(!project.revisions.every(revision=>validateEditableHtml(revision.render.html).ok && (!revision.documentBase || validateEditableHtml(revision.documentBase).ok)))reject(400,'invalid_project');
-    database.prepare('INSERT INTO compass_project(id, owner, document, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET document=excluded.document, updated_at=excluded.updated_at WHERE compass_project.owner=excluded.owner')
-      .run(id, owner, JSON.stringify(project), at);
+    if (existing) {
+      const updated=database.prepare('UPDATE compass_project SET document=?,updated_at=? WHERE id=? AND owner=? AND updated_at=?')
+        .run(JSON.stringify(project),at,id,owner,existing.updatedAt);
+      if(updated.changes!==1)reject(409,'project_version_conflict');
+    } else database.prepare('INSERT INTO compass_project(id,owner,document,updated_at) VALUES (?,?,?,?)').run(id,owner,JSON.stringify(project),at);
     return project;
   }
   function deleteProject(owner, id) {

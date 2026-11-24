@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "COMPASS",
+    "slug": "compass-mobile",
+    "version": "0.1.0",
+    "scheme": "compass",
+    "orientation": "default",
+    "platforms": ["ios", "android"],
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "world.mycompass.mobile",
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
+    },
+    "android": {
+      "package": "world.mycompass.mobile",
+      "versionCode": 1,
+      "blockedPermissions": ["android.permission.RECORD_AUDIO", "android.permission.CAMERA"]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-notifications",
+      ["expo-image-picker", {
+        "photosPermission": "Allow COMPASS to add a photo you choose to your project.",
+        "cameraPermission": false,
+        "microphonePermission": false
+      }]
+    ]
+  }
+}

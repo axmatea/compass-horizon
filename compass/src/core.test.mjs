@@ -126,7 +126,7 @@ test('runtime dependencies stay pinned and retired interfaces stay absent', asyn
   assert.deepEqual(Object.keys(pkg.dependencies ?? {}), ['@aws-sdk/client-s3','better-auth','css-tree','oauth4webapi','parse5','stripe']);
   for(const version of Object.values(pkg.dependencies))assert.match(version,/^\d+\.\d+\.\d+$/);
   assert.match(pkg.dependencies['better-auth'], /^\d+\.\d+\.\d+$/, 'auth dependency is pinned');
-  assert.deepEqual(Object.keys(pkg.devDependencies), ['react','react-dom','vite']);
+  assert.deepEqual(Object.keys(pkg.devDependencies), ['qrcode','react','react-dom','vite']);
   for(const version of Object.values(pkg.devDependencies))assert.match(version,/^\d+\.\d+\.\d+$/);
   const vite = await read('vite.config.ts');
   assert.match(vite, /index\.html/);

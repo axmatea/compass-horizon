@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "AI MEDIA Personal OS",
+    "slug": "compass-personal-os",
+    "version": "0.1.0",
+    "scheme": "compass-personalos",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "world.mycompass.personalos",
+      "buildNumber": "1",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "world.mycompass.personalos",
+      "versionCode": 1
+    },
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Take a photo to attach it to your project.",
+          "photosPermission": "Pick a photo to attach it to your project.",
+          "microphonePermission": false
+        }
+      ]
+    ]
+  }
+}

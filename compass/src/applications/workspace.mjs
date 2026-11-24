@@ -1,16 +1,19 @@
 import './workspace.css'
-import {validateApplicationManifest} from '../../generation/templates/lib/schema.mjs'
+import {validateApplicationManifest,MOBILE_PLATFORMS} from '../../generation/templates/lib/schema.mjs'
 import {validateApplicationBridgeMessage,validateCrmBridgeMessage} from './bridge.mjs'
 import {createDictation} from '../demo/voice.mjs'
 import {draftCanAutoBuild,disarmDraft} from '../create/draft.mjs'
 import {applicationResultOutcome,requireApplicationVersion} from './result.mjs'
 import {mountPaneLayout} from '../builder/pane-layout.mjs'
 import {mountProjectContext,projectContextMarkup} from './project-context.mjs'
+import {drawPhoneProjectQr,phoneProjectHref} from './phone-link.mjs'
 export {validateApplicationBridgeMessage} from './bridge.mjs'
 
 const APP_ID = /^[A-Za-z0-9_-]{1,80}$/
 const APP_KINDS = {tracker:'Project tracker',crm:'CRM',booking:'Booking records',inventory:'Inventory'}
 const CRM_MODULES = ['Clients','Contacts','Pipeline','Follow-ups','Proposals','Revenue']
+const platformLabels = {ios:'iOS',android:'Android','cross-platform':'iOS & Android'}
+const viewports=['desktop','tablet','mobile','iphone','android']
 const CRM_BRIDGE_ERRORS = {version_conflict:'stale_preview',record_version_conflict:'record_conflict',crm_record_in_use:'record_in_use',crm_reference_missing:'invalid_reference',crm_record_limit:'record_limit',invalid_record:'invalid_record',not_found:'not_found',account_rate_limited:'rate_limited'}
 const element = (tag,text,className) => {const node = document.createElement(tag);if (text != null) node.textContent = String(text);if (className) node.className = className;return node}
 
@@ -21,16 +24,19 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   container.innerHTML = `<div class="aw-heading"><h2>Projects</h2><button type="button" data-aw="new">Start from an idea</button></div>
 <div class="aw-layout"><aside class="aw-projects" aria-label="Your applications"><div class="aw-section-heading"><h3>Applications</h3><button type="button" data-aw="refresh-projects" aria-label="Refresh projects">↻</button></div><ul data-aw="projects"></ul><p data-aw="project-status" role="status"></p></aside><div class="aw-resize" data-resize-pane="projects" aria-label="Resize projects panel"></div>
 <section class="aw-canvas" aria-label="Application preview"><div class="aw-toolbar"><div><h3 data-aw="title">Your next application</h3><p data-aw="source"></p></div><div class="aw-tabs" role="group" aria-label="Application view"><button type="button" data-aw="preview-tab" aria-pressed="true">Preview</button><button type="button" data-aw="code-tab" aria-pressed="false" disabled>Code</button></div></div>
-<div class="aw-actions"><div class="aw-tabs" role="group" aria-label="Preview width"><button type="button" data-aw="desktop" aria-pressed="true">Desktop</button><button type="button" data-aw="tablet" aria-pressed="false">Tablet</button><button type="button" data-aw="mobile" aria-pressed="false">Mobile</button></div><div class="aw-tabs"><button type="button" data-aw="undo" disabled>Undo</button><button type="button" data-aw="assets-tab" aria-pressed="false" disabled>Assets</button><button type="button" data-aw="download" disabled>Export</button></div></div>
+<div class="aw-actions"><div class="aw-tabs" role="group" aria-label="Preview width"><button type="button" data-aw="desktop" aria-pressed="true">Desktop</button><button type="button" data-aw="tablet" aria-pressed="false">Tablet</button><button type="button" data-aw="mobile" aria-pressed="false">Mobile</button><button type="button" data-aw="iphone" aria-pressed="false" hidden>iPhone</button><button type="button" data-aw="android" aria-pressed="false" hidden>Android</button></div><div class="aw-tabs"><button type="button" data-aw="undo" disabled>Undo</button><button type="button" data-aw="assets-tab" aria-pressed="false" disabled>Assets</button><button type="button" data-aw="phone-link" hidden>Open on phone</button><button type="button" data-aw="download" disabled>Export</button></div></div>
 <details class="aw-design" data-aw="design"><summary>Design</summary><form data-aw="design-form"><label>Theme<select name="mode"><option value="light">Light</option><option value="dark">Dark</option></select></label><label>Accent<select name="accent"><option value="indigo">Indigo</option><option value="blue">Blue</option><option value="slate">Slate</option><option value="rose">Rose</option><option value="amber">Amber</option></select></label><label>Type<select name="font"><option value="sans">Sans</option><option value="serif">Serif</option></select></label><label>Spacing<select name="density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label><button type="submit" data-aw="apply-design" disabled>Apply design</button></form></details>
 <div class="aw-preview" data-aw="preview"><p class="aw-empty" data-aw="empty">Describe the application you want to work with.</p></div>
 <section class="aw-code" data-aw="code" aria-label="Application source" hidden><div class="aw-file-toolbar"><label>File<select data-aw="file"></select></label><button type="button" data-aw="copy-file">Copy</button></div><p data-aw="file-meta" class="aw-file-meta"></p><pre data-aw="read-only-source" tabindex="0"><code data-aw="file-content"></code></pre><label class="aw-editor-label" data-aw="editor-label" hidden><span class="sr">Edit manifest.json</span><textarea data-aw="manifest-editor" spellcheck="false" aria-label="Edit manifest.json"></textarea></label><div class="aw-editor-actions" data-aw="editor-actions" hidden><p data-aw="editor-status" role="status"></p><button type="button" data-aw="reload-manifest">Discard edits</button><button type="button" data-aw="apply-manifest" disabled>Apply manifest</button></div></section>
 <section class="aw-assets" data-aw="assets" aria-label="Project images" hidden><div data-aw="dropzone" class="aw-dropzone"><label>Drop an image here<input data-aw="upload-asset" type="file" accept="image/png,image/jpeg"></label><p>PNG or JPEG · up to 512 KB</p></div><p data-aw="asset-quota" class="aw-file-meta"></p><div data-aw="asset-list" class="aw-asset-list"></div></section>
 <details class="aw-history"><summary>History</summary><p>Restore a revision. Records stay intact.</p><ol data-aw="history"></ol></details></section><div class="aw-resize" data-resize-pane="conversation" aria-label="Resize conversation panel"></div>
-<aside class="aw-conversation" aria-label="Build your application"><form data-aw="composer"><label data-aw="composer-label">What would you like to build?<textarea id="application-prompt" data-aw="input" rows="5" maxlength="2000" placeholder="A CRM for my studio…" required></textarea></label><div class="aw-compose-actions"><button type="button" data-aw="voice" aria-pressed="false">Speak</button><span data-aw="count">0/2000</span><button type="button" data-aw="request-plan">Plan</button><button type="submit" data-aw="submit">Build</button></div><button type="button" data-aw="cancel-build" class="aw-cancel" hidden>Cancel</button></form><p data-aw="voice-status" class="aw-status" role="status"></p><p data-aw="status" class="aw-status" role="status" aria-live="polite"></p>
+<aside class="aw-conversation" aria-label="Build your application"><form data-aw="composer"><label data-aw="composer-label">What would you like to build?<textarea id="application-prompt" data-aw="input" rows="5" maxlength="2000" placeholder="A CRM for my studio…" required></textarea></label><label class="aw-target" data-aw="target-field">Build target<select data-aw="build-target"><option value="">Web app</option><option value="ios">iOS app</option><option value="android">Android app</option><option value="cross-platform">iOS &amp; Android</option></select></label><p class="aw-target-note" data-aw="target-note" hidden>Mobile projects start from Personal OS.</p><div class="aw-compose-actions"><button type="button" data-aw="voice" aria-pressed="false">Speak</button><span data-aw="count">0/2000</span><button type="button" data-aw="request-plan">Plan</button><button type="submit" data-aw="submit">Build</button></div><button type="button" data-aw="cancel-build" class="aw-cancel" hidden>Cancel</button></form><p data-aw="voice-status" class="aw-status" role="status"></p><p data-aw="status" class="aw-status" role="status" aria-live="polite"></p>
 <section class="aw-plan" data-aw="plan" aria-label="Build plan" hidden><h3 data-aw="plan-heading" tabindex="-1">Build plan</h3><p class="aw-plan-source" data-aw="plan-source"></p><p class="aw-plan-title" data-aw="plan-title"></p><h4 data-aw="plan-kind"></h4><ul data-aw="plan-fields" aria-label="Proposed record fields"></ul><details data-aw="plan-source-details"><summary>Edit plan JSON</summary><label><span class="sr">Plan manifest</span><textarea data-aw="plan-editor" rows="8" maxlength="32768" spellcheck="false" aria-label="Plan manifest"></textarea></label></details><p class="aw-plan-warning" data-aw="plan-warning" role="status"></p><div class="aw-plan-actions"><button type="button" data-aw="discard-plan">Discard</button><button type="button" data-aw="apply-plan">Build from plan</button></div></section>
-${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><details class="aw-runtime-details"><summary>Project settings</summary><p data-aw="settings-meta"></p><button type="button" data-aw="download-data" disabled>Export records</button><button type="button" data-aw="delete-current" disabled>Delete application</button><details><summary>Runtime &amp; shortcuts</summary><p>Trusted application runtime. The isolated preview has no account token or network access.</p><p>⌘ / Ctrl + Enter: apply or build<br>⌘ / Ctrl + Shift + F: files<br>Escape: cancel or stop voice</p><p>Voice uses your browser’s speech service. Only submitted text reaches COMPASS.</p></details></details></aside></div>`
+${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><details class="aw-runtime-details"><summary>Project settings</summary><p data-aw="settings-meta"></p><button type="button" data-aw="download-data" disabled>Export records</button><button type="button" data-aw="delete-current" disabled>Delete application</button><details><summary>Runtime &amp; shortcuts</summary><p>Trusted application runtime. The isolated preview has no account token or network access.</p><p>⌘ / Ctrl + Enter: apply or build<br>⌘ / Ctrl + Shift + F: files<br>Escape: cancel or stop voice</p><p>Voice uses your browser’s speech service. Only submitted text reaches COMPASS.</p></details></details></aside></div><dialog class="aw-phone-dialog" data-aw="phone-dialog" aria-labelledby="aw-phone-title"><h3 id="aw-phone-title">Open on phone</h3><p>Scan for the private browser preview. Sign in with the same account.</p><canvas data-aw="phone-qr" aria-label="QR for the private browser preview"></canvas><p data-aw="phone-status" role="status"></p><a data-aw="phone-address" target="_blank" rel="noopener noreferrer">Open preview link</a><button type="button" data-aw="phone-close">Close</button></dialog>`
   const $ = key => container.querySelector(`[data-aw="${key}"]`)
+  $('build-target').value=initialDraft?.platform || ''
+  const selectedPlatform=()=>MOBILE_PLATFORMS.includes($('build-target').value)?$('build-target').value:undefined
+  $('target-note').hidden=!selectedPlatform()
   const state = {current:null,epoch:0,busy:false,frame:null,frameApplication:null,frameEpoch:0,disposed:false,pending:null,source:null,viewport:'desktop',view:'preview',cancelController:null,editor:null,revisions:[],assets:[],assetEpoch:0,assetUrls:new Set()}
   let planDraft = null
   let planRequest = null
@@ -81,6 +87,20 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     state.view=view
     for(const name of ['preview','code','assets']){$(name).hidden=name!==view;$(name+'-tab').setAttribute('aria-pressed',String(name===view))}
   }
+  function selectViewport(mode) {
+    state.viewport=mode
+    for(const name of viewports) $(name).setAttribute('aria-pressed',String(name===mode))
+    if(state.frame)state.frame.dataset.viewport=mode
+  }
+  function showApplicationTarget(platform) {
+    for (const mode of viewports) $(mode).hidden=Boolean(platform)!==['iphone','android'].includes(mode)
+    $('phone-link').hidden=!platform
+    $('download').textContent=platform?'Export native source':'Export'
+    $('target-field').hidden=Boolean(state.current)
+    $('target-note').hidden=Boolean(state.current)||!selectedPlatform()
+    const phoneMode=['iphone','android'].includes(state.viewport)
+    if (Boolean(platform)!==phoneMode) selectViewport(platform==='android'?'android':platform?'iphone':'desktop')
+  }
   function replaceFrame(html,appId) {
     state.frame?.remove();bridgeRequests.clear()
     const frame = element('iframe');frame.title = state.current.manifest.title + ' application';frame.setAttribute('sandbox','allow-scripts');frame.referrerPolicy = 'no-referrer';frame.className = 'aw-frame';frame.dataset.viewport=state.viewport
@@ -98,9 +118,10 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     if(!undoRestoring)undoTargets=null
     state.current = app;state.source = null;state.assetEpoch++;clearAssetUrls();state.assets=[];$('asset-list').replaceChildren()
     $('assets-tab').hidden=Boolean(app.manifest.crm)
+    showApplicationTarget(app.manifest.mobile?.platform)
     $('title').textContent = app.manifest.title
-    $('source').textContent = app.source === 'model' ? 'AI build' : 'Prepared build'
-    $('settings-meta').textContent = `${app.manifest.kind.toUpperCase()} · Version ${app.version}`
+    $('source').textContent = app.manifest.mobile ? 'Browser preview · '+platformLabels[app.manifest.mobile.platform] : app.source === 'model' ? 'AI build' : 'Prepared build'
+    $('settings-meta').textContent = `${platformLabels[app.manifest.mobile?.platform] || app.manifest.kind.toUpperCase()} · Version ${app.version}`
     $('delete-current').textContent = 'Delete this application';delete $('delete-current').dataset.confirm
     $('composer-label').firstChild.textContent = 'What would you change?'
     fillDesign();replaceFrame(html,app.id);showView('preview')
@@ -183,7 +204,7 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     finally {if (!state.disposed && run === state.epoch) lock(false)}
   }
   function operation(text,creating) {
-    const context = (creating ? 'new' : state.current.id + ':' + state.current.version) + ':' + text
+    const context = (creating ? 'new:'+(selectedPlatform()||'web') : state.current.id + ':' + state.current.version) + ':' + text
     if (state.pending?.context !== context) state.pending = {context,key:creating && initialDraft?.ready && initialDraft.prompt === text ? 'application_draft_' + initialDraft.id : 'application_' + crypto.randomUUID()}
     return state.pending.key
   }
@@ -200,11 +221,15 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     $('plan').hidden = true
   }
   function readPlanManifest() {
-    try {return validateApplicationManifest(JSON.parse($('plan-editor').value))}
+    try {
+      const manifest=validateApplicationManifest(JSON.parse($('plan-editor').value))
+      const target=state.current?state.current.manifest.mobile?.platform:selectedPlatform()
+      return manifest?.mobile?.platform===target?manifest:null
+    }
     catch {return null}
   }
   function planMatchesProject(plan) {
-    return plan.appId === (state.current?.id ?? null) && plan.baseVersion === (state.current?.version ?? null)
+    return plan.appId === (state.current?.id ?? null) && plan.baseVersion === (state.current?.version ?? null) && (Boolean(state.current) || plan.platform===selectedPlatform())
   }
   function planContextChanged(plan) {
     return plan.staleContext || (plan.appId === state.current?.id && Number.isInteger(plan.contextVersion) && contextPanel.version > plan.contextVersion)
@@ -217,7 +242,7 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     $('plan-warning').textContent = staleContext ? 'Project context changed. Make a new plan. Your edits are kept.' : stale ? 'This project changed. Copy your edits or make a new plan.' : planDraft && !manifest ? 'Enter a valid application manifest.' : ''
     $('plan-editor').setAttribute('aria-invalid', String(Boolean(planDraft && !manifest)))
     $('plan-title').textContent = manifest?.title || ''
-    $('plan-kind').textContent = manifest ? (manifest.crm?'Consulting CRM':APP_KINDS[manifest.kind] + ' · ' + manifest.entity.plural) : ''
+    $('plan-kind').textContent = manifest ? (manifest.mobile?'Personal OS · '+platformLabels[manifest.mobile.platform]:manifest.crm?'Consulting CRM':APP_KINDS[manifest.kind] + ' · ' + manifest.entity.plural) : ''
     const fields=manifest?.crm?CRM_MODULES:(manifest?.entity.fields||[]).map(field=>field.label)
     $('plan-fields').replaceChildren(...fields.map(label=>element('li',label)))
   }
@@ -232,7 +257,8 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     dictation?.stop()
     const appId = state.current?.id ?? null
     const baseVersion = state.current?.version ?? null
-    const context = JSON.stringify([appId, baseVersion, contextPanel.version, text])
+    const platform=appId?undefined:selectedPlatform()
+    const context = JSON.stringify([appId, baseVersion, contextPanel.version, platform, text])
     if (planRequest?.context !== context) planRequest = {context, key:'plan_' + crypto.randomUUID()}
     const run = ++state.epoch
     state.cancelController = new AbortController()
@@ -241,14 +267,14 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     try {
       const result = await request(appId ? path('plan') : 'apps/plan', {
         method:'POST', headers:{'idempotency-key':planRequest.key},
-        body:JSON.stringify({text,...(appId ? {version:baseVersion} : {})}), signal:state.cancelController.signal,
+        body:JSON.stringify({text,...(appId ? {version:baseVersion} : platform?{platform}:{})}), signal:state.cancelController.signal,
       })
       if (state.disposed || run !== state.epoch) return
       const manifest = validateApplicationManifest(result?.manifest)
       if (!manifest || result.baseVersion !== baseVersion || !['model','prepared'].includes(result.source)) {
         throw Error('The plan response was incomplete.')
       }
-      planDraft = {text,appId,baseVersion,contextVersion:result.contextVersion,stale:false,staleContext:false,receipt:null}
+      planDraft = {text,appId,baseVersion,platform,contextVersion:result.contextVersion,stale:false,staleContext:false,receipt:null}
       planRequest = null
       $('plan-editor').value = JSON.stringify(manifest,null,2)
       $('plan-source-details').open = false
@@ -279,7 +305,8 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     dictation?.stop()
     const creating = !state.current, targetId = state.current?.id
     let endpoint = creating ? 'apps' : path('refine')
-    let body = JSON.stringify({text})
+    const platform=creating?selectedPlatform():undefined
+    let body = JSON.stringify({text,...(platform?{platform}:{})})
     let key
     if (reviewedManifest) {
       endpoint = creating ? 'apps/build-plan' : path('build-plan')
@@ -332,6 +359,7 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
     planRequest = null
     contextPanel.selectProject(null)
     state.epoch++;state.current = null;state.source = null;state.editor=null;state.revisions=[];state.assets=[];state.assetEpoch++;clearAssetUrls();$('asset-list').replaceChildren();state.pending = null;state.frame?.remove();state.frame = null;state.frameApplication = null;bridgeRequests.clear()
+    $('build-target').value='';showApplicationTarget()
     $('assets-tab').hidden=false
     dictation?.stop();$('settings-meta').textContent = '';$('empty').hidden = false;$('title').textContent = 'Your next application';$('source').textContent = '';$('conversation').replaceChildren();$('history').replaceChildren();$('file-content').textContent = '';$('file').replaceChildren();$('input').value = '';$('count').textContent = '0/2000';$('composer-label').firstChild.textContent = 'What would you like to build?';showView('preview');lock(false);status('');$('input').focus()
   }
@@ -520,7 +548,19 @@ ${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><deta
   $('new').addEventListener('click',reset);$('refresh-projects').addEventListener('click',refresh)
   $('preview-tab').addEventListener('click',() => showView('preview'))
   $('code-tab').addEventListener('click',() => {if (state.source) showView('code');else void source().catch(error => status(error.message,true))})
-  for (const mode of ['desktop','tablet','mobile']) $(mode).addEventListener('click',() => {state.viewport=mode;for(const name of ['desktop','tablet','mobile'])$(name).setAttribute('aria-pressed',String(name===mode));if(state.frame)state.frame.dataset.viewport=mode})
+  for (const mode of viewports) $(mode).addEventListener('click',()=>selectViewport(mode))
+  $('build-target').addEventListener('change',()=>{$('target-note').hidden=!selectedPlatform();updatePlanStatus()})
+  $('phone-link').addEventListener('click',async()=>{
+    const app=state.current,dialog=$('phone-dialog'),canvas=$('phone-qr')
+    if (!app?.manifest.mobile||state.busy||dialog.open) return
+    try {
+      const href=phoneProjectHref(location.origin,app.id)
+      $('phone-address').href=href;canvas.hidden=true;$('phone-status').textContent='';dialog.showModal()
+      await drawPhoneProjectQr(canvas,href)
+      if(dialog.open&&state.current?.id===app.id)canvas.hidden=false
+    } catch { $('phone-status').textContent='QR unavailable. Use the preview link.' }
+  })
+  $('phone-close').addEventListener('click',()=>$('phone-dialog').close())
   $('file').addEventListener('change',paintFile)
   $('copy-file').addEventListener('click',async () => {try {await navigator.clipboard.writeText($('file').value==='manifest.json' ? $('manifest-editor').value : $('file-content').textContent);status('File copied.')}catch {status('Copy is unavailable here. Export the source instead.',true)}})
   $('manifest-editor').addEventListener('input',()=>{if(!state.editor)return;state.editor.text=$('manifest-editor').value;state.editor.dirty=state.editor.text!==JSON.stringify(state.current.manifest,null,2);updateEditorStatus()})

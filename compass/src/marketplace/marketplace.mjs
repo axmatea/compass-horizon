@@ -1,5 +1,6 @@
 import { TEMPLATE_CATALOG, getTemplate, filterTemplates } from '../../marketplace/catalog.mjs'
 import { readDraft, validPrompt, writeDraft } from '../create/draft.mjs'
+import { MOBILE_PLATFORMS } from '../../generation/templates/lib/schema.mjs'
 
 const FORMAT_LABELS = { website: 'Website', 'mobile-web': 'Mobile web', 'ios-android': 'iOS & Android' }
 let instanceSequence = 0
@@ -55,7 +56,7 @@ export function mountMarketplace({
     const startStatus = doc.getElementById('market-start-status')
     const projectType = () => start.elements.projectType.value
     listen(start, 'change', () => {
-      idea.placeholder = projectType() === 'website'
+      idea.placeholder = MOBILE_PLATFORMS.includes(projectType()) ? 'Build my Personal OS for clients, tasks, and projects…' : projectType() === 'website'
         ? 'A minimal website for an architecture studio…'
         : 'A project tracker for a small design studio…'
     })
@@ -67,12 +68,13 @@ export function mountMarketplace({
         idea.focus()
         return
       }
-      const app = projectType() === 'app'
+      const platform=MOBILE_PLATFORMS.includes(projectType())?projectType():null
+      const app = Boolean(platform) || projectType() === 'app'
       const previous = readDraft()
       if (previous && previous.prompt !== prompt && !view.confirm('Replace the idea you started in this tab?')) return
       const handoff = writeDraft({
         prompt, preferences: { projectType: app ? 'internal-tool' : 'website' },
-        ready: false, ownerId: null,
+        ready: false, ownerId: null,platform,
       })
       if (handoff.ok) view.location.assign(app ? '/create?app=1' : '/create')
       else startStatus.textContent = 'Allow session storage to continue. Your idea is still here.'

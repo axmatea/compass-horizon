@@ -36,7 +36,7 @@ export async function planCrm({text,local,previous,projectContext,clients}) {
   const editable=({title,description,theme,crm})=>({title,description,theme,crm});
   const result=await completeJson({clients,maxTokens:650,messages:[{
     role:'system',content:'Configure a working consulting CRM. Return one JSON object with title (max 64), description (max 240), theme and crm, using the editable example as contract. No code, URLs, services, credentials, or records. Theme: mode light/dark, accent indigo/blue/slate/rose/amber, font sans/serif, density comfortable/compact. Currency: USD/EUR/GBP/CAD/AUD. Preserve the currency on existing projects unless explicitly asked to change it. CRM stages are display labels, max 32 chars and unique, with fixed keys new/qualified/proposal/negotiation/won/lost. Carry forward existing decisions when relevant. The current request takes precedence. Only the owner updates saved project context.'
-  },{role:'user',content:JSON.stringify({request:text,current:previous?editable(previous):null,example:editable(local.manifest),...(projectContext?{projectContext}:{})})}],accept:value=>Boolean(compiled=compileCrmDraft(local.manifest,value))});
+  },{role:'user',content:JSON.stringify({request:text,current:previous?editable(previous):null,example:editable(local.manifest),...(local.manifest.mobile?{targetPlatform:local.manifest.mobile.platform}:{}),...(projectContext?{projectContext}:{})})}],accept:value=>Boolean(compiled=compileCrmDraft(local.manifest,value))});
   if (!result.json || !compiled) {
     return {...local,source:'prepared',modelUsed:true,buildReport:{outcome:'prepared',diagnostics:['No valid model draft. Used the verified CRM configuration.']}};
   }

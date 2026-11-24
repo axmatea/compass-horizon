@@ -8,6 +8,7 @@ import {inspectStorage} from '../account/storage.mjs';
 import {ASSET_LIMITS} from '../generation/image.mjs';
 import {withUsageTracking} from '../usage.mjs';
 import {crmEntities} from '../generation/crm/template/lib/records.mjs';
+import {MOBILE_PLATFORMS} from '../generation/templates/lib/schema.mjs';
 
 const fail=(status,code)=>{throw Object.assign(new Error(code),{status,code})};
 export async function readRawBody(req,max=1048576) {
@@ -52,13 +53,15 @@ export function createPlatformApi({database,env,fetchImpl,accountStore,crmPrevie
     await crmPreview.scriptHash();
   };
   async function generate(owner,req,input,appId,{previewPlan=false}={}) {
-    fields(input,previewPlan&&appId?['text','version']:['text']);
+    fields(input,appId?(previewPlan?['text','version']:['text']):['text','platform']);
     const text=applicationPrompt(input.text);
+    const platform=input.platform;
+    if (platform!==undefined&&!MOBILE_PLATFORMS.includes(platform)) fail(400,'invalid_platform');
     const version=previewPlan&&appId?requireVersion(input.version):null;
     // Receipts precede runtime/resource lookup, so lost replies replay after a
     // restart without charging again or creating a duplicate application.
     const operation=accountStore.beginOperation(owner,req.headers['idempotency-key'],
-      previewPlan?{kind:'application_plan',appId:appId||null,text,version}:{kind:'application',appId:appId||null,text});
+      {...(previewPlan?{kind:'application_plan',appId:appId||null,text,version}:{kind:'application',appId:appId||null,text}),...(platform?{platform}:{})});
     if(operation.replay)return operation.result;
     let reserved=false;
     try {
@@ -69,7 +72,7 @@ export function createPlatformApi({database,env,fetchImpl,accountStore,crmPrevie
       billing.reserve(owner,operation.id);reserved=true;
       const plan=await withUsageTracking(event=>recordUsage(owner,operation.id,event),()=>applicationPlan({
         text,previous:previous?.manifest,preferences:accountStore.profile(owner).preferences,
-        env,fetchImpl,review:previewPlan,projectContext:activeProjectContext(context),
+        env,fetchImpl,review:previewPlan,projectContext:activeProjectContext(context),platform,
       }));
       await confirmCrmBuild(plan.manifest);
       const report=plan.manifest.crm?{buildReport:plan.buildReport||{outcome:'verified',diagnostics:[]}}:{};

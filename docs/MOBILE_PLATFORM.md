@@ -1,0 +1,46 @@
+# COMPASS Mobile and native project delivery
+
+COMPASS Mobile and the generated AI MEDIA Personal OS share an Expo and React Native toolchain. They are separate applications. COMPASS Mobile continues projects using the COMPASS service. The Personal OS source is an editable generated application with its own build and data boundary.
+
+Choose **iOS app**, **Android app**, or **iOS &amp; Android** on the homepage to start a Personal OS project. The Builder keeps its configuration, revisions, Project Context, and browser preview records in your account. **Export native source** downloads the selected Expo project with its app name, platform configuration, and pinned dependencies. It excludes account records and session credentials. The exported application saves its own operational records on the current device.
+
+The official client connects to the existing account through verified email sign-in and shares app plans, website projects, preferences, revisions, and usage with the web Builder. Both clients check the last loaded website timestamp before saving a change. Mobile social sign-in requires a native OAuth callback. User-initiated local reminders in Personal OS and local foreground build notifications in COMPASS Mobile use device permissions. Remote push, in-app hosted AI inside exported projects, and administrative account deletion require separate backend work.
+
+## Architecture
+
+| Option | Trade-off |
+| --- | --- |
+| React Native and Expo SDK 58 | One TypeScript source project with real iOS and Android UI. Expo generates the native projects and coordinates tested dependencies and permissions. It fits the existing COMPASS TypeScript generation pipeline and native Marketplace starters. [Expo SDK](https://expo.dev/sdk/58), [React Native](https://reactnative.dev/) |
+| Bare React Native | Provides direct native project ownership with a larger maintenance surface for build configuration and device libraries. Expo can generate the native files when explicit native changes are required. [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/) |
+| Flutter | Offers a mature multiplatform widget system and native packaging. Using it would add a separate Dart toolchain and generation target. [Flutter architecture](https://docs.flutter.dev/resources/architectural-overview) |
+| SwiftUI and Kotlin with Compose | First-party options give direct control over platform UI and APIs. Supporting both would require separate templates, tests, and build paths. [SwiftUI](https://developer.apple.com/xcode/swiftui/), [Jetpack Compose](https://developer.android.com/compose) |
+
+SDK 58 targets React Native 0.88 and React 19.3. The official toolchain table lists Node 22.13+, Xcode 26.4+, Android compile SDK 37, and Android target SDK 36. The supported desktop verification path uses Node 22 LTS, Xcode 27 and Java 17. [Compatibility table](https://docs.expo.dev/versions/latest/#support-for-android-and-ios-versions), [Android setup](https://docs.expo.dev/get-started/set-up-your-environment/)
+
+## Build verification
+
+From `mobile/` for the official client or an exported Personal OS source directory, install pinned dependencies with `npm ci`. Run `npm run check` and `npm test`. Use Expo CLI to compile native code on a machine with the appropriate toolchain. A JavaScript bundle export and browser phone frame are useful checks for rendering and code, and native compilation, installation and device tests verify separate behavior. [Expo CLI build commands](https://docs.expo.dev/more/expo-cli/#building)
+
+The [native CI workflow](../.github/workflows/mobile.yml) runs on COMPASS pull requests that change mobile source and can also be run manually from GitHub Actions. It builds the official client and materializes the Personal OS package through the same export function that serves user projects. The jobs use the standard `xcode-27` and `ubuntu-24.04` runners and read-only repository permissions. Build artifacts last one day. [Runner images](https://github.com/actions/runner-images#available-images), [GitHub Actions billing](https://docs.github.com/en/actions/concepts/billing-and-usage)
+
+- **iOS Simulator** compiles a Release `.app` for the simulator SDK without device signing. The startup check installs it on a runner iPhone simulator, checks the process after launch and captures the screen. Download the simulator ZIP from a successful compile, unpack it, and use `xcrun simctl install booted path/to/App.app` on a compatible simulator. TestFlight requires a separately signed device build. [Expo build-only iOS workflow](https://docs.expo.dev/more/expo-cli/#build-only-workflow)
+- **Android QA** compiles a standalone APK with bundled JavaScript and verifies the standard Android debug signature. Install the APK using `adb install android-qa.apk` on a compatible test device or emulator. Play internal testing uses a separate signed Android App Bundle and a Play Console track. [Android APK formats](https://docs.expo.dev/build-reference/apk/), [Google Play internal testing](https://support.google.com/googleplay/android-developer/answer/9845334)
+
+The local workspace Mac was checked on November 24, 2026. It has Xcode Command Line Tools without `simctl` or the iOS Simulator SDK, and no configured JDK, Android SDK or emulator tools. Local checks therefore establish JavaScript and TypeScript behavior. Native binary or simulator results require the corresponding successful CI jobs, and physical install and permission behavior require an actual device test.
+
+## Device previews
+
+An Expo development QR opens the project with a compatible development client already installed. Use the trusted local development server on the same network. Keep any project data and API credentials outside QR contents and JavaScript bundles. Cloud installs require the appropriate accounts, device registration and signing. Expo Go depends on the host app supporting the project's SDK and modules. Its current physical iPhone setup requires the same Expo account in the CLI and device. [Development-build QR](https://docs.expo.dev/develop/development-builds/use-development-builds/), [Expo Go requirements](https://docs.expo.dev/get-started/start-developing/)
+
+**Open on phone** displays a QR for the account-authenticated browser preview. The link carries a project reference in the URL fragment. A signed-out browser briefly holds that reference in tab storage while the owner signs in. The server checks project ownership before opening the preview. Native development uses the Expo QR workflow above.
+
+## Distribution readiness
+
+The native source configures `world.mycompass.mobile` for COMPASS Mobile and `world.mycompass.personalos` for the Personal OS acceptance build. Register and verify ownership of the identifiers under the authorized store accounts before signing a distribution build. The Personal OS identifier belongs to the synthetic acceptance fixture. A project exported for a different app should use an identifier owned by that project.
+
+- **COMPASS Mobile description**. Create and continue COMPASS projects from your phone. Describe what to build, review plans, add project references, and keep decisions and revisions together with your COMPASS account.
+- **AI MEDIA Personal OS description**. Manage client contacts, sales opportunities, projects and daily work in one workspace. Review your pipeline, follow-ups and revenue from the same app.
+- **TestFlight** needs an active Apple Developer Program team, an App Store Connect app record, approved identifiers, signing, test metadata and a compatible device build. Apple permits personal-device testing through an Xcode Personal Team with short-lived provisioning. [Apple account options](https://developer.apple.com/help/account/basics/about-your-developer-account), [TestFlight](https://developer.apple.com/testflight/)
+- **Play internal testing** needs an authorized Play Console account, the app's package identifier, a signed bundle, Play App Signing configuration and an authorized tester list. The closed-test gate for some newer personal accounts applies before production access. [Internal testing](https://support.google.com/googleplay/android-developer/answer/9845334), [Personal account testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465)
+- **Privacy and permissions** need app-specific disclosures and verified account controls. An app with account creation needs an in-app account-deletion path for Apple and an accessible web deletion request resource for Play. A third-party login requires checking Apple's equivalent-login rule or its exemptions. Verify purpose strings, package privacy declarations and camera, microphone, and notification prompts on physical devices. [Apple review guidelines](https://developer.apple.com/app-store/review/guidelines/), [Play account deletion](https://support.google.com/googleplay/android-developer/answer/13327111), [Expo permissions](https://docs.expo.dev/guides/permissions/), [COMPASS privacy](https://mycompass.world/privacy)
+- **Store listing materials** require accurate capabilities, supported-device screenshots taken from the native app, icons, descriptions and review instructions. Use synthetic test data. Main-site release checks concern Railway and do not submit either app to a store.

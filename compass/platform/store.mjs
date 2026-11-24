@@ -125,6 +125,7 @@ export function createPlatformStore(database) {
       const current=getApplication(owner,appId);
       if(expectedVersion!==undefined&&expectedVersion!==current.version)fail(409,'version_conflict');
       if(Boolean(current.manifest.crm)!==Boolean(manifest.crm))fail(409,'application_type_conflict');
+      if(current.manifest.mobile?.platform!==manifest.mobile?.platform)fail(409,'application_target_fixed');
       if(manifest.crm && JSON.stringify(current.manifest.entity)!==JSON.stringify(manifest.entity))fail(409,'crm_schema_fixed');
       if(manifest.crm && current.manifest.crm.currency!==manifest.crm.currency && crm.hasRevenueRecords(owner,appId))fail(409,'crm_currency_in_use');
       assertAssetReferences(owner,appId,manifest);

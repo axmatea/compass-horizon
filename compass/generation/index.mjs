@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {inspectImage,assetFilename,ASSET_LIMITS} from './image.mjs';
 import {createHash} from 'node:crypto';
 import {createApplicationManifest,refineApplicationManifest,validateApplicationManifest,validateApplicationRecord} from './manifest.mjs';
+import {MOBILE_TEMPLATE,configuredMobileFiles,isNativeImage,mobileTemplateFiles} from './mobile/source.mjs';
 export {createApplicationManifest,refineApplicationManifest,validateApplicationManifest,validateApplicationRecord};
 const FILES = ['package.json','package-lock.json','README.md','Dockerfile','.gitignore','.dockerignore','server.mjs','lib/schema.mjs','public/index.html','public/client-core.js','public/app.js','public/styles.css','test/smoke.test.mjs'];
 const CRM_FILES = ['package.json','package-lock.json','README.md','Dockerfile','.gitignore','.dockerignore','server.mjs','build.mjs','build-config.mjs','tsconfig.json','lib/schema.mjs','lib/records.mjs','lib/store.mjs','public/index.html','src/main.tsx','src/App.tsx','src/Dashboard.tsx','src/Editor.tsx','src/client.ts','src/presentation.ts','src/styles.css','src/types.ts','test/smoke.test.mjs'];
@@ -17,6 +18,10 @@ function sourceFiles(value,{assets=[],trustedAssets=false}={}) {
   const manifest=validateApplicationManifest(value);
   if(!manifest)throw Object.assign(new Error('Invalid application manifest.'),{code:'invalid_manifest'});
   if(!Array.isArray(assets)||assets.length>ASSET_LIMITS.activeFiles)throw Error('Invalid application assets.');
+  if(manifest.mobile){
+    if(assets.length)throw Error('Mobile attachments are unsupported.');
+    return {manifest,files:[...configuredMobileFiles(manifest),{path:'manifest.json',content:JSON.stringify(manifest,null,2)+'\n'}]};
+  }
   if(manifest.crm) {
     if(assets.length)throw Error('CRM attachments are unsupported.');
     cachedCrmFiles ||= CRM_FILES.map(path=>({path,content:readFileSync(new URL(path==='lib/schema.mjs'?'./templates/lib/schema.mjs':'./crm/template/'+path,import.meta.url),'utf8')}));
@@ -44,7 +49,7 @@ export function createApplicationFileMetadata(value,options) {
 }
 export async function createApplicationBundle(value,options) {
   const {manifest,files}=sourceFiles(value,options);
-  return{schema:1,template:manifest.crm?CRM_TEMPLATE:'compass-crud-v1',manifest,files,sha256:sha(JSON.stringify(files))};
+  return{schema:1,template:manifest.mobile?MOBILE_TEMPLATE:manifest.crm?CRM_TEMPLATE:'compass-crud-v1',manifest,files,sha256:sha(JSON.stringify(files))};
 }
 
 export async function renderApplicationPreview(value) {
@@ -66,15 +71,18 @@ const CRC_TABLE = Array.from({length:256},(_,n) => {for(let i=0;i<8;i++)n = n & 
 function crc32(bytes) {let crc = 0xffffffff;for (const byte of bytes) crc = CRC_TABLE[(crc ^ byte) & 255] ^ crc >>> 8;return (crc ^ 0xffffffff) >>> 0;}
 
 export function exportApplicationZip(bundle) {
+  const mobile=bundle?.template===MOBILE_TEMPLATE;
   const crm=bundle?.template===CRM_TEMPLATE;
-  const templates=crm?CRM_FILES:FILES;
+  const curated=mobile||crm;
+  const templates=mobile?mobileTemplateFiles().map(file=>file.path):crm?CRM_FILES:FILES;
   const minimum=templates.length+1;
-  if ((!crm&&bundle?.template!=='compass-crud-v1')||!Array.isArray(bundle.files)||bundle.files.length<minimum||bundle.files.length>minimum+(crm?0:1+ASSET_LIMITS.activeFiles)) throw Error('Invalid application bundle.');
-  const allowed = new Set([...templates,'manifest.json',...(crm?[]:['assets.json'])]), seen = new Set(), local = [], central = [];
+  if ((!curated&&bundle?.template!=='compass-crud-v1')||!Array.isArray(bundle.files)||bundle.files.length<minimum||bundle.files.length>minimum+(curated?0:1+ASSET_LIMITS.activeFiles)) throw Error('Invalid application bundle.');
+  const allowed = new Set([...templates,'manifest.json',...(curated?[]:['assets.json'])]), seen = new Set(), local = [], central = [];
   let offset = 0, total = 0;
   for (const file of bundle.files) {
-    const binary=!crm&&/^public\/assets\/asset_[a-zA-Z0-9_-]{1,74}\.(?:png|jpg)$/.test(file.path);
-    if ((!allowed.has(file.path)&&!binary) || (binary ? file.encoding!=='base64' || !/^[A-Za-z0-9+/]*={0,2}$/.test(file.content||'') : file.encoding!==undefined) || seen.has(file.path) || typeof file.content !== 'string') throw Error('Invalid source path.');
+    const generatedAsset=!curated&&/^public\/assets\/asset_[a-zA-Z0-9_-]{1,74}\.(?:png|jpg)$/.test(file.path);
+    const binary=generatedAsset||(mobile&&isNativeImage(file.path));
+    if ((!allowed.has(file.path)&&!generatedAsset) || (binary ? file.encoding!=='base64' || !/^[A-Za-z0-9+/]*={0,2}$/.test(file.content||'') : file.encoding!==undefined) || seen.has(file.path) || typeof file.content !== 'string') throw Error('Invalid source path.');
     seen.add(file.path);
     const name = Buffer.from(file.path), bytes = Buffer.from(file.content,binary?'base64':'utf8'), crc = crc32(bytes);
     total += bytes.length;if (total > ASSET_LIMITS.applicationBytes + 1024 * 1024) throw Error('Bundle too large.');

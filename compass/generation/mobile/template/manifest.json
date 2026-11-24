@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "title": "AI MEDIA Personal OS",
+  "description": "Clients, pipeline, follow-ups and projects in one workspace.",
+  "theme": {"mode":"light","accent":"indigo","font":"sans","density":"comfortable"},
+  "crm": {
+    "currency": "USD",
+    "stages": {"new":"New","qualified":"Qualified","proposal":"Proposal","negotiation":"Negotiation","won":"Won","lost":"Lost"}
+  },
+  "mobile": {"platform":"cross-platform"}
+}

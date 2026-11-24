@@ -166,6 +166,15 @@ test('project save/list/reopen/delete isolate owners and reject active HTML', as
   assert.equal((await request('/api/account/projects/' + project.id, { cookie: two.cookie })).status, 404);
   assert.equal((await request('/api/account/projects/' + project.id, { method: 'DELETE', cookie: two.cookie })).status, 404);
   assert.equal((await request('/api/account/projects', { method: 'POST', cookie: two.cookie, body: { ...payload, projectId: project.id } })).status, 404);
+  const edit={...payload,projectId:project.id,expectedUpdatedAt:project.updatedAt,name:'Updated from another device'};
+  const edited=await request('/api/account/projects',{method:'POST',cookie:one.cookie,body:edit});
+  assert.equal(edited.status,200);
+  const updated=(await edited.json()).project;
+  assert.notEqual(updated.updatedAt,project.updatedAt);
+  const stale=await request('/api/account/projects',{method:'POST',cookie:one.cookie,body:{...edit,name:'Old desktop save'}});
+  assert.equal(stale.status,409);assert.equal((await stale.json()).error,'project_version_conflict');
+  const fresh=await request('/api/account/projects/'+project.id,{cookie:one.cookie});
+  assert.equal((await fresh.json()).project.name,'Updated from another device');
   const hostile = revision(result);
   hostile.render.html = '<!doctype html><html><body><script>alert(1)</script></body></html>';
   assert.equal((await request('/api/account/projects', { method: 'POST', cookie: one.cookie, body: { name: 'Unsafe', revisions: [hostile] } })).status, 400);

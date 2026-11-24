@@ -32,6 +32,14 @@
 .aw-preview{min-width:0;display:flex;align-items:flex-start;justify-content:flex-start;flex:1;padding:20px;overflow:auto}
 .aw-frame{display:block;width:100%;height:660px;flex-shrink:0;margin-inline:auto;border:1px solid #e0e3e9;border-radius:9px;background:#fff;box-shadow:0 6px 22px #18243706}
 .aw-frame[data-viewport=tablet]{width:768px;height:800px}.aw-frame[data-viewport=mobile]{width:390px;height:750px}
+.aw-frame[data-viewport=iphone],.aw-frame[data-viewport=android]{max-width:100%;height:780px;border:5px solid #20232b;border-radius:26px}
+.aw-frame[data-viewport=iphone]{width:393px}.aw-frame[data-viewport=android]{width:412px;border-radius:19px}
+.aw-target{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.aw-target select{min-height:42px;max-width:190px;border:1px solid var(--line-2);border-radius:6px;background:#fff;color:var(--ink);padding:6px 9px;font:inherit}
+.aw-target-note{margin:5px 0 0;color:var(--muted);font-size:14px}
+.aw-phone-dialog{max-width:min(360px,calc(100vw - 32px));padding:24px;border:1px solid #d4d8df;border-radius:12px;box-shadow:0 16px 70px #26283b2b}
+.aw-phone-dialog::backdrop{background:#1218246b}.aw-phone-dialog h3{margin-top:0}.aw-phone-dialog canvas{display:block;max-width:100%;height:auto;margin:10px auto 14px}
+.aw-phone-dialog a{display:inline-block;margin:0 12px 0 0}.aw-phone-dialog [hidden],.aw-target[hidden],.aw-target-note[hidden]{display:none}
 .aw-empty{align-self:center;text-align:center;padding:100px 24px;max-width:360px;color:var(--muted);font-size:20px;line-height:1.5}
 .aw-design,.aw-history{background:white;border-block-start:1px solid var(--line);padding:0 18px}
 .aw-design summary,.aw-history summary{min-height:46px;padding:12px 0;cursor:pointer;font-size:14px}

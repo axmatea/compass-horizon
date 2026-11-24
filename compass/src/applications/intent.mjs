@@ -3,6 +3,7 @@ import {normalizePreferences} from '../create/draft.mjs'
 // an unmistakable application request instead of turning it into a static page.
 export function applicationDraft(draft) {
   if(draft?.ready!==true)return false
+  if(draft.platform)return true
   const type=draft.preferences?.projectType
   if(type==='website')return false
   if(['saas','internal-tool','client-portal'].includes(type))return true

@@ -26,10 +26,9 @@
     <label class="sr" for="market-idea">Describe your project</label>
     <textarea id="market-idea" name="idea" rows="2" minlength="3" maxlength="500" required placeholder="A project tracker for a small design studio…"></textarea>
     <div class="market-start-actions">
-      <fieldset><legend class="sr">Project type</legend>
-        <label><input type="radio" name="projectType" value="app" checked><span>Data app</span></label>
-        <label><input type="radio" name="projectType" value="website"><span>Website</span></label>
-      </fieldset>
+      <label class="market-start-target"><span class="sr">Project type</span><select name="projectType">
+        <option value="app">Web app</option><option value="website">Website</option><option value="ios">iOS app</option><option value="android">Android app</option><option value="cross-platform">iOS &amp; Android</option>
+      </select></label>
       <button class="market-start-button" type="submit">Build <span aria-hidden="true">↗</span></button>
     </div>
     <p class="market-start-status" id="market-start-status" role="status"></p>

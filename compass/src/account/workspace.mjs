@@ -4,6 +4,7 @@ import { connectionActions } from './connections.mjs'
 import { mountApplicationWorkspace } from '../applications/workspace.mjs'
 import { normalizeAccountConfig } from '../create/flow.mjs'
 import {mountPlatformTour} from '../help/platform-tour.mjs'
+import {pendingPhoneProject,rememberPhoneProject} from '../applications/phone-link.mjs'
 function element(tag, text, className) {
   const node = document.createElement(tag)
   if (text) node.textContent = text
@@ -12,12 +13,16 @@ function element(tag, text, className) {
 }
 export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage,initialDraft,onDraftBuilt,beforeNewProject=()=>true,beforeReferenceOpen,onReference}) {
   let mountedOwner = null
+  let phoneStorage
+  try { phoneStorage=window.sessionStorage } catch { /* Sign-in still works without a phone handoff. */ }
+  if(location.pathname==='/workspace'&&rememberPhoneProject(location.hash,{storage:phoneStorage}))window.history.replaceState(null,'',location.pathname+location.search)
+  const phoneProjectHint=location.pathname==='/workspace'?pendingPhoneProject({storage:phoneStorage}):null
   async function requestRaw(path, options={}) {
     const response = await fetch('/api/account/'+path, {credentials:'same-origin',cache:'no-store',...options,
       headers:{...(options.body ? {'content-type':'application/json'} : {}),...options.headers,...(mountedOwner ? {'x-compass-user':mountedOwner} : {})}})
     if (!response.ok) {
       const data=await response.json().catch(()=>({}))
-      if (response.status===401 || data.error==='account_changed') {onClear({accountChanged:data.error==='account_changed'});location.replace('/create');throw Error('Sign in again to continue.')}
+      if (response.status===401 || data.error==='account_changed') {onClear({accountChanged:data.error==='account_changed'});location.replace(pendingPhoneProject({storage:phoneStorage})?'/create?signin=1':'/create');throw Error('Sign in again to continue.')}
       const messages={project_limit:'This account reached its website limit.',application_limit:'This account reached its application limit.',insufficient_credits:'Not enough available credits.',billing_external_blocked:'Payments are not available yet.',integration_external_blocked:'This connection needs its provider configuration.',version_conflict:'The project changed. Your edits are kept. Reopen the project before applying them.',asset_in_use:'Remove the image from logo and hero before deleting it.',asset_file_limit:'This project supports 8 active images.',asset_application_quota:'This project reached its 4 MB image limit, including retained revisions.',asset_owner_quota:'This account reached its 16 MB image limit, including retained revisions.',invalid_asset:'Choose a valid PNG or JPEG up to 512 KB and 5 megapixels.',invalid_manifest:'Manifest is invalid. Your edits are kept.'}
       throw Object.assign(Error(messages[data.error] || 'This request could not finish. Try again. Your current work is kept.'), {code:data.error})
     }
@@ -30,7 +35,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
     mountedOwner=identity.userId;accountConfig=normalizeAccountConfig(config)
   } catch (error) { onMessage(error.message); return null }
   const durable=accountConfig.persistence==='durable',accountName=durable?'account':'preview account'
-  if(initialDraft?.ready && !draftCanAutoBuild(initialDraft,{accountMode:true,userId:mountedOwner})){disarmDraft({id:initialDraft.id});onMessage('Review your idea with this account before building.');location.replace('/create');return null}
+  if(!phoneProjectHint&&initialDraft?.ready && !draftCanAutoBuild(initialDraft,{accountMode:true,userId:mountedOwner})){disarmDraft({id:initialDraft.id});onMessage('Review your idea with this account before building.');location.replace('/create');return null}
   document.body.classList.add('account-workspace')
   const previewLink=document.querySelector('[data-app-preview]');if(previewLink)previewLink.hidden=true
   document.title = 'Workspace — COMPASS'
@@ -83,17 +88,17 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
   apps.addEventListener('click',()=>{panel.hidden=true;selectMode(true)})
   websites.addEventListener('click',()=>{panel.hidden=true;selectMode(false)})
   navProjects.addEventListener('click',()=>{panel.hidden=true;more.open=false;selectMode(applicationMode)})
-  let cloudId = null, signature = '', lastSaved = '', saving = false, projectEpoch = 0, loadRequest = 0
+  let cloudId = null, cloudUpdatedAt = null, signature = '', lastSaved = '', saving = false, projectEpoch = 0, loadRequest = 0
   close.addEventListener('click',()=>{panelEpoch+=1;loadRequest+=1;panel.hidden=true;navProjects.focus()})
   const api = {
     userId:mountedOwner,
-    handlesDraft:applicationDraft(initialDraft),
+    handlesDraft:Boolean(phoneProjectHint)||applicationDraft(initialDraft),
     update() {
       const project = getProject()
       signature = project ? project.name+':'+project.revisions.map(item=>item.id).join(',') : ''
       save.disabled = applicationMode || saving || !project || signature===lastSaved
     },
-    reset() { projectEpoch+=1; loadRequest+=1; cloudId=null; lastSaved=''; api.update() },
+    reset() { projectEpoch+=1; loadRequest+=1; cloudId=null;cloudUpdatedAt=null;lastSaved='';api.update() },
     destroy() {referenceLauncher?.destroy();tour.destroy();appWorkspace?.destroy?.();window.removeEventListener?.('focus',recheck);document.removeEventListener?.('visibilitychange',recheck)},
   }
   const recheck = () => { if(document.visibilityState !== 'hidden')void request('me').catch(error=>onMessage(error.message)) }
@@ -116,7 +121,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
             const result = await request('projects/'+encodeURIComponent(item.id))
             if(requestId!==loadRequest || run!==panelEpoch)return
             if (onLoad(result.project) === false) return
-            cloudId=result.project.id; lastSaved=signature; panel.hidden=true; api.update()
+            cloudId=result.project.id;cloudUpdatedAt=result.project.updatedAt;lastSaved=signature;panel.hidden=true;api.update()
           } catch(error) { if(run===panelEpoch)status.textContent=error.message }
         })
         remove.addEventListener('click',async()=>{
@@ -155,9 +160,9 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
     const savedSignature=signature
     const savedEpoch=projectEpoch
     try {
-      const result=await request('projects',{method:'POST',body:JSON.stringify({...project,projectId:cloudId})})
+      const result=await request('projects',{method:'POST',body:JSON.stringify({...project,projectId:cloudId,...(cloudUpdatedAt?{expectedUpdatedAt:cloudUpdatedAt}:{})})})
       if(savedEpoch!==projectEpoch)return
-      cloudId=result.project.id; lastSaved=savedSignature; onMessage(durable?'Saved to your account.':'Saved. Preview storage is temporary.')
+      cloudId=result.project.id;cloudUpdatedAt=result.project.updatedAt;lastSaved=savedSignature;onMessage(durable?'Saved to your account.':'Saved. Preview storage is temporary.')
     } catch(error) { if(savedEpoch===projectEpoch)onMessage(error.message) }
     finally { saving=false; api.update() }
   })
@@ -241,9 +246,11 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
     if(profile.preferences?.workspaceLayout)document.body.dataset.workspaceLayout=profile.preferences.workspaceLayout
     admin.hidden=config.admin!==true
   }catch{/* Optional discovery does not block the working builder. */}
-  appWorkspace=await mountApplicationWorkspace({container:appContainer,request,requestRaw,userId:mountedOwner,onMessage,initialDraft:api.handlesDraft?initialDraft:null,onDraftBuilt,preferences})
+  appWorkspace=await mountApplicationWorkspace({container:appContainer,request,requestRaw,userId:mountedOwner,onMessage,initialDraft:api.handlesDraft&&!phoneProjectHint?initialDraft:null,onDraftBuilt,preferences})
   appContainer.querySelector('[data-aw=input]').id='application-prompt'
   selectMode(api.handlesDraft || !initialDraft?.ready)
+  const phoneProject=phoneProjectHint&&pendingPhoneProject({storage:phoneStorage,consume:true})
+  if(phoneProject){selectMode(true);await appWorkspace.open(phoneProject)}
   logout.addEventListener('click',async()=>{
     logout.disabled=true
     try {

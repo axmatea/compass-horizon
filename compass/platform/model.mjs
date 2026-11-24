@@ -5,11 +5,11 @@ import {planCrm} from './crm-plan.mjs';
 
 // Models propose a bounded data schema. They never supply executable source.
 // User records, OAuth tokens and account/session data never enter this context.
-export async function applicationPlan({text,previous=null,preferences={},env,fetchImpl,review=false,projectContext=null}) {
-  const local=previous?refineApplicationManifest(previous,text):{manifest:createApplicationManifest(text,{preferences}),changed:true};
+export async function applicationPlan({text,previous=null,preferences={},env,fetchImpl,review=false,projectContext=null,platform}) {
+  const local=previous?refineApplicationManifest(previous,text):{manifest:createApplicationManifest(text,{preferences,platform}),changed:true};
   // A reviewed reference plan already fixes every bounded schema and design
   // choice. Build it directly, without spending a provider call or claiming AI.
-  if(!previous && referenceApplicationSelection(text))return {...local,source:'prepared',modelUsed:false};
+  if(!previous && !platform && referenceApplicationSelection(text))return {...local,source:'prepared',modelUsed:false};
   // Direct updates keep the quick local path. A reviewed plan can propose
   // changes beyond those quick edits because the user can inspect the result.
   if(previous&&local.changed&&!review)return {...local,source:'prepared',modelUsed:false};
