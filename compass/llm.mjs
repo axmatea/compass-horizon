@@ -261,7 +261,9 @@ async function anthropicChat({ apiKey, baseUrl, model, timeout, combined, signal
       role: item.role === 'assistant' ? 'assistant' : 'user',
       content: contentToString(item.content),
     }));
-    const body = { model, max_tokens: maxTokens, temperature, messages: dialogue.length ? dialogue : [{ role: 'user', content: 'Respond with one JSON object.' }] };
+    const body = { model, max_tokens: maxTokens, messages: dialogue.length ? dialogue : [{ role: 'user', content: 'Respond with one JSON object.' }] };
+    // Claude Haiku 5.5 rejects requests that include sampling controls.
+    if (!/^claude-haiku-5-5(?:-\d{8})?$/.test(model)) body.temperature = temperature;
     if (system) body.system = system;
     if (streaming) body.stream = true;
     let res;
