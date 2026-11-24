@@ -1,5 +1,6 @@
 import {createPlatformStore} from './store.mjs';
 import {applicationPlan} from './model.mjs';
+import {activeProjectContext} from './project-context.mjs';
 import {createApplicationBundle,exportApplicationZip,renderApplicationPreview,validateApplicationManifest} from '../generation/index.mjs';
 import {createIntegrations} from '../integrations/index.mjs';
 import {createBilling} from '../billing/index.mjs';
@@ -57,14 +58,19 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
     try {
       const previous=appId?store.getApplication(owner,appId):null;
       if(version!==null&&previous.version!==version)fail(409,'version_conflict');
+      const context=previous?store.context.get(owner,appId):null;
       if(!previous&&!previewPlan)store.assertApplicationCapacity(owner);
       billing.reserve(owner,operation.id);reserved=true;
-      const plan=await withUsageTracking(event=>recordUsage(owner,operation.id,event),()=>applicationPlan({text,previous:previous?.manifest,preferences:accountStore.profile(owner).preferences,env,fetchImpl,review:previewPlan}));
+      const plan=await withUsageTracking(event=>recordUsage(owner,operation.id,event),()=>applicationPlan({
+        text,previous:previous?.manifest,preferences:accountStore.profile(owner).preferences,
+        env,fetchImpl,review:previewPlan,projectContext:activeProjectContext(context),
+      }));
       let result;
       store.atomic(()=>{
+        if(context)store.context.assertVersion(owner,appId,context.version);
         if(previewPlan) {
           if(previous&&store.getApplication(owner,appId).version!==version)fail(409,'version_conflict');
-          result={manifest:plan.manifest,source:plan.source,modelUsed:plan.modelUsed,baseVersion:previous?.version??null};
+          result={manifest:plan.manifest,source:plan.source,modelUsed:plan.modelUsed,baseVersion:previous?.version??null,contextVersion:context?.version??null};
           billing.settle(owner,operation.id,{success:plan.source==='model',infrastructureCostMicros:null});
           accountStore.finishOperation(owner,operation.id,result);
           return;
@@ -87,17 +93,20 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
     }
   }
   function applyPlan(owner,req,input,appId) {
-    fields(input,appId?['text','manifest','version']:['text','manifest']);
+    fields(input,appId?['text','manifest','version','contextVersion']:['text','manifest']);
     const text=applicationPrompt(input.text);
     const manifest=validateApplicationManifest(input.manifest);
     if(!manifest)fail(400,'invalid_manifest');
     const version=appId?requireVersion(input.version):null;
+    const contextVersion=input.contextVersion;
+    if(contextVersion!==undefined&&(!Number.isSafeInteger(contextVersion)||contextVersion<0))fail(400,'invalid_context_version');
     // Applying a reviewed manifest needs no upstream call or credit hold.
     // Record the receipt and revision in one transaction so retries are safe.
     return store.atomic(()=>{
       const operation=accountStore.beginOperation(owner,req.headers['idempotency-key'],
-        {kind:'application_apply_plan',appId:appId||null,text,manifest,version});
+        {kind:'application_apply_plan',appId:appId||null,text,manifest,version,...(contextVersion!==undefined?{contextVersion}:{})});
       if(operation.replay)return operation.result;
+      if(appId)store.context.assertVersion(owner,appId,contextVersion??0);
       const application=appId
         ?store.updateApplication(owner,appId,manifest,text,'prepared',version)
         :store.createApplication(owner,manifest,text,'prepared');
@@ -162,6 +171,19 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
       const [,id,action]=planning;
       const input=await readBody(req,action==='plan'?12000:32768);
       json(200,action==='plan'?await generate(owner,req,input,id,{previewPlan:true}):applyPlan(owner,req,input,id));
+      return true;
+    }
+    const context=path.match(/^\/api\/account\/apps\/([A-Za-z0-9_-]{1,80})\/context$/);
+    if(context) {
+      const id=context[1];
+      if(method==='GET')json(200,{context:store.context.view(owner,id)});
+      else if(method==='PUT') {
+        const input=fields(await readBody(req,8192),['version','notes']);
+        json(200,{context:store.context.saveNotes(owner,id,input.version,input.notes)});
+      } else if(method==='POST') {
+        const input=fields(await readBody(req,4096),['version','action','text','id','status']);
+        json(200,{context:store.context.record(owner,id,input)});
+      } else json(405,{error:'method_not_allowed'});
       return true;
     }
     const app=path.match(/^\/api\/account\/apps\/([A-Za-z0-9_-]{1,80})(?:\/(refine|design|revisions|restore|records|preview|source|export|data|manifest|assets)(?:\/([A-Za-z0-9_-]{1,80}))?)?$/);

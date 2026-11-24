@@ -5,6 +5,7 @@ import {createDictation} from '../demo/voice.mjs'
 import {draftCanAutoBuild,disarmDraft} from '../create/draft.mjs'
 import {applicationResultOutcome,requireApplicationVersion} from './result.mjs'
 import {mountPaneLayout} from '../builder/pane-layout.mjs'
+import {mountProjectContext,projectContextMarkup} from './project-context.mjs'
 export {validateApplicationBridgeMessage} from './bridge.mjs'
 
 const APP_ID = /^[A-Za-z0-9_-]{1,80}$/
@@ -26,11 +27,12 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
 <details class="aw-history"><summary>History</summary><p>Restore a revision. Records stay intact.</p><ol data-aw="history"></ol></details></section><div class="aw-resize" data-resize-pane="conversation" aria-label="Resize conversation panel"></div>
 <aside class="aw-conversation" aria-label="Build your application"><form data-aw="composer"><label data-aw="composer-label">What would you like to build?<textarea id="application-prompt" data-aw="input" rows="5" maxlength="2000" placeholder="A CRM for my studio…" required></textarea></label><div class="aw-compose-actions"><button type="button" data-aw="voice" aria-pressed="false">Speak</button><span data-aw="count">0/2000</span><button type="button" data-aw="request-plan">Plan</button><button type="submit" data-aw="submit">Build</button></div><button type="button" data-aw="cancel-build" class="aw-cancel" hidden>Cancel</button></form><p data-aw="voice-status" class="aw-status" role="status"></p><p data-aw="status" class="aw-status" role="status" aria-live="polite"></p>
 <section class="aw-plan" data-aw="plan" aria-label="Build plan" hidden><h3 data-aw="plan-heading" tabindex="-1">Build plan</h3><p class="aw-plan-source" data-aw="plan-source"></p><p class="aw-plan-title" data-aw="plan-title"></p><h4 data-aw="plan-kind"></h4><ul data-aw="plan-fields" aria-label="Proposed record fields"></ul><details data-aw="plan-source-details"><summary>Edit plan JSON</summary><label><span class="sr">Plan manifest</span><textarea data-aw="plan-editor" rows="8" maxlength="32768" spellcheck="false" aria-label="Plan manifest"></textarea></label></details><p class="aw-plan-warning" data-aw="plan-warning" role="status"></p><div class="aw-plan-actions"><button type="button" data-aw="discard-plan">Discard</button><button type="button" data-aw="apply-plan">Build from plan</button></div></section>
-<ol data-aw="conversation" class="aw-messages"></ol><details class="aw-runtime-details"><summary>Project settings</summary><p data-aw="settings-meta"></p><button type="button" data-aw="download-data" disabled>Export records</button><button type="button" data-aw="delete-current" disabled>Delete application</button><details><summary>Runtime &amp; shortcuts</summary><p>Trusted application runtime. The isolated preview has no account token or network access.</p><p>⌘ / Ctrl + Enter: apply or build<br>⌘ / Ctrl + Shift + F: files<br>Escape: cancel or stop voice</p><p>Voice uses your browser’s speech service. Only submitted text reaches COMPASS.</p></details></details></aside></div>`
+${projectContextMarkup}<ol data-aw="conversation" class="aw-messages"></ol><details class="aw-runtime-details"><summary>Project settings</summary><p data-aw="settings-meta"></p><button type="button" data-aw="download-data" disabled>Export records</button><button type="button" data-aw="delete-current" disabled>Delete application</button><details><summary>Runtime &amp; shortcuts</summary><p>Trusted application runtime. The isolated preview has no account token or network access.</p><p>⌘ / Ctrl + Enter: apply or build<br>⌘ / Ctrl + Shift + F: files<br>Escape: cancel or stop voice</p><p>Voice uses your browser’s speech service. Only submitted text reaches COMPASS.</p></details></details></aside></div>`
   const $ = key => container.querySelector(`[data-aw="${key}"]`)
   const state = {current:null,epoch:0,busy:false,frame:null,frameApplication:null,frameEpoch:0,disposed:false,pending:null,source:null,viewport:'desktop',view:'preview',cancelController:null,editor:null,revisions:[],assets:[],assetEpoch:0,assetUrls:new Set()}
   let planDraft = null
   let planRequest = null
+  const contextPanel = mountProjectContext({find:$,request,isLocked:() => state.busy,onVersionChange:updatePlanStatus})
   const paneLayout=mountPaneLayout({root:container.querySelector('.aw-layout'),owner:userId,defaults:{conversation:preferences.workspaceLayout==='preview'?260:preferences.workspaceLayout==='conversation'?380:310}})
   const bridgeRequests = new Map()
   let undoTargets=null,undoRestoring=false
@@ -62,6 +64,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     $('submit').textContent = value ? 'Working…' : state.current ? 'Update' : 'Build'
     updateEditorStatus()
     updatePlanStatus()
+    contextPanel.syncControls()
     if (state.frame) state.frame.inert = value
   }
   function fillDesign() {
@@ -98,6 +101,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     $('delete-current').textContent = 'Delete this application';delete $('delete-current').dataset.confirm
     $('composer-label').firstChild.textContent = 'What would you change?'
     fillDesign();replaceFrame(html,app.id);showView('preview')
+    contextPanel.selectProject(app.id)
   }
   async function refresh() {
     const run = ++listEpoch
@@ -148,7 +152,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   async function openApplication(id) {
     if (state.busy || !APP_ID.test(id) || !discardEditor()) return
     const changeProject = id !== state.current?.id
-    if (changeProject && !confirmDiscardPlan()) return
+    if (changeProject && (!confirmDiscardPlan() || !confirmDiscardContext())) return
     const run = ++state.epoch;lock(true);status('Opening application…')
     try {const result = await request('apps/' + encodeURIComponent(id));await paint(applicationFrom(result),run,id);if (run !== state.epoch) return;if(changeProject)clearPlan();state.editor=null;$('conversation').replaceChildren();await history();await refresh();status('')}
     catch(error) {if (run === state.epoch) status(error.message || 'Couldn’t open. Try again.',true)}
@@ -157,7 +161,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   async function removeApplication(id,button) {
     if (state.busy || !APP_ID.test(id)) return
     if (button.dataset.confirm !== 'yes') {button.dataset.confirm = 'yes';button.textContent = 'Confirm deletion';return}
-    if (state.current?.id === id && (!discardEditor() || !confirmDiscardPlan())) return
+    if (state.current?.id === id && (!discardEditor() || !confirmDiscardPlan() || !confirmDiscardContext())) return
     const run = ++state.epoch;lock(true);status('Deleting application…')
     try {
       await request('apps/' + encodeURIComponent(id),{method:'DELETE'})
@@ -176,6 +180,9 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   function confirmDiscardPlan() {
     return !planDraft || confirm('Discard the current build plan? Your saved projects and records are kept.')
   }
+  function confirmDiscardContext() {
+    return !contextPanel.dirty || confirm('Discard unsaved project context edits?')
+  }
   function clearPlan() {
     planDraft = null
     $('plan-editor').value = ''
@@ -189,11 +196,15 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   function planMatchesProject(plan) {
     return plan.appId === (state.current?.id ?? null) && plan.baseVersion === (state.current?.version ?? null)
   }
+  function planContextChanged(plan) {
+    return plan.staleContext || (plan.appId === state.current?.id && Number.isInteger(plan.contextVersion) && contextPanel.version > plan.contextVersion)
+  }
   function updatePlanStatus() {
     const manifest = planDraft && readPlanManifest()
     const stale = planDraft && (planDraft.stale || !planMatchesProject(planDraft))
-    $('apply-plan').disabled = state.busy || !manifest || Boolean(stale)
-    $('plan-warning').textContent = stale ? 'This project changed. Copy your edits or make a new plan.' : planDraft && !manifest ? 'Enter a valid application manifest.' : ''
+    const staleContext = planDraft && planContextChanged(planDraft)
+    $('apply-plan').disabled = state.busy || !manifest || Boolean(stale || staleContext)
+    $('plan-warning').textContent = staleContext ? 'Project context changed. Make a new plan. Your edits are kept.' : stale ? 'This project changed. Copy your edits or make a new plan.' : planDraft && !manifest ? 'Enter a valid application manifest.' : ''
     $('plan-editor').setAttribute('aria-invalid', String(Boolean(planDraft && !manifest)))
     $('plan-title').textContent = manifest?.title || ''
     $('plan-kind').textContent = manifest ? APP_KINDS[manifest.kind] + ' · ' + manifest.entity.plural : ''
@@ -210,7 +221,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     dictation?.stop()
     const appId = state.current?.id ?? null
     const baseVersion = state.current?.version ?? null
-    const context = JSON.stringify([appId, baseVersion, text])
+    const context = JSON.stringify([appId, baseVersion, contextPanel.version, text])
     if (planRequest?.context !== context) planRequest = {context, key:'plan_' + crypto.randomUUID()}
     const run = ++state.epoch
     state.cancelController = new AbortController()
@@ -226,7 +237,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
       if (!manifest || result.baseVersion !== baseVersion || !['model','prepared'].includes(result.source)) {
         throw Error('The plan response was incomplete.')
       }
-      planDraft = {text,appId,baseVersion,stale:false,receipt:null}
+      planDraft = {text,appId,baseVersion,contextVersion:result.contextVersion,stale:false,staleContext:false,receipt:null}
       planRequest = null
       $('plan-editor').value = JSON.stringify(manifest,null,2)
       $('plan-source-details').open = false
@@ -246,7 +257,7 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   function applyPlan() {
     if (!planDraft || state.busy || $('apply-plan').disabled) return
     const manifest = readPlanManifest()
-    if (!manifest || !planMatchesProject(planDraft) || planDraft.stale) return
+    if (!manifest || !planMatchesProject(planDraft) || planDraft.stale || planContextChanged(planDraft)) return
     void build(planDraft.text,{reviewedManifest:manifest})
   }
   async function build(text,{reviewedManifest}={}) {
@@ -259,7 +270,9 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     let key
     if (reviewedManifest) {
       endpoint = creating ? 'apps/build-plan' : path('build-plan')
-      body = JSON.stringify({text,manifest:reviewedManifest,...(creating ? {} : {version:planDraft.baseVersion})})
+      const version = creating ? {} : {version:planDraft.baseVersion}
+      const context = !creating && Number.isInteger(planDraft.contextVersion) ? {contextVersion:planDraft.contextVersion} : {}
+      body = JSON.stringify({text,manifest:reviewedManifest,...version,...context})
       if (planDraft.receipt?.body !== body) planDraft.receipt = {body,key:'apply_plan_' + crypto.randomUUID()}
       key = planDraft.receipt.key
     } else key = operation(text,creating)
@@ -289,6 +302,11 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
         if (reviewedManifest) {
           if (error.code === 'previous_build_failed') planDraft.receipt = null
           if (error.code === 'version_conflict' || /project changed/i.test(error.message)) planDraft.stale = true
+          if (error.code === 'project_context_conflict') {
+            planDraft.staleContext = true
+            status('')
+            return
+          }
         }
         status(error.message || 'Couldn’t finish. Your last application and instruction are kept.',true)
       }
@@ -296,9 +314,10 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
     finally {if (run === state.epoch) {state.cancelController = null;lock(false)}}
   }
   function reset({confirmed=false}={}) {
-    if (state.busy || (!confirmed && (!discardEditor() || !confirmDiscardPlan()))) return
+    if (state.busy || (!confirmed && (!discardEditor() || !confirmDiscardPlan() || !confirmDiscardContext()))) return
     clearPlan()
     planRequest = null
+    contextPanel.selectProject(null)
     state.epoch++;state.current = null;state.source = null;state.editor=null;state.revisions=[];state.assets=[];state.assetEpoch++;clearAssetUrls();$('asset-list').replaceChildren();state.pending = null;state.frame?.remove();state.frame = null;state.frameApplication = null;bridgeRequests.clear()
     dictation?.stop();$('settings-meta').textContent = '';$('empty').hidden = false;$('title').textContent = 'Your next application';$('source').textContent = '';$('conversation').replaceChildren();$('history').replaceChildren();$('file-content').textContent = '';$('file').replaceChildren();$('input').value = '';$('count').textContent = '0/2000';$('composer-label').firstChild.textContent = 'What would you like to build?';showView('preview');lock(false);status('');$('input').focus()
   }
@@ -524,5 +543,5 @@ export async function mountApplicationWorkspace({container,request,requestRaw,us
   if (initialDraft?.ready && !authorizedDraft) {disarmDraft({id:initialDraft.id});initialDraft = null;status('Review your idea with this account before building.',true)}
   lock(false);await refresh()
   if (authorizedDraft && typeof initialDraft.prompt === 'string' && initialDraft.prompt.length <= 500 && APP_ID.test(initialDraft.id || '')) {$('input').value = initialDraft.prompt;$('count').textContent = initialDraft.prompt.length + '/2000';await build(initialDraft.prompt)}
-  return {show() {container.hidden = false},hide() {dictation?.stop();container.hidden = true},pauseInput(){dictation?.stop()},refresh,open:openApplication,getSource:loadSourceBundle,canLeave,destroy() {dictation?.stop();state.cancelController?.abort();state.disposed = true;state.epoch++;state.assetEpoch++;clearAssetUrls();paneLayout.destroy();container.removeEventListener('keydown',shortcuts);state.frame?.remove();window.removeEventListener('message',bridge);bridgeRequests.clear();container.replaceChildren()},get currentApplication() {return state.current}}
+  return {show() {container.hidden = false},hide() {dictation?.stop();container.hidden = true},pauseInput(){dictation?.stop()},refresh,open:openApplication,getSource:loadSourceBundle,canLeave,destroy() {dictation?.stop();state.cancelController?.abort();state.disposed = true;state.epoch++;state.assetEpoch++;contextPanel.selectProject(null);clearAssetUrls();paneLayout.destroy();container.removeEventListener('keydown',shortcuts);state.frame?.remove();window.removeEventListener('message',bridge);bridgeRequests.clear();container.replaceChildren()},get currentApplication() {return state.current}}
 }

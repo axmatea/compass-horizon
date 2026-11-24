@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {createApplicationFileMetadata,validateApplicationManifest,validateApplicationRecord} from '../generation/index.mjs';
 import {validateEditableHtml} from '../html/edit.mjs';
 import {inspectImage,ASSET_LIMITS} from '../generation/image.mjs';
+import {createProjectContextStore} from './project-context.mjs';
 const fail=(status,code)=>{throw Object.assign(new Error(code),{status,code});};
 const id=prefix=>prefix+'_'+randomUUID();
 const stamp=()=>new Date().toISOString();
@@ -35,6 +36,7 @@ export function createPlatformStore(database) {
     const app=map(database.prepare('SELECT * FROM compass_application WHERE id=? AND owner=?').get(appId,owner));
     if(!app)fail(404,'not_found');return app;
   }
+  const context = createProjectContextStore(database, {getApplication, atomic});
   function listApplications(owner) {
     return database.prepare('SELECT * FROM compass_application WHERE owner=? ORDER BY updated_at DESC LIMIT 12').all(owner).map(map);
   }
@@ -134,6 +136,7 @@ export function createPlatformStore(database) {
   }
   function deleteApplication(owner,appId) {
     getApplication(owner,appId);return atomic(()=>{
+      context.remove(owner,appId);
       database.prepare('DELETE FROM compass_application_record WHERE app_id=? AND owner=?').run(appId,owner);
       database.prepare('DELETE FROM compass_application_revision WHERE app_id=?').run(appId);
       database.prepare('DELETE FROM compass_application_revision_files WHERE app_id=?').run(appId);
@@ -243,5 +246,5 @@ export function createPlatformStore(database) {
       operations:database.prepare('SELECT status,count(*) AS count FROM compass_operation GROUP BY status').all(),
       events:database.prepare('SELECT category,code,MAX(created_at) AS at,count(*) AS count FROM compass_system_event GROUP BY category,code ORDER BY at DESC LIMIT 40').all()};
   }
-  return {atomic,listAssets,getAsset,saveAsset,deleteAsset,activeAssets,assertApplicationCapacity,getApplication,listApplications,createApplication,updateApplication,deleteApplication,revisions,restore,listRecords,saveRecord,deleteRecord,publish,publications,revokePublication,publicPage,event,overview};
+  return {atomic,context,listAssets,getAsset,saveAsset,deleteAsset,activeAssets,assertApplicationCapacity,getApplication,listApplications,createApplication,updateApplication,deleteApplication,revisions,restore,listRecords,saveRecord,deleteRecord,publish,publications,revokePublication,publicPage,event,overview};
 }

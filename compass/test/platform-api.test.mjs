@@ -140,6 +140,89 @@ test('reviewed plans leave projects untouched until apply and retain records acr
   assert.equal((await json(await request(base,{cookie:owner.cookie}))).applications.length,1);
 });
 
+test('project context survives restart, steers reviewed plans and invalidates obsolete work',async t=>{
+  const inspected=[];
+  let hold;
+  const fetchImpl=async (_url,options)=>{
+    const messages=JSON.parse(options.body).messages;
+    const payload=JSON.parse(messages.find(message=>message.role==='user').content);
+    inspected.push(payload);
+    if(hold){hold.entered();await hold.released}
+    const manifest={...payload.current,theme:{...payload.current.theme,accent:'amber'}};
+    return Response.json({choices:[{message:{content:JSON.stringify(manifest)},finish_reason:'stop'}],usage:{prompt_tokens:32,completion_tokens:23}});
+  };
+  const {request,account,restart,env}=await fixture(t,true,{},fetchImpl);
+  const owner=await account('contextowner'),outside=await account('contextother');
+  const {application}=await json(await request('/api/account/apps',action(owner,'POST',{text:'A task tracker called Context QA'},'context_initial_app')));
+  const app='/api/account/apps/'+application.id,path=app+'/context';
+  const read=async()=> (await json(await request(path,{cookie:owner.cookie}))).context;
+  let context=await read();
+  assert.equal(context.version,0);
+  assert.equal(context.recentChanges[0].prompt,'A task tracker called Context QA');
+  const save=async notes=> (await json(await request(path,action(owner,'PUT',{version:context.version,notes})))).context;
+  const record=async input=> (await json(await request(path,action(owner,'POST',{version:context.version,...input})))).context;
+  let notes={...context.notes,goal:'Track launch tasks',architecture:'Single tracker',preferences:'Light theme',dependencies:'QA review',problems:'Missing owners'};
+  assert.equal((await request(path)).status,401);
+  assert.equal((await request(path,{cookie:outside.cookie})).status,404);
+  assert.equal((await request(path,action(outside,'PUT',{version:0,notes}))).status,404);
+  assert.equal((await request(path,action(outside,'POST',{version:0,action:'decision',text:'Unauthorized'}))).status,404);
+  assert.equal((await request(path,action(owner,'PUT',{version:0,notes:{...notes,goal:'x'.repeat(301)}}))).status,400);
+  context=await save(notes);
+  assert.equal(context.version,1);
+  assert.equal((await save(notes)).version,1);
+  assert.equal((await request(path,action(owner,'PUT',{version:0,notes}))).status,409);
+  context=await record({action:'decision',text:'Use rose accents'});
+  const oldId=context.decisions[0].id;
+  context=await record({action:'supersede',id:oldId,text:'Use amber accents'});
+  assert.equal(context.decisions[0].supersededBy,context.decisions[1].id);
+  context=await record({action:'task',text:'Review release'});
+  context=await record({action:'task',text:'Finished smoke test'});
+  context=await record({action:'task-status',id:context.tasks[1].id,status:'done'});
+  context=await record({action:'task',text:'Obsolete launch checklist'});
+  context=await record({action:'task-status',id:context.tasks[2].id,status:'cancelled'});
+  await json(await request(app+'/records',action(owner,'POST',{data:{title:'Private test record',status:'To do'}})));
+  env.COMPASS_DEMO_MODE='live';env.LLM_PROVIDER='generalcompute';env.GENERALCOMPUTE_API_KEY='synthetic_unusable_fixture_key';
+  await restart();
+  assert.deepEqual(await read(),context);
+
+  const prompt={text:'Use the active decision to update the accent',version:1};
+  const propose=key=>request(app+'/plan',action(owner,'POST',prompt,key));
+  const proposal=await json(await propose('context_first_plan'));
+  assert.equal(proposal.modelUsed,true);
+  assert.equal(proposal.manifest.theme.accent,'amber');
+  assert.equal(proposal.contextVersion,context.version);
+  assert.deepEqual(inspected[0].projectContext,{notes,decisions:['Use amber accents'],tasks:['Review release']});
+  assert.deepEqual(Object.keys(inspected[0]),['request','current','example','preferences','projectContext']);
+  assert.doesNotMatch(JSON.stringify(inspected[0]),/Private test record|Use rose accents|Obsolete launch checklist|Finished smoke test/);
+
+  const release=Promise.withResolvers(),arrived=Promise.withResolvers();
+  hold={entered:arrived.resolve,released:release.promise};
+  const pending=propose('context_obsolete_plan');
+  try {
+    await Promise.race([arrived.promise,pending.then(()=>assert.fail('No upstream request captured'))]);
+    notes={...notes,problems:'QA assigned'};
+    context=await save(notes);
+  } finally {release.resolve();hold=undefined}
+  const obsolete=await pending;
+  assert.equal(obsolete.status,409);
+  assert.equal((await obsolete.json()).error,'project_context_conflict');
+  const apply=(plan,key)=>request(app+'/build-plan',action(owner,'POST',{
+    ...prompt,manifest:plan.manifest,contextVersion:plan.contextVersion,
+  },key));
+  const stale=await apply(proposal,'context_stale_apply');
+  assert.equal(stale.status,409);
+  assert.equal((await stale.json()).error,'project_context_conflict');
+  const fresh=await json(await propose('context_fresh_plan'));
+  const applied=await json(await apply(fresh,'context_fresh_apply'));
+  assert.equal(applied.application.version,2);
+  assert.equal((await read()).recentChanges[0].prompt,prompt.text);
+  assert.equal((await read()).version,context.version);
+  await json(await request(app+'/restore',action(owner,'POST',{version:1})));
+  assert.equal((await read()).decisions[1].text,'Use amber accents');
+  await json(await request(app,action(owner,'DELETE')));
+  assert.equal((await request(path,{cookie:owner.cookie})).status,404);
+});
+
 test('publication opt-in is scriptless, owner-gated, revocable and never exposes private projects implicitly',async t=>{
   const {request,account}=await fixture(t);const a=await account('publisher'),b=await account('outsider');
   const build=await json(await request('/api/account/turn',action(a,'POST',{text:'A white bakery website called Orbit Bakery'},'publication_build_1234')));
