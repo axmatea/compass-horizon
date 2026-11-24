@@ -496,6 +496,22 @@ test('anthropic is first when its key is set, then the chain continues', async (
   assert.match(calls[0].url, /api\.anthropic\.com\/v1\/messages$/);
   assert.equal(calls[0].body.model, 'claude-haiku-5-5');
   assert.equal(calls[0].body.max_tokens, 1200);
+  assert.equal(Object.hasOwn(calls[0].body, 'temperature'), false);
   assert.match(calls[1].url, /generalcompute\.com/);
+  assert.equal(calls[1].body.temperature, 0.3);
   assert.equal(JSON.stringify(calls).includes(anthropicKey), false);
+});
+
+test('Haiku 5.5 accepts a request without sampling controls and older Anthropic models keep the caller temperature', async () => {
+  for (const [model, supportsTemperature] of [['claude-haiku-5-5', false], ['claude-haiku-4-5', true]]) {
+    const {calls, fetchImpl} = recorder(({body}) => {
+      const temperatureIsValid = supportsTemperature ? body.temperature === 0.17 : !Object.hasOwn(body, 'temperature');
+      if (!temperatureIsValid) return Response.json({error: {type: 'invalid_request_error'}}, {status: 400});
+      return Response.json({content: [{type: 'text', text: 'Accepted'}], stop_reason: 'end_turn'});
+    });
+    const {client} = loadLlm({ANTHROPIC_API_KEY:'anthropic-fixture', ANTHROPIC_MODEL:model}, fetchImpl);
+    const result = await client.chat({messages: [{role: 'user', content: 'Use the fixture.'}], temperature: 0.17});
+    assert.equal(result.message.content, 'Accepted');
+    assert.equal(calls.length, 1);
+  }
 });
