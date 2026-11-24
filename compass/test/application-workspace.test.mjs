@@ -12,6 +12,7 @@ import {validateApplicationBridgeMessage} from '../src/applications/bridge.mjs'
 import {applicationResultOutcome,requireApplicationVersion} from '../src/applications/result.mjs'
 import {mountPaneLayout} from '../src/builder/pane-layout.mjs'
 
+const contextClient=(await readFile(new URL('../src/applications/project-context.mjs',import.meta.url),'utf8')).replace(/^export /gm,'')
 const client=(await readFile(new URL('../src/applications/workspace.mjs',import.meta.url),'utf8')).replace(/^import .+\n/gm,'').replace(/^export \{.+\}.*\n/gm,'').replace('export async function','async function')
 class Node {
   constructor(tag='div'){this.tagName=tag.toUpperCase();this.value='';this.dataset={};this.attributes={};this.children=[];this.listeners={};this.hidden=false;this.disabled=false;this._text='';this.style={setProperty(){}};const classes=new Set();this.classList={add:(name)=>classes.add(name),remove:name=>classes.delete(name),toggle:(name,value)=>value?classes.add(name):classes.delete(name)};if(tag==='iframe')this.contentWindow={postMessage:message=>this.messages.push(message)};this.messages=[]}
@@ -27,7 +28,7 @@ class Node {
   querySelectorAll(selector){if(selector==='[data-resize-pane]')return this.handles || [];const all=this.all();if(selector==='[data-restore-version]')return all.filter(node=>node.dataset.restoreVersion!=null);if(selector==='[data-asset-selected]')return all.filter(node=>node.dataset.assetSelected!=null);return []}
 }
 const tick=async()=>{for(let n=0;n<8;n++)await new Promise(resolve=>setImmediate(resolve))}
-async function fixture({confirm=()=>true,open=true}={}){
+async function fixture({confirm=()=>true,open=true,useContext=false}={}){
   const nodes=new Map(),container=new Node(),body=new Node(),layout=new Node(),events=new Map(),calls=[]
   layout.handles=['projects','conversation'].map(name=>{const node=new Node();node.dataset.resizePane=name;return node})
   Object.defineProperty(container,'innerHTML',{set(value){for(const match of value.matchAll(/<([a-z]+)([^>]*\bdata-aw="([^"]+)"[^>]*)>/g)){const node=new Node(match[1]);node.hidden=/\bhidden\b/.test(match[2]);nodes.set(match[3],node)}nodes.get('composer-label').append(new Node('span'));nodes.get('design-form').elements=Object.fromEntries(['mode','accent','font','density'].map(key=>[key,{value:''}]))}})
@@ -35,16 +36,40 @@ async function fixture({confirm=()=>true,open=true}={}){
   container.querySelectorAll=selector=>selector==='button,select,textarea,input'?[...nodes.values(),...container.all()].filter(node=>['BUTTON','SELECT','TEXTAREA','INPUT'].includes(node.tagName)):[...nodes.values()].flatMap(node=>node.querySelectorAll(selector))
   let app={id:'app_fixture',version:1,source:'prepared',manifest:createApplicationManifest('A CRM called Forma')},failManifest=false,failPlanApply='',planError=null
   let revisions=[{version:1,manifest:structuredClone(app.manifest),changes:[]}],assets=[]
+  let projectContext={version:0,notes:{},decisions:[],tasks:[],recentChanges:[]}
+  let holdContext
+  const contextConflict=()=>Object.assign(Error('Context conflict'),{code:'project_context_conflict'})
   const request=async(path,options={})=>{
     calls.push({path,...options});const method=options.method || 'GET'
+    if(path.endsWith('/context')){
+      assert.equal(path,'apps/app_fixture/context')
+      if(method==='GET'){
+        const saved=structuredClone(projectContext)
+        if(holdContext)await holdContext
+        return {context:saved}
+      }
+      const {version,notes,action,text,id,status}=JSON.parse(options.body)
+      if(version!==projectContext.version)throw contextConflict()
+      if(method==='PUT')projectContext.notes=notes
+      if(action==='decision' || action==='supersede'){
+        const decision={id:'decision_'+projectContext.version,text,supersededBy:null}
+        if(action==='supersede')projectContext.decisions.find(item=>item.id===id).supersededBy=decision.id
+        projectContext.decisions.push(decision)
+      }
+      if(action==='task')projectContext.tasks.push({id:'task_'+projectContext.version,text,status:'active'})
+      if(action==='task-status')projectContext.tasks.find(item=>item.id===id).status=status
+      projectContext.version++
+      return {context:structuredClone(projectContext)}
+    }
     if(path.endsWith('/plan')){
       if(planError)throw planError
       const {text,version=null}=JSON.parse(options.body)
-      return {manifest:{...app.manifest,title:text},source:'model',modelUsed:true,baseVersion:version}
+      return {manifest:{...app.manifest,title:text},source:'model',modelUsed:true,baseVersion:version,...(useContext && version ? {contextVersion:projectContext.version} : {})}
     }
     if(path.endsWith('/build-plan')){
       if(failPlanApply)throw Error(failPlanApply)
-      const {manifest,version}=JSON.parse(options.body)
+      const {manifest,version,contextVersion}=JSON.parse(options.body)
+      if(useContext && version && contextVersion!==projectContext.version)throw contextConflict()
       if(path!=='apps/build-plan')assert.equal(version,app.version)
       app={...app,version:version ? version+1 : 1,manifest:structuredClone(manifest)}
       revisions.push({version:app.version,manifest:structuredClone(app.manifest),changes:[]})
@@ -68,9 +93,9 @@ async function fixture({confirm=()=>true,open=true}={}){
     throw Error('Unexpected raw '+path)
   }
   const context={console,document:{body,createElement:tag=>new Node(tag)},window:{addEventListener:(type,fn)=>events.set(type,fn),removeEventListener(){}},crypto:webcrypto,URL,Blob,Response,TextEncoder,AbortController,setTimeout,atob,structuredClone,confirm,navigator:{clipboard:{writeText:async()=>{}}},createDictation:()=>null,draftCanAutoBuild:()=>false,disarmDraft(){},validateApplicationManifest,validateApplicationBridgeMessage,applicationResultOutcome,requireApplicationVersion,mountPaneLayout}
-  vm.runInNewContext(client+';globalThis.mount=mountApplicationWorkspace',context)
+  vm.runInNewContext(contextClient+'\n'+client+';globalThis.mount=mountApplicationWorkspace',context)
   const api=await context.mount({container,request,requestRaw:raw,userId:'owner_fixture'});if(open)await api.open(app.id)
-  return {api,nodes,calls,events,container,get app(){return app},failManifest(value=true){failManifest=value},failPlanApply(message){failPlanApply=message},failPlanRequest(error){planError=error},tick}
+  return {api,nodes,calls,events,container,get app(){return app},failManifest(value=true){failManifest=value},failPlanApply(message){failPlanApply=message},failPlanRequest(error){planError=error},updateContext(data){projectContext={...projectContext,...data,version:projectContext.version+1}},holdContext(){let done;holdContext=new Promise(resolve=>{done=resolve});return done},tick}
 }
 
 test('new reference planning cannot leave an open application or its pending work without an explicit choice',async()=>{
@@ -222,4 +247,115 @@ test('asset bridge refuses images absent from the selected manifest and arbitrar
   const message={type:'compass-app-request',requestId:'asset_request',action:'asset',assetId:'asset_owned'}
   assert.deepEqual(validateApplicationBridgeMessage(message,manifest),{requestId:'asset_request',action:'asset',assetId:'asset_owned'})
   for(const value of [{...message,assetId:'asset_other'},{...message,assetId:'../secret'},{...message,url:'https://example.com'},{...message,id:'record_1'},{...message,data:{}},{...message,action:'list'}])assert.equal(validateApplicationBridgeMessage(value,manifest),null)
+})
+
+test('project context preserves editable notes, superseded decisions, and task transitions',async()=>{
+  const ui=await fixture({useContext:true})
+  const node=key=>ui.nodes.get(key)
+  assert.equal(node('project-context').hidden,false)
+  assert.equal(ui.calls.some(call=>call.path.endsWith('/context')),false)
+  ui.updateContext({notes:{goal:'Track studio clients'},recentChanges:[{version:1,prompt:'Create the studio CRM'}]})
+  node('project-context').open=true
+  await node('project-context').fire('toggle')
+  await tick()
+  assert.equal(node('context-note-goal').value,'Track studio clients')
+  assert.match(node('context-changes').textContent,/Create the studio CRM/)
+
+  node('context-note-goal').value='Track clients and bookings'
+  await node('context-note-goal').fire('input')
+  ui.updateContext({notes:{goal:'Manage the studio',architecture:'Web app'}})
+  await node('context-notes').fire('submit')
+  await tick()
+  assert.equal(node('context-save').disabled,true)
+  assert.match(node('context-status').textContent,/Your edits are kept/)
+  await node('context-refresh').fire('click')
+  await tick()
+  assert.equal(node('context-note-goal').value,'Track clients and bookings')
+  assert.equal(node('context-note-architecture').value,'Web app')
+  assert.match(node('context-note-conflict-list').textContent,/Manage the studio/)
+  await node('context-notes').fire('submit')
+  await tick()
+  assert.deepEqual(JSON.parse(ui.calls.filter(call=>call.method==='PUT').at(-1).body),{
+    version:2,notes:{goal:'Track clients and bookings',architecture:'Web app',preferences:'',dependencies:'',problems:''},
+  })
+
+  const submitEntry=async (key,value,form=key+'-form')=>{
+    node('context-'+key).value=value
+    await node('context-'+key).fire('input')
+    await node('context-'+form).fire('submit')
+    await tick()
+  }
+  const clickRowAction=async (list,label)=>{
+    const button=node('context-'+list).all().find(item=>item.tagName==='BUTTON' && item.textContent===label)
+    assert.equal(button?.disabled,false)
+    await button.fire('click')
+    await tick()
+  }
+  await submitEntry('decision','Sort customers by name')
+  await clickRowAction('decisions','Replace')
+  await submitEntry('replacement','Sort customers by last visit','replace-form')
+  assert.match(node('context-decisions').textContent,/Sort customers by nameSuperseded/)
+  assert.match(node('context-decisions').textContent,/Sort customers by last visitActive/)
+  await submitEntry('task','Review customer list')
+  await clickRowAction('tasks','Complete')
+  assert.match(node('context-tasks').textContent,/Done/)
+  await clickRowAction('tasks','Reopen')
+  await clickRowAction('tasks','Cancel')
+  assert.match(node('context-tasks').textContent,/Cancelled/)
+  ui.api.destroy()
+})
+
+test('a late context response is dropped after the application is closed',async()=>{
+  const ui=await fixture({useContext:true})
+  const node=key=>ui.nodes.get(key)
+  ui.updateContext({notes:{goal:'This belongs to the previously opened project'}})
+  const finishRequest=ui.holdContext()
+  node('project-context').open=true
+  await node('project-context').fire('toggle')
+  const request=ui.calls.find(call=>call.path.endsWith('/context'))
+  await node('new').fire('click')
+  assert.equal(request.signal.aborted,true)
+  finishRequest()
+  await tick()
+  assert.equal(ui.api.currentApplication,null)
+  assert.equal(node('project-context').hidden,true)
+  assert.equal(node('context-note-goal').value,'')
+  await node('project-context').fire('toggle')
+  assert.equal(ui.calls.filter(call=>call.path.endsWith('/context')).length,1)
+  ui.api.destroy()
+})
+
+test('reviewed plans bind the context version and preserve the draft on conflict',async()=>{
+  const ui=await fixture({useContext:true})
+  const node=key=>ui.nodes.get(key)
+  ui.updateContext({notes:{architecture:'Project tracker'}})
+  node('input').value='Rename the tracker'
+  await node('request-plan').fire('click')
+  await tick()
+  assert.equal(node('plan').hidden,false)
+  const draft=node('plan-editor').value
+  ui.updateContext({notes:{architecture:'Studio CRM'}})
+  await node('apply-plan').fire('click')
+  await tick()
+  const request=ui.calls.find(call=>call.path.endsWith('/build-plan'))
+  assert.equal(JSON.parse(request.body).contextVersion,1)
+  assert.equal(node('apply-plan').disabled,true)
+  assert.match(node('plan-warning').textContent,/context changed/)
+  assert.equal(node('plan-editor').value,draft)
+  assert.equal(node('input').value,'Rename the tracker')
+  assert.equal(ui.api.currentApplication.version,1)
+
+  await node('request-plan').fire('click')
+  await tick()
+  node('project-context').open=true
+  await node('project-context').fire('toggle')
+  await tick()
+  node('context-note-goal').value='Run a creative studio'
+  await node('context-note-goal').fire('input')
+  await node('context-notes').fire('submit')
+  await tick()
+  assert.match(node('plan-warning').textContent,/context changed/)
+  assert.equal(node('apply-plan').disabled,true)
+  assert.equal(ui.calls.filter(call=>call.path.endsWith('/build-plan')).length,1)
+  ui.api.destroy()
 })
