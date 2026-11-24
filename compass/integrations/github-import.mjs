@@ -56,7 +56,7 @@ async function readManifest({ base, commitSha }, request) {
 }
 
 function compatibleManifest(current, incoming) {
-  if (incoming.kind !== current.kind || JSON.stringify(incoming.crm) !== JSON.stringify(current.crm)) {
+  if (incoming.kind !== current.kind || incoming.mobile?.platform!==current.mobile?.platform || JSON.stringify(incoming.crm) !== JSON.stringify(current.crm)) {
     fail(409, 'integration_manifest_incompatible');
   }
   const prior = new Map(current.entity.fields.map(field => [field.key, field]));

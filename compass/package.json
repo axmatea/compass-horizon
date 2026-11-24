@@ -17,6 +17,7 @@
     "check:platform": "node scripts/check-platform.mjs"
   },
   "devDependencies": {
+    "qrcode": "1.5.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "vite": "7.3.7"

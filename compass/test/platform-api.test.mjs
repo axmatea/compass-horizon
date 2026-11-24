@@ -364,6 +364,51 @@ test('CRM repairs a controlled invalid draft, exports multiple files and preserv
   assert.equal((await json(await request(records+'deals',mutation(owner,'GET',undefined,3)))).records[0].data.stage,'won');
 });
 
+test('the mobile target keeps plans, private previews, context, and native source under one account',async t=>{
+  const {request,account,restart}=await fixture(t,true,{},undefined,undefined,true);
+  const owner=await account('mobileqa'),outsider=await account('mobileother');
+  const base='/api/account/apps';
+  const input={text:'Build AI MEDIA Personal OS with clients, sales, follow-ups, projects, and revenue',platform:'cross-platform'};
+  const plan=await json(await request(base+'/plan',action(owner,'POST',input,'mobile_plan_123456')));
+  assert.equal(plan.manifest.title,'AI MEDIA Personal OS');
+  assert.equal(plan.manifest.mobile.platform,'cross-platform');
+  const changedTarget=await request(base+'/plan',action(owner,'POST',{...input,platform:'ios'},'mobile_plan_123456'));
+  assert.equal(changedTarget.status,409);
+  const bad=await request(base+'/plan',action(owner,'POST',{...input,platform:'https://elsewhere.test'},'mobile_bad_platform_1234'));
+  assert.equal(bad.status,400);assert.equal((await bad.json()).error,'invalid_platform');
+  const built=await json(await request(base+'/build-plan',action(owner,'POST',{text:input.text,manifest:plan.manifest},'mobile_build_123456')));
+  const app=base+'/'+built.application.id;
+  assert.equal((await request(app+'/preview',{cookie:outsider.cookie})).status,404);
+  assert.equal((await request(app+'/export',{cookie:outsider.cookie})).status,404);
+  const preview=await request(app+'/preview',{cookie:owner.cookie});
+  assert.match(await preview.text(),/AI MEDIA Personal OS/);
+  assert.match(preview.headers.get('content-security-policy'),/sandbox allow-scripts/);
+  const records=await json(await request(app+'/crm/clients',{...action(owner,'POST',{data:{name:'Private mobile QA record'}}),headers:{'x-compass-app-version':'1'}}));
+  assert.equal(records.record.data.name,'Private mobile QA record');
+  const context=(await json(await request(app+'/context',{cookie:owner.cookie}))).context;
+  await json(await request(app+'/context',action(owner,'POST',{version:context.version,action:'decision',text:'Keep the light theme'})));
+  const source=await json(await request(app+'/source',{cookie:owner.cookie}));
+  assert.equal(source.template,'compass-native-personal-os-v1');
+  const config=JSON.parse(source.files.find(file=>file.path==='app.json').content).expo;
+  assert.equal(config.name,'AI MEDIA Personal OS');
+  assert.deepEqual(config.platforms,['ios','android']);
+  assert.ok(source.files.some(file=>file.path==='src/App.tsx'));
+  assert.ok(source.files.some(file=>file.path==='package-lock.json'));
+  assert.doesNotMatch(JSON.stringify(source),/Private mobile QA record|Keep the light theme/);
+  assert.ok(source.files.every(file=>!file.path.includes('node_modules/')));
+  const zip=await request(app+'/export',{cookie:owner.cookie});
+  assert.equal(zip.status,200);
+  assert.equal(Buffer.from(await zip.arrayBuffer()).readUInt32LE(),0x04034b50);
+  const invalidEdit=await request(app+'/manifest',action(owner,'PUT',{version:1,manifest:{...plan.manifest,mobile:{platform:'android'}}}));
+  assert.equal(invalidEdit.status,409);assert.equal((await invalidEdit.json()).error,'application_target_fixed');
+  await restart();
+  assert.equal((await json(await request(app,{cookie:owner.cookie}))).application.manifest.mobile.platform,'cross-platform');
+  assert.equal((await json(await request(app+'/context',{cookie:owner.cookie}))).context.decisions[0].text,'Keep the light theme');
+  const ios=await json(await request(base,action(owner,'POST',{...input,platform:'ios'},'mobile_ios_12345678')));
+  const iosSource=await json(await request(base+'/'+ios.application.id+'/source',{cookie:owner.cookie}));
+  assert.deepEqual(JSON.parse(iosSource.files.find(file=>file.path==='app.json').content).expo.platforms,['ios']);
+});
+
 test('publication opt-in is scriptless, owner-gated, revocable and never exposes private projects implicitly',async t=>{
   const {request,account}=await fixture(t);const a=await account('publisher'),b=await account('outsider');
   const build=await json(await request('/api/account/turn',action(a,'POST',{text:'A white bakery website called Orbit Bakery'},'publication_build_1234')));

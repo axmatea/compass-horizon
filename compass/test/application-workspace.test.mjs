@@ -7,7 +7,7 @@ import {resolveObjectURL} from 'node:buffer'
 import {once} from 'node:events'
 import {createCompassServer} from '../server.mjs'
 import {createApplicationManifest} from '../generation/manifest.mjs'
-import {validateApplicationManifest} from '../generation/templates/lib/schema.mjs'
+import {validateApplicationManifest,MOBILE_PLATFORMS} from '../generation/templates/lib/schema.mjs'
 import {validateApplicationBridgeMessage} from '../src/applications/bridge.mjs'
 import {applicationResultOutcome,requireApplicationVersion} from '../src/applications/result.mjs'
 import {mountPaneLayout} from '../src/builder/pane-layout.mjs'
@@ -92,7 +92,7 @@ async function fixture({confirm=()=>true,open=true,useContext=false}={}){
     if(path.endsWith('/assets/asset_fixture'))return new Response(new Blob(['image'],{type:'image/png'}),{headers})
     throw Error('Unexpected raw '+path)
   }
-  const context={console,document:{body,createElement:tag=>new Node(tag)},window:{addEventListener:(type,fn)=>events.set(type,fn),removeEventListener(){}},crypto:webcrypto,URL,Blob,Response,TextEncoder,AbortController,setTimeout,atob,structuredClone,confirm,navigator:{clipboard:{writeText:async()=>{}}},createDictation:()=>null,draftCanAutoBuild:()=>false,disarmDraft(){},validateApplicationManifest,validateApplicationBridgeMessage,applicationResultOutcome,requireApplicationVersion,mountPaneLayout}
+  const context={console,document:{body,createElement:tag=>new Node(tag)},window:{addEventListener:(type,fn)=>events.set(type,fn),removeEventListener(){}},crypto:webcrypto,URL,Blob,Response,TextEncoder,AbortController,setTimeout,atob,structuredClone,confirm,navigator:{clipboard:{writeText:async()=>{}}},createDictation:()=>null,draftCanAutoBuild:()=>false,disarmDraft(){},validateApplicationManifest,MOBILE_PLATFORMS,validateApplicationBridgeMessage,applicationResultOutcome,requireApplicationVersion,mountPaneLayout}
   vm.runInNewContext(contextClient+'\n'+client+';globalThis.mount=mountApplicationWorkspace',context)
   const api=await context.mount({container,request,requestRaw:raw,userId:'owner_fixture'});if(open)await api.open(app.id)
   return {api,nodes,calls,events,container,get app(){return app},failManifest(value=true){failManifest=value},failPlanApply(message){failPlanApply=message},failPlanRequest(error){planError=error},updateContext(data){projectContext={...projectContext,...data,version:projectContext.version+1}},holdContext(){let done;holdContext=new Promise(resolve=>{done=resolve});return done},tick}

@@ -1,4 +1,5 @@
 // A short-lived, tab-local handoff. Never put prompts in URLs or auth callbacks.
+import {MOBILE_PLATFORMS} from '../../generation/templates/lib/schema.mjs'
 export const DRAFT_KEY = 'compass.create-draft.v1'
 export const DRAFT_TTL = 30 * 60 * 1000
 export const MAX_PROMPT = 500
@@ -35,8 +36,9 @@ function normalizeDraft(value, now) {
     || value.createdAt > now || value.expiresAt <= now
     || value.expiresAt - value.createdAt !== DRAFT_TTL) return null
   if(value.ownerId !== undefined && !validOwner(value.ownerId))return null
+  if(value.platform!==undefined && !MOBILE_PLATFORMS.includes(value.platform))return null
   return {schema:1,...(value.ownerId === undefined ? {} : {ownerId:value.ownerId}),id:value.id,prompt:value.prompt,createdAt:value.createdAt,expiresAt:value.expiresAt,
-    preferences:normalizePreferences(value.preferences),ready:value.ready === true}
+    preferences:normalizePreferences(value.preferences),ready:value.ready === true,...(value.platform?{platform:value.platform}:{})}
 }
 
 export function readDraft({storage,now = Date.now} = {}) {
@@ -63,11 +65,12 @@ export function writeDraft(value, {storage,now = Date.now,id = () => globalThis.
   const previous = current?.prompt === value.prompt ? current : null
   const preferences = normalizePreferences(value.preferences ?? previous?.preferences)
   const ownerId=value.ownerId === null ? undefined : value.ownerId ?? previous?.ownerId
-  const unchanged = previous && ownerId === previous.ownerId && JSON.stringify(preferences) === JSON.stringify(previous.preferences)
+  const platform=value.platform===null?undefined:value.platform??previous?.platform
+  const unchanged = previous && platform===previous.platform && ownerId === previous.ownerId && JSON.stringify(preferences) === JSON.stringify(previous.preferences)
     && !(previous.ready && value.ready !== true)
   const draft = normalizeDraft({schema:1,id:unchanged ? previous.id : id(),prompt:value.prompt,
     createdAt:previous?.createdAt ?? at,expiresAt:previous?.expiresAt ?? at + DRAFT_TTL,
-    preferences,ready:value.ready === true,...(ownerId === undefined ? {} : {ownerId})},at)
+    preferences,ready:value.ready === true,...(ownerId === undefined ? {} : {ownerId}),...(platform===undefined?{}:{platform})},at)
   if (!draft) return {ok:false,error:'invalid-draft'}
   try { target.setItem(DRAFT_KEY,JSON.stringify(draft)); return {ok:true,draft} }
   catch { return {ok:false,error:'storage-unavailable'} }

@@ -1,0 +1,147 @@
+name: COMPASS native builds
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile.yml'
+      - 'mobile/**'
+      - 'compass/generation/mobile/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: '1'
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  build:
+    name: ${{ matrix.project.name }} / ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - name: compass-mobile
+            path: mobile
+          - name: personal-os
+            path: compass/generation/mobile/template
+        platform:
+          - name: ios-simulator
+            runner: xcode-27
+          - name: android-apk
+            runner: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.project.path }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.project.path }}/package-lock.json
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        if: runner.os == 'Linux'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Materialize the generated Personal OS source
+        if: matrix.project.name == 'personal-os'
+        run: |
+          node --input-type=module <<'JS'
+          import {writeFile} from 'node:fs/promises';
+          import {join} from 'node:path';
+          import {pathToFileURL} from 'node:url';
+          const modulePath=join(process.env.GITHUB_WORKSPACE,'compass/generation/index.mjs');
+          const {createApplicationManifest,createApplicationBundle,exportApplicationZip}=await import(pathToFileURL(modulePath).href);
+          const prompt='Build AI MEDIA Personal OS with client pipeline, contacts, opportunities, daily tasks, follow-up reminders, revenue, projects, and an assistant.';
+          const manifest=createApplicationManifest(prompt,{platform:'cross-platform'});
+          await writeFile(join(process.env.RUNNER_TEMP,'personal-os-source.zip'),exportApplicationZip(await createApplicationBundle(manifest)));
+          JS
+          unzip -qo "$RUNNER_TEMP/personal-os-source.zip"
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: Compile an unsigned iOS Simulator app
+        id: ios_build
+        if: runner.os == 'macOS'
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+          ./node_modules/.bin/expo run:ios --configuration Release --device generic --no-bundler --output "$RUNNER_TEMP/ios-product"
+          product=$(find "$RUNNER_TEMP/ios-product" -mindepth 1 -maxdepth 1 -type d -name '*.app' -print -quit)
+          test -n "$product"
+          test -s "$product/main.jsbundle"
+          mkdir -p "$RUNNER_TEMP/native-artifacts"
+          ditto -c -k --keepParent "$product" "$RUNNER_TEMP/native-artifacts/ios-simulator.zip"
+          test -s "$RUNNER_TEMP/native-artifacts/ios-simulator.zip"
+      - name: Verify iOS Simulator startup
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        run: |
+          product=$(find "$RUNNER_TEMP/ios-product" -mindepth 1 -maxdepth 1 -type d -name '*.app' -print -quit)
+          bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$product/Info.plist")
+          device=$(xcrun simctl list devices available -j | node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            const runtimes = Object.entries(JSON.parse(readFileSync(0,"utf8")).devices)
+              .filter(([runtime]) => runtime.startsWith("com.apple.CoreSimulator.SimRuntime.iOS-"))
+              .sort(([a], [b]) => b.localeCompare(a, undefined, {numeric:true}));
+            const device = runtimes.flatMap(([, devices]) => devices)
+              .find(item => item.isAvailable && item.name.startsWith("iPhone"));
+            if (!device) process.exit(1);
+            process.stdout.write(device.udid);
+          ')
+          trap 'xcrun simctl shutdown "$device" >/dev/null 2>&1 || true' EXIT
+          xcrun simctl bootstatus "$device" -b
+          xcrun simctl install "$device" "$product"
+          xcrun simctl launch "$device" "$bundle_id"
+          sleep 5
+          xcrun simctl spawn "$device" launchctl list | awk -v bundle="$bundle_id" '
+            index($0,bundle) && $1 ~ /^[1-9][0-9]*$/ { print; running=1 }
+            END { exit !running }
+          '
+          xcrun simctl io "$device" screenshot "$RUNNER_TEMP/native-artifacts/ios-startup.png"
+      - name: Compile and verify an Android QA APK
+        id: android_build
+        if: runner.os == 'Linux'
+        run: |
+          java -version
+          ./node_modules/.bin/expo prebuild --platform android --no-install
+          android/gradlew -p android :app:assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+          product=$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)
+          test -n "$product"
+          signer=$(find "${ANDROID_HOME:?Android SDK missing}/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          test -x "$signer"
+          "$signer" verify --print-certs "$product" | grep -F 'CN=Android Debug'
+          unzip -p "$product" assets/index.android.bundle > "$RUNNER_TEMP/index.android.bundle"
+          test -s "$RUNNER_TEMP/index.android.bundle"
+          mkdir -p "$RUNNER_TEMP/native-artifacts"
+          cp "$product" "$RUNNER_TEMP/native-artifacts/android-qa.apk"
+          test -s "$RUNNER_TEMP/native-artifacts/android-qa.apk"
+      - name: Record artifact hashes
+        id: checksum
+        if: ${{ !cancelled() && (steps.ios_build.outcome == 'success' || steps.android_build.outcome == 'success') }}
+        run: |
+          cd "$RUNNER_TEMP/native-artifacts"
+          shopt -s nullglob
+          binaries=(./*.zip ./*.apk ./*.png)
+          shasum -a 256 "${binaries[@]}" | tee SHA256SUMS.txt
+          ls -lh .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ !cancelled() && steps.checksum.outcome == 'success' }}
+        with:
+          name: ${{ matrix.project.name }}-${{ matrix.platform.name }}
+          path: ${{ runner.temp }}/native-artifacts/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

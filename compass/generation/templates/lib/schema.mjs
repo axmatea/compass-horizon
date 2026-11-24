@@ -3,6 +3,7 @@ const MODES = ['light','dark'], ACCENTS = ['indigo','blue','slate','rose','amber
 const RESERVED = new Set(['id','owner','owner_id','userid','user_id','session','password','token','constructor','prototype','__proto__']);
 export const CRM_CURRENCIES = Object.freeze(['USD','EUR','GBP','CAD','AUD']);
 export const CRM_STAGES = Object.freeze({new:'New',qualified:'Qualified',proposal:'Proposal',negotiation:'Negotiation',won:'Won',lost:'Lost'});
+export const MOBILE_PLATFORMS = Object.freeze(['ios','android','cross-platform']);
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
 const hasOnlyKeys=(value,allowed)=>Object.keys(value).every(key=>allowed.includes(key));
 const text = (value,max) => typeof value === 'string' && value.trim() && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value) ? value.trim() : null;
@@ -16,7 +17,7 @@ export function validateCrmConfiguration(value) {
 }
 
 export function validateApplicationManifest(value) {
-  if (!plain(value) || !hasOnlyKeys(value,['schema','title','description','kind','theme','entity','assets','crm']) || value.schema !== 1 || !['tracker','crm','booking','inventory'].includes(value.kind)) return null;
+  if (!plain(value) || !hasOnlyKeys(value,['schema','title','description','kind','theme','entity','assets','crm','mobile']) || value.schema !== 1 || !['tracker','crm','booking','inventory'].includes(value.kind)) return null;
   const title = text(value.title,64), description = text(value.description,240);
   if (!title || !description || !plain(value.theme) || !hasOnlyKeys(value.theme,['mode','accent','font','density']) || !plain(value.entity) || !hasOnlyKeys(value.entity,['singular','plural','fields'])) return null;
   const theme = value.theme;
@@ -44,7 +45,9 @@ export function validateApplicationManifest(value) {
   }
   const crm = value.crm===undefined ? null : validateCrmConfiguration(value.crm);
   if (value.crm!==undefined && (!crm || assets || value.kind!=='crm')) return null;
-  return {schema:1,...(assets?{assets}:{}),title,description,kind:value.kind,theme:{mode:theme.mode,accent:theme.accent,font:theme.font,density:theme.density},entity:{singular,plural,fields},...(crm?{crm}:{})};
+  const mobile=value.mobile;
+  if (mobile!==undefined && (!crm||!plain(mobile)||!hasOnlyKeys(mobile,['platform'])||!MOBILE_PLATFORMS.includes(mobile.platform))) return null;
+  return {schema:1,...(assets?{assets}:{}),title,description,kind:value.kind,theme:{mode:theme.mode,accent:theme.accent,font:theme.font,density:theme.density},entity:{singular,plural,fields},...(crm?{crm}:{}),...(mobile?{mobile:{platform:mobile.platform}}:{})};
 }
 
 export function validateApplicationRecord(manifest, value) {

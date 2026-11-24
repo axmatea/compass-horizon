@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 import { TEMPLATE_CATALOG, getTemplate, filterTemplates } from '../marketplace/catalog.mjs'
 import { readDraft, validPrompt, writeDraft } from '../src/create/draft.mjs'
+import { MOBILE_PLATFORMS } from '../generation/templates/lib/schema.mjs'
 
 const source = (await readFile(new URL('../src/marketplace/marketplace.mjs', import.meta.url), 'utf8'))
   .replace(/^import .+\n/gm, '').replace('export function', 'function')
@@ -88,7 +89,7 @@ function fixture({ url = 'https://mycompass.world/', request, mobile = false, dr
   const fetch = async (path, options) => { calls.push({ path, options }); return request ? request(path, options) : new Response(null, { headers: { 'content-type': 'text/html; charset=utf-8' } }) }
   const context = { URL, URLSearchParams, AbortController, TEMPLATE_CATALOG, getTemplate, filterTemplates, validPrompt,
     readDraft: () => readDraft({ storage: draftStorage }),
-    writeDraft: value => writeDraft(value, { storage: draftStorage }), globalThis: {} }
+    writeDraft: value => writeDraft(value, { storage: draftStorage }), MOBILE_PLATFORMS, globalThis: {} }
   vm.runInNewContext(source + ';globalThis.mount=mountMarketplace', context)
   const api = context.globalThis.mount({ document: doc, window: view, fetch })
   const elements = () => doc.body.all()

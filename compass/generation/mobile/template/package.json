@@ -1,0 +1,37 @@
+{
+  "name": "compass-personal-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "engines": {"node": ">=22.13.0"},
+  "scripts": {
+    "start": "expo start",
+    "check": "tsc --noEmit",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test test/*.test.mjs",
+    "bundle": "expo export --platform ios --platform android --output-dir dist/native",
+    "bundle:web": "expo export --platform web --output-dir dist/web",
+    "ios": "expo run:ios",
+    "android": "expo run:android"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "58.0.26",
+    "expo-file-system": "58.0.14",
+    "expo-image-picker": "58.0.10",
+    "expo-notifications": "58.1.9",
+    "expo-system-ui": "58.0.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "5.11.1",
+    "react-native-web": "0.21.4"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "typescript": "5.9.3"
+  },
+  "overrides": {
+    "@expo/fingerprint": {"minimatch": "11.0.8"}
+  }
+}

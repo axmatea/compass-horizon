@@ -1,4 +1,4 @@
-import {validateApplicationManifest,validateApplicationRecord,CRM_CURRENCIES,CRM_STAGES} from './templates/lib/schema.mjs';
+import {validateApplicationManifest,validateApplicationRecord,CRM_CURRENCIES,CRM_STAGES,MOBILE_PLATFORMS} from './templates/lib/schema.mjs';
 import {referenceAppearanceNotes} from '../src/start/reference.mjs';
 export {validateApplicationManifest,validateApplicationRecord};
 const field = (key,label,type = 'text',required = false,options) => ({key,label,type,required,...(options ? {options} : {})});
@@ -30,17 +30,19 @@ export function referenceApplicationSelection(prompt) {
   return {kind,title:header[2],notes:referenceAppearanceNotes(tail.slice(selected[0].length)),entity:{...structuredClone(KINDS[kind]),fields:keys.map(key=>structuredClone(KINDS[kind].fields.find(field=>field.key===key)))}};
 }
 
-export function createApplicationManifest(prompt, {preferences = {}} = {}) {
+export function createApplicationManifest(prompt, {preferences = {}, platform} = {}) {
   if (typeof prompt !== 'string' || prompt.trim().length < 3 || prompt.length > 2000) throw Object.assign(new Error('Describe the application in 3–2000 characters.'),{code:'invalid_prompt'});
-  const selection=referenceApplicationSelection(prompt);
-  const fullCrm=!selection && /\bcrm\b/i.test(prompt) && /\b(?:pipeline|proposals?|revenue|follow[- ]ups?|consulting)\b/i.test(prompt);
+  if (platform!==undefined && !MOBILE_PLATFORMS.includes(platform)) throw Object.assign(new Error('Unknown mobile platform.'),{status:400,code:'invalid_platform'});
+  const selection=platform?null:referenceApplicationSelection(prompt);
+  const fullCrm=Boolean(platform)||(!selection && /\bcrm\b/i.test(prompt) && /\b(?:pipeline|proposals?|revenue|follow[- ]ups?|consulting)\b/i.test(prompt));
   const kind = selection?.kind || (fullCrm ? 'crm' : /\b(book|booking|reservation|appointment)\b/i.test(prompt) ? 'booking'
     : /\b(inventory|stock|warehouse|quantity)\b/i.test(prompt) ? 'inventory'
       : /\bcrm\b/i.test(prompt) ? 'crm'
         : /\b(task|tasks|to-do|todo|project tracker)\b/i.test(prompt) ? 'tracker'
           : /\b(contact|contacts|customer|customers|lead|leads)\b/i.test(prompt) ? 'crm' : 'tracker');
   const named = prompt.match(/\b(?:called|named)\s+["“]?([\p{L}\p{N}][\p{L}\p{N} &'’-]{1,63})/iu)?.[1];
-  const title = selection?.title || clean(named?.split(/\s+(?:with|and|that|for|using|where)\s+/i)[0] || (fullCrm ? 'Consulting CRM' : {crm:'Contact workspace',booking:'Booking workspace',inventory:'Inventory workspace',tracker:'Project tracker'}[kind]),64);
+  const fallbackTitle=platform ? (/\bAI\s+MEDIA\b/i.test(prompt)?'AI MEDIA Personal OS':'Personal OS') : fullCrm ? 'Consulting CRM' : {crm:'Contact workspace',booking:'Booking workspace',inventory:'Inventory workspace',tracker:'Project tracker'}[kind];
+  const title = selection?.title || clean(named?.split(/\s+(?:with|and|that|for|using|where)\s+/i)[0] || fallbackTitle,64);
   const appearance=selection ? selection.notes : prompt;
   const theme = {mode:/\bdark\b/i.test(appearance) ? 'dark' : 'light',accent:'indigo',font:preferences.visualDirection === 'editorial' ? 'serif' : 'sans',density:'comfortable'};
   if (/\bcompact\b/i.test(appearance)) theme.density = 'compact';
@@ -48,9 +50,9 @@ export function createApplicationManifest(prompt, {preferences = {}} = {}) {
   if (sans) theme.font = 'sans';
   else if (/\b(?:serif|editorial)\b/i.test(appearance)) theme.font = 'serif';
   for (const accent of ['indigo','blue','slate','rose','amber']) if (new RegExp(`\\b${accent}\\b`,'i').test(appearance)) theme.accent = accent;
-  const description=fullCrm ? 'Manage clients, deals, follow-ups, proposals, and revenue.' : selection ? {tracker:'Project tracker',crm:'Contacts',booking:'Booking records',inventory:'Inventory'}[kind] : clean(prompt,240);
+  const description=platform?'Manage client work, tasks, and sales on the go.':fullCrm ? 'Manage clients, deals, follow-ups, proposals, and revenue.' : selection ? {tracker:'Project tracker',crm:'Contacts',booking:'Booking records',inventory:'Inventory'}[kind] : clean(prompt,240);
   const currency=prompt.match(/\b(USD|EUR|GBP|CAD|AUD)\b/i)?.[1].toUpperCase() || 'USD';
-  return validateApplicationManifest({schema:1,title,description,kind,theme,entity:selection?.entity || structuredClone(KINDS[kind]),...(fullCrm?{crm:{currency,stages:CRM_STAGES}}:{})});
+  return validateApplicationManifest({schema:1,title,description,kind,theme,entity:selection?.entity || structuredClone(KINDS[kind]),...(fullCrm?{crm:{currency,stages:CRM_STAGES}}:{}),...(platform?{mobile:{platform}}:{})});
 }
 
 export function refineApplicationManifest(value,instruction) {

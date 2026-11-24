@@ -69,7 +69,10 @@ function capability() {
     ? 'Your idea is kept. Websites and supported data apps.' : 'Websites and supported data apps.'
 }
 function persist({ready = false,choices,ownerId} = {}) {
-  const result = writeDraft({prompt:promptInput.value,preferences:applicationEntryPreferences(choices ?? state.draft?.preferences ?? state.profilePreferences,{appEntry,guest:state.guest}),ready,ownerId})
+  const platform=state.guest?null:state.draft?.platform
+  const preferences=applicationEntryPreferences(choices ?? state.draft?.preferences ?? state.profilePreferences,{appEntry,guest:state.guest})
+  if(platform)preferences.projectType='internal-tool'
+  const result = writeDraft({prompt:promptInput.value,preferences,ready,ownerId,platform})
   if (!result.ok) {
     message(result.error === 'invalid-prompt' ? 'Describe your idea in 3–500 characters.'
       : 'This browser can’t keep your idea through the next step. Allow session storage or use the public demo.',true)
