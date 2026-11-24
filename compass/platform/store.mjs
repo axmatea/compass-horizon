@@ -3,6 +3,7 @@ import {createApplicationFileMetadata,validateApplicationManifest,validateApplic
 import {validateEditableHtml} from '../html/edit.mjs';
 import {inspectImage,ASSET_LIMITS} from '../generation/image.mjs';
 import {createProjectContextStore} from './project-context.mjs';
+import {createCrmStore} from '../generation/crm/template/lib/store.mjs';
 const fail=(status,code)=>{throw Object.assign(new Error(code),{status,code});};
 const id=prefix=>prefix+'_'+randomUUID();
 const stamp=()=>new Date().toISOString();
@@ -37,6 +38,7 @@ export function createPlatformStore(database) {
     if(!app)fail(404,'not_found');return app;
   }
   const context = createProjectContextStore(database, {getApplication, atomic});
+  const crm = createCrmStore(database, {getApplication, atomic});
   function listApplications(owner) {
     return database.prepare('SELECT * FROM compass_application WHERE owner=? ORDER BY updated_at DESC LIMIT 12').all(owner).map(map);
   }
@@ -57,11 +59,11 @@ export function createPlatformStore(database) {
       changes.push({path,type:!old?'added':!current?'removed':'modified',sha256:current?.sha256||null,previousSha256:old?.sha256||null});
     }return changes;
   }
-  function saveRevisionFiles(owner,appId,version,manifest) {
+  function saveRevisionFiles(owner,appId,version,manifest,buildReport) {
     const assets=activeAssets(owner,appId),files=createApplicationFileMetadata(manifest,{assets,trustedAssets:true});
     const prior=database.prepare('SELECT snapshot FROM compass_application_revision_files WHERE app_id=? AND version<? ORDER BY version DESC LIMIT 1').get(appId,version);
     const previous=prior?JSON.parse(prior.snapshot).files:[];
-    const snapshot={assetIds:assets.map(asset=>asset.id),files,changes:fileChanges(previous,files)};
+    const snapshot={assetIds:assets.map(asset=>asset.id),files,changes:fileChanges(previous,files),...(buildReport?{buildReport}:{})};
     database.prepare('INSERT INTO compass_application_revision_files VALUES(?,?,?)').run(appId,version,JSON.stringify(snapshot));
     return snapshot;
   }
@@ -105,7 +107,7 @@ export function createPlatformStore(database) {
       return{ok:true,application:updateApplication(owner,appId,current.manifest,'Remove project image','prepared',current.version,{force:true}),changed:true};
     });
   }
-  function createApplication(owner,value,prompt,source='prepared') {
+  function createApplication(owner,value,prompt,source='prepared',{buildReport}={}) {
     const manifest=validateApplicationManifest(value);if(!manifest)fail(400,'invalid_manifest');
     const appId=id('app'),at=stamp();
     return atomic(()=>{
@@ -113,22 +115,25 @@ export function createPlatformStore(database) {
       assertAssetReferences(owner,appId,manifest);
       database.prepare('INSERT INTO compass_application VALUES(?,?,?,?,?,?,?)').run(appId,owner,JSON.stringify(manifest),1,source==='model'?'model':'prepared',at,at);
       database.prepare('INSERT INTO compass_application_revision VALUES(?,?,?,?,?)').run(appId,1,JSON.stringify(manifest),String(prompt||'').slice(0,2000),at);
-      saveRevisionFiles(owner,appId,1,manifest);
+      saveRevisionFiles(owner,appId,1,manifest,buildReport);
       return getApplication(owner,appId);
     });
   }
-  function updateApplication(owner,appId,value,prompt,source='prepared',expectedVersion,{force=false}={}) {
+  function updateApplication(owner,appId,value,prompt,source='prepared',expectedVersion,{force=false,buildReport}={}) {
     const manifest=validateApplicationManifest(value);if(!manifest)fail(400,'invalid_manifest');
     return atomic(()=>{
       const current=getApplication(owner,appId);
       if(expectedVersion!==undefined&&expectedVersion!==current.version)fail(409,'version_conflict');
+      if(Boolean(current.manifest.crm)!==Boolean(manifest.crm))fail(409,'application_type_conflict');
+      if(manifest.crm && JSON.stringify(current.manifest.entity)!==JSON.stringify(manifest.entity))fail(409,'crm_schema_fixed');
+      if(manifest.crm && current.manifest.crm.currency!==manifest.crm.currency && crm.hasRevenueRecords(owner,appId))fail(409,'crm_currency_in_use');
       assertAssetReferences(owner,appId,manifest);
       if(!force&&JSON.stringify(current.manifest)===JSON.stringify(manifest))return current;
       const version=current.version+1,at=stamp();
       database.prepare('UPDATE compass_application SET manifest=?,version=?,source=?,updated_at=? WHERE id=? AND owner=?')
         .run(JSON.stringify(manifest),version,source==='model'?'model':'prepared',at,appId,owner);
       database.prepare('INSERT INTO compass_application_revision VALUES(?,?,?,?,?)').run(appId,version,JSON.stringify(manifest),String(prompt||'').slice(0,2000),at);
-      saveRevisionFiles(owner,appId,version,manifest);
+      saveRevisionFiles(owner,appId,version,manifest,buildReport);
       database.prepare('DELETE FROM compass_application_revision WHERE app_id=? AND version<=?').run(appId,version-16);
       pruneRevisionAssets(owner,appId,version);
       return getApplication(owner,appId);
@@ -137,6 +142,7 @@ export function createPlatformStore(database) {
   function deleteApplication(owner,appId) {
     getApplication(owner,appId);return atomic(()=>{
       context.remove(owner,appId);
+      crm.removeAll(owner,appId);
       database.prepare('DELETE FROM compass_application_record WHERE app_id=? AND owner=?').run(appId,owner);
       database.prepare('DELETE FROM compass_application_revision WHERE app_id=?').run(appId);
       database.prepare('DELETE FROM compass_application_revision_files WHERE app_id=?').run(appId);
@@ -147,7 +153,7 @@ export function createPlatformStore(database) {
   function revisions(owner,appId) {
     getApplication(owner,appId);
     return database.prepare('SELECT version,manifest,prompt,created_at FROM compass_application_revision WHERE app_id=? ORDER BY version DESC LIMIT 16').all(appId)
-      .map(row=>{const saved=database.prepare('SELECT snapshot FROM compass_application_revision_files WHERE app_id=? AND version=?').get(appId,row.version);const snapshot=saved?JSON.parse(saved.snapshot):{files:[],changes:[]};return{receiptAvailable:Boolean(saved),version:row.version,manifest:JSON.parse(row.manifest),prompt:row.prompt,createdAt:row.created_at,files:snapshot.files,changes:snapshot.changes}});
+      .map(row=>{const saved=database.prepare('SELECT snapshot FROM compass_application_revision_files WHERE app_id=? AND version=?').get(appId,row.version);const snapshot=saved?JSON.parse(saved.snapshot):{files:[],changes:[]};return{receiptAvailable:Boolean(saved),version:row.version,manifest:JSON.parse(row.manifest),prompt:row.prompt,createdAt:row.created_at,files:snapshot.files,changes:snapshot.changes,...(snapshot.buildReport?{buildReport:snapshot.buildReport}:{})}});
   }
   function restore(owner,appId,version) {
     if(!Number.isSafeInteger(version)||version<1)fail(400,'invalid_revision');
@@ -246,5 +252,5 @@ export function createPlatformStore(database) {
       operations:database.prepare('SELECT status,count(*) AS count FROM compass_operation GROUP BY status').all(),
       events:database.prepare('SELECT category,code,MAX(created_at) AS at,count(*) AS count FROM compass_system_event GROUP BY category,code ORDER BY at DESC LIMIT 40').all()};
   }
-  return {atomic,context,listAssets,getAsset,saveAsset,deleteAsset,activeAssets,assertApplicationCapacity,getApplication,listApplications,createApplication,updateApplication,deleteApplication,revisions,restore,listRecords,saveRecord,deleteRecord,publish,publications,revokePublication,publicPage,event,overview};
+  return {atomic,context,crm,listAssets,getAsset,saveAsset,deleteAsset,activeAssets,assertApplicationCapacity,getApplication,listApplications,createApplication,updateApplication,deleteApplication,revisions,restore,listRecords,saveRecord,deleteRecord,publish,publications,revokePublication,publicPage,event,overview};
 }

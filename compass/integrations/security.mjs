@@ -49,7 +49,7 @@ export function secretBox(key) {
 // from the client, discovery documents, pagination links, or provider responses.
 const endpoints = new Map([
   ['github.com', /^\/login\/oauth\/access_token$/],
-  ['api.github.com', /^\/(?:graphql|user(?:\/repos)?|repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/git\/ref\/heads\/[A-Za-z0-9_./-]+)?|applications\/[A-Za-z0-9_.-]+\/token)$/],
+  ['api.github.com', /^\/(?:graphql|user(?:\/repos)?|repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/git\/(?:ref\/heads\/[A-Za-z0-9_./-]+|(?:commits|trees|blobs)\/[a-f0-9]{40}))?|applications\/[A-Za-z0-9_.-]+\/token)$/],
   ['oauth2.googleapis.com', /^\/(?:token|revoke)$/],
   ['www.googleapis.com', /^\/(?:drive\/v3\/files|calendar\/v3\/calendars\/[A-Za-z0-9_%@.+-]+\/events)$/],
   ['sheets.googleapis.com', /^\/v4\/spreadsheets\/[A-Za-z0-9_-]+(?:\/values\/[^/]+)?$/],

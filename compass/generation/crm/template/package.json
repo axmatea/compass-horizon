@@ -1,0 +1,24 @@
+{
+  "name": "compass-consulting-crm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22.16.0"},
+  "scripts": {
+    "check": "tsc --noEmit && node --check server.mjs",
+    "build": "npm run check && node build.mjs",
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "better-auth": "1.7.23",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

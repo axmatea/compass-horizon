@@ -1,12 +1,22 @@
 const TYPES = ['text','textarea','number','date','select'];
 const MODES = ['light','dark'], ACCENTS = ['indigo','blue','slate','rose','amber'];
 const RESERVED = new Set(['id','owner','owner_id','userid','user_id','session','password','token','constructor','prototype','__proto__']);
+export const CRM_CURRENCIES = Object.freeze(['USD','EUR','GBP','CAD','AUD']);
+export const CRM_STAGES = Object.freeze({new:'New',qualified:'Qualified',proposal:'Proposal',negotiation:'Negotiation',won:'Won',lost:'Lost'});
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
 const hasOnlyKeys=(value,allowed)=>Object.keys(value).every(key=>allowed.includes(key));
 const text = (value,max) => typeof value === 'string' && value.trim() && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value) ? value.trim() : null;
 
+export function validateCrmConfiguration(value) {
+  if (!plain(value) || !hasOnlyKeys(value,['currency','stages']) || !CRM_CURRENCIES.includes(value.currency) ||
+      !plain(value.stages) || !hasOnlyKeys(value.stages,Object.keys(CRM_STAGES))) return null;
+  const stages = Object.fromEntries(Object.keys(CRM_STAGES).map(key=>[key,text(value.stages[key],32)]));
+  if (Object.values(stages).some(label=>!label) || new Set(Object.values(stages).map(label=>label.toLowerCase())).size!==6) return null;
+  return {currency:value.currency,stages};
+}
+
 export function validateApplicationManifest(value) {
-  if (!plain(value) || !hasOnlyKeys(value,['schema','title','description','kind','theme','entity','assets']) || value.schema !== 1 || !['tracker','crm','booking','inventory'].includes(value.kind)) return null;
+  if (!plain(value) || !hasOnlyKeys(value,['schema','title','description','kind','theme','entity','assets','crm']) || value.schema !== 1 || !['tracker','crm','booking','inventory'].includes(value.kind)) return null;
   const title = text(value.title,64), description = text(value.description,240);
   if (!title || !description || !plain(value.theme) || !hasOnlyKeys(value.theme,['mode','accent','font','density']) || !plain(value.entity) || !hasOnlyKeys(value.entity,['singular','plural','fields'])) return null;
   const theme = value.theme;
@@ -32,7 +42,9 @@ export function validateApplicationManifest(value) {
     if(!plain(value.assets)||!hasOnlyKeys(value.assets,['logo','hero'])||Object.values(value.assets).some(id=>typeof id!=='string'||!/^asset_[a-zA-Z0-9_-]{1,74}$/.test(id)))return null;
     if(Object.keys(value.assets).length)assets={...(value.assets.logo?{logo:value.assets.logo}:{}),...(value.assets.hero?{hero:value.assets.hero}:{})};
   }
-  return {schema:1,...(assets?{assets}:{}),title,description,kind:value.kind,theme:{mode:theme.mode,accent:theme.accent,font:theme.font,density:theme.density},entity:{singular,plural,fields}};
+  const crm = value.crm===undefined ? null : validateCrmConfiguration(value.crm);
+  if (value.crm!==undefined && (!crm || assets || value.kind!=='crm')) return null;
+  return {schema:1,...(assets?{assets}:{}),title,description,kind:value.kind,theme:{mode:theme.mode,accent:theme.accent,font:theme.font,density:theme.density},entity:{singular,plural,fields},...(crm?{crm}:{})};
 }
 
 export function validateApplicationRecord(manifest, value) {

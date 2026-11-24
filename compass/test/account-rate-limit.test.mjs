@@ -5,6 +5,15 @@ const read={method:'GET',path:'/api/account/apps'};
 const mutation={method:'PUT',path:'/api/account/profile'};
 const connect={method:'POST',path:'/api/account/integrations/github/connect'};
 const billing={method:'POST',path:'/api/account/billing/checkout'};
+test('GitHub import review and apply share a smaller owner-scoped network allowance',()=>{
+  const limiter=createAccountRateLimiter({now:()=>0});
+  const importReview={method:'POST',path:'/api/account/apps/app_qa/github-import/review'};
+  const importApply={method:'POST',path:'/api/account/apps/app_qa/github-import/apply'};
+  for(let i=0;i<ACCOUNT_RATE_RULES.githubImport.limit;i++)assert.equal(limiter.check('owner_a',importReview).allowed,true);
+  assert.deepEqual(limiter.check('owner_a',importApply),{allowed:false,retryAfterSeconds:60});
+  assert.equal(limiter.check('owner_a',mutation).allowed,true);
+  assert.equal(limiter.check('owner_b',importApply).allowed,true);
+});
 test('read and mutation windows are independent, owner-scoped and reset at exact boundary',()=>{
   let at=0;const limiter=createAccountRateLimiter({now:()=>at});
   for(let i=0;i<ACCOUNT_RATE_RULES.read.limit;i++)assert.equal(limiter.check('a',read).allowed,true);

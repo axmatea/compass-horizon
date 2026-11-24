@@ -6,6 +6,7 @@ import { normalizeAccountConfig, allowedEmail, accountErrorText, isAccountChange
 import {accountEntry} from '../src/create/manage.mjs';
 
 const workspaceSource=(await readFile(new URL('../src/account/workspace.mjs',import.meta.url),'utf8')).replace(/^import .+\n/gm,'').replace('export async function','async function');
+const connectionSource=(await readFile(new URL('../src/account/connections.mjs',import.meta.url),'utf8')).replace('export function','function');
 const manageSource=(await readFile(new URL('../src/create/manage.mjs',import.meta.url),'utf8')).replace(/^import .+\n/gm,'').replaceAll('export function','function');
 class Node {
   constructor(tag='div'){this.tagName=tag.toUpperCase();this.children=[];this.listeners={};this.attributes={};this.dataset={};this.hidden=false;this.disabled=false;this._text='';this.classList={add(){}};this.value=''}
@@ -15,6 +16,42 @@ class Node {
   async fire(type){for(const handler of this.listeners[type] || [])await handler({target:this,preventDefault(){}})}
   focus(){}reportValidity(){return true}all(){return this.children.flatMap(child=>[child,...child.all()])}querySelectorAll(){return []}
 }
+
+test('GitHub manifest controls require an open application and an unchanged review before apply',async()=>{
+  const view={document:{createElement:tag=>new Node(tag)}};
+  vm.runInNewContext(connectionSource+';globalThis.actions=connectionActions',view);
+  const row=new Node(), requests=[], statuses=[];
+  const provider={provider:'github',configured:true,connected:true,manifestImport:true};
+  let target={id:'app_qa',version:1};
+  const request=async (path,options)=>{
+    requests.push({path,body:JSON.parse(options.body)});
+    if(path.endsWith('/review'))return {repository:'owner/project',branch:'main',commitSha:'a'.repeat(40),changed:true,current:{title:'Old app'},manifest:{title:'New app'},ticket:'synthetic-reviewed-ticket'};
+    return {application:{version:target.version+1}};
+  };
+  view.actions({provider,row:new Node(),request,onStatus(){},getImportTarget:()=>null});
+  assert.equal(requests.length,0);
+  const hidden=new Node();
+  view.actions({provider:{...provider,manifestImport:false},row:hidden,request,onStatus(){},getImportTarget:()=>target});
+  assert.ok(!hidden.all().some(node=>node.textContent==='Import app manifest'));
+  view.actions({provider,row,request,onStatus:message=>statuses.push(message),getImportTarget:()=>target});
+  const form=row.all().find(node=>node.tagName==='FORM' && node.all().some(field=>field.name==='branch'));
+  const get=name=>form.all().find(node=>node.name===name);
+  const apply=form.all().find(node=>node.textContent==='Apply manifest');
+  assert.equal(apply.hidden,true);
+  get('repository').value='owner/project';get('branch').value='main';
+  await form.fire('submit');
+  assert.equal(requests[0].path,'apps/app_qa/github-import/review');
+  assert.deepEqual(requests[0].body,{repository:'owner/project',branch:'main',version:1});
+  assert.match(form.textContent,/Old app/);assert.match(form.textContent,/New app/);
+  assert.equal(apply.hidden,false);
+  target={...target,version:2};
+  await apply.fire('click');
+  assert.equal(requests.length,1);assert.equal(apply.hidden,true);
+  assert.match(statuses.at(-1),/project or destination changed/i);
+  await form.fire('submit');await apply.fire('click');
+  assert.deepEqual(requests.at(-1),{path:'apps/app_qa/github-import/apply',body:{ticket:'synthetic-reviewed-ticket'}});
+  assert.match(statuses.at(-1),/Imported version 3/);assert.equal(apply.hidden,true);
+});
 const durableConfig={enabled:true,configured:true,providers:['google'],emailMode:'disabled',persistence:'durable',features:{accountManagement:true,accountLinking:true}};
 async function verificationView(options={}) {
   const root=new Node(),calls=[],config=normalizeAccountConfig({...durableConfig,providers:['email','google'],emailMode:'verification',features:{emailVerification:true}});

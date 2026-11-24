@@ -1,7 +1,24 @@
 import {validateApplicationRecord} from '../../generation/templates/lib/schema.mjs'
+import {crmEntities,parseCrmRecord} from '../../generation/crm/template/lib/records.mjs'
 const ID = /^[A-Za-z0-9_-]{1,80}$/
 const REQUEST_ID = /^[A-Za-z0-9_-]{1,120}$/
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
+
+export function validateCrmBridgeMessage(value) {
+  if (!plain(value) || value.type!=='compass-crm-request' || typeof value.requestId!=='string' || !REQUEST_ID.test(value.requestId) ||
+      !crmEntities.includes(value.entity) || !['list','save','delete'].includes(value.operation) ||
+      Object.keys(value).some(key=>!['type','requestId','operation','entity','id','data','version'].includes(key))) return null
+  const {requestId,operation,entity,id,version}=value
+  if (id!==undefined && (typeof id!=='string' || !/^crm_[a-z0-9-]{36}$/.test(id) || !Number.isSafeInteger(version) || version<1)) return null
+  if (id===undefined && version!==undefined) return null
+  if (operation==='save') {
+    const checked=parseCrmRecord(entity,value.data)
+    if (!checked.ok) return null
+    return {requestId,entity,id,version,action:id?'update':'create',data:checked.data}
+  }
+  if (value.data!==undefined || (operation==='list' ? id!==undefined : id===undefined)) return null
+  return {requestId,entity,id,version,action:operation}
+}
 
 export function validateApplicationBridgeMessage(value,manifest) {
   if (!plain(value) || value.type !== 'compass-app-request' || !REQUEST_ID.test(value.requestId || '') || !['list','create','update','delete','asset'].includes(value.action)) return null

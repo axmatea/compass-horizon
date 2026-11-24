@@ -171,7 +171,7 @@ export async function mountAccountWorkspace({getProject,onLoad,onClear,onMessage
         const row=element('details',null,'account-connection'),summary=element('summary',provider.label+' · '+(provider.connected?'Connected':provider.configured?'Available':'Unavailable'))
         row.append(summary,element('p',(provider.permissions || []).join(' · ')))
         if(provider.limitation)row.append(element('p',provider.limitation))
-        connectionActions({provider,row,request,isCurrent:()=>run===panelEpoch,onStatus:message=>{if(run===panelEpoch)status.textContent=message},onRefresh:()=>{if(run===panelEpoch)connections.click()},getSource:async()=>{
+        connectionActions({provider,row,request,isCurrent:()=>run===panelEpoch,onStatus:message=>{if(run===panelEpoch)status.textContent=message},onRefresh:()=>{if(run===panelEpoch)connections.click()},getImportTarget:()=>applicationMode?appWorkspace?.currentApplication:null,getSource:async()=>{
           const app=appWorkspace?.currentApplication
           if(applicationMode){if(!app?.id)throw Error('Open a completed application first.');const source=await appWorkspace.getSource();if(source.files.some(file=>file.encoding==='base64'))throw Error('This project includes images. Export its complete ZIP from the canvas. Reviewed GitHub export currently supports text files.');return source}
           const project=getProject(),html=project?.revisions.at(-1)?.render?.html

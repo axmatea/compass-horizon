@@ -5,16 +5,21 @@ import {once} from 'node:events';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {randomBytes} from 'node:crypto';
+import {createHash,randomBytes} from 'node:crypto';
 import Stripe from 'stripe';
 import {deflateSync} from 'node:zlib';
 import {imageCrc32} from '../generation/image.mjs';
 import {createCompassServer} from '../server.mjs';
 
 const origin='http://localhost:8779',password='Platform secure password 84!';
-async function fixture(t,enabled=true,extra={},fetchImpl,accountRateNow) {
+async function fixture(t,enabled=true,extra={},fetchImpl,accountRateNow,crmArtifacts=false) {
   const root=await mkdtemp(join(tmpdir(),'compass-platform-api-')),assets=join(root,'public');await mkdir(assets);
   await Promise.all(['index','demo','create','studio','plan'].map(name=>writeFile(join(assets,name+'.html'),'<!doctype html><h1>'+name+'</h1>')));
+  if (crmArtifacts) {
+    const bundle=join(assets,'internal-crm');await mkdir(bundle);
+    await writeFile(join(bundle,'crm.js'),"document.getElementById('crm-root').textContent = 'Fixture CRM';\n");
+    await writeFile(join(bundle,'crm.css'),'body{color:#121212}\n');
+  }
   const env={NODE_ENV:'test',STATIC_ROOT:assets,BUILDER_STEP_MS:'0',COMPASS_DEMO_MODE:'examples',...(enabled?{COMPASS_ACCOUNT_MODE:'staging',COMPASS_ACCOUNT_ORIGIN:origin,COMPASS_ACCOUNT_DATABASE:join(root,'isolated.sqlite'),BETTER_AUTH_SECRET:randomBytes(32).toString('base64url')}:{}),...extra};
   let app,network;
   async function start(){app=createCompassServer({env,...(fetchImpl?{fetchImpl}:{}),...(accountRateNow?{accountRateNow}:{})});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');network='http://127.0.0.1:'+app.server.address().port}
@@ -34,6 +39,68 @@ async function fixture(t,enabled=true,extra={},fetchImpl,accountRateNow) {
 }
 const json=async response=>{assert.equal(response.status,200,await response.clone().text());return response.json()};
 const action=(user,method,body,key)=>({method,cookie:user.cookie,body,headers:key?{'idempotency-key':key}:{}});
+
+test('authorized GitHub manifest import is reviewed, conflict-checked, owner-isolated, and durable', async t => {
+  const repo = 'synthetic-owner/compass-demo', branch = 'compass/qa';
+  const base = `https://api.github.com/repos/${repo}`;
+  const commit = 'a'.repeat(40), tree = 'b'.repeat(40);
+  let head = commit, providerCalls = 0;
+  const replies = new Map();
+  const {request,account,restart}=await fixture(t,true,{
+    COMPASS_INTEGRATIONS_MODE:'staging', COMPASS_GITHUB_MANIFEST_IMPORT:'true', COMPASS_INTEGRATION_ENCRYPTION_KEY:randomBytes(32).toString('base64'),
+    COMPASS_GITHUB_CLIENT_ID:'synthetic-id', COMPASS_GITHUB_CLIENT_SECRET:'synthetic-fixture-secret',
+  },async (url,options)=>{
+    providerCalls++;
+    if(url==='https://github.com/login/oauth/access_token') return Response.json({access_token:'synthetic-test-token',token_type:'bearer',scope:'read:user'});
+    assert.equal(new Headers(options.headers).get('authorization'),'Bearer synthetic-test-token');
+    assert.equal(options.method??'GET','GET');
+    if(url===`${base}/git/ref/heads/${branch}`) return Response.json({ref:`refs/heads/${branch}`,object:{type:'commit',sha:head}});
+    assert.ok(replies.has(url),`Unexpected fixture URL: ${url}`);
+    return Response.json(replies.get(url));
+  });
+  const owner=await account('gitimportqa'), outsider=await account('gitimportother');
+  const {application}=await json(await request('/api/account/apps',action(owner,'POST',{text:'A task tracker called GitHub QA'},'git-import-initial-app')));
+  const path='/api/account/apps/'+application.id, review=path+'/github-import/review', apply=path+'/github-import/apply';
+  const selection={repository:repo,branch,version:1};
+  assert.equal((await request(review,action(outsider,'POST',selection))).status,404);
+  assert.equal((await request(review,action(owner,'POST',selection))).status,409);
+  assert.equal(providerCalls,0);
+  const {authorizationUrl}=await json(await request('/api/account/integrations/github/connect',action(owner,'POST',{})));
+  const state=new URL(authorizationUrl).searchParams.get('state');
+  const callback=await request(`/api/account/integrations/github/callback?code=synthetic&state=${state}`,{cookie:owner.cookie,headers:{'sec-fetch-site':'cross-site'}});
+  assert.equal(callback.status,303);
+  const status=await json(await request('/api/account/integrations',{cookie:owner.cookie}));
+  assert.equal(status.providers.find(provider=>provider.provider==='github').manifestImport,true);
+  const {record}=await json(await request(path+'/records',action(owner,'POST',{data:{title:'Keep this record',status:'To do'}})));
+  const manifest={...application.manifest,title:'GitHub QA reviewed'};
+  const bytes=Buffer.from(JSON.stringify(manifest));
+  const blob=createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+  replies.set(base,{id:101,full_name:repo,private:false,visibility:'public'});
+  replies.set(`${base}/git/commits/${commit}`,{sha:commit,tree:{sha:tree}});
+  replies.set(`${base}/git/trees/${tree}`,{sha:tree,truncated:false,tree:[{path:'manifest.json',mode:'100644',type:'blob',sha:blob,size:bytes.length}]});
+  replies.set(`${base}/git/blobs/${blob}`,{sha:blob,size:bytes.length,encoding:'base64',content:bytes.toString('base64')});
+  const proposed=await json(await request(review,action(owner,'POST',selection)));
+  assert.equal(proposed.changed,true);
+  assert.equal(proposed.manifest.title,manifest.title);
+  assert.equal((await json(await request(path,{cookie:owner.cookie}))).application.version,1);
+  assert.equal((await request(apply,action(outsider,'POST',{ticket:proposed.ticket}))).status,404);
+  head='c'.repeat(40);
+  const changed=await request(apply,action(owner,'POST',{ticket:proposed.ticket}));
+  assert.equal(changed.status,409);assert.equal((await changed.json()).error,'integration_branch_changed');
+  head=commit;
+  const before=await json(await request(path+'/context',{cookie:owner.cookie}));
+  await json(await request(path+'/context',action(owner,'PUT',{version:before.context.version,notes:{...before.context.notes,goal:'Keep launch data'}})));
+  const stale=await request(apply,action(owner,'POST',{ticket:proposed.ticket}));
+  assert.equal(stale.status,409);assert.equal((await stale.json()).error,'project_context_conflict');
+  const fresh=await json(await request(review,action(owner,'POST',selection)));
+  await restart();
+  const result=await json(await request(apply,action(owner,'POST',{ticket:fresh.ticket})));
+  assert.equal(result.commitSha,commit);assert.equal(result.application.version,2);assert.equal(result.application.manifest.title,manifest.title);
+  assert.equal((await request(apply,action(owner,'POST',{ticket:fresh.ticket}))).status,409);
+  const versions=await json(await request(path+'/revisions',{cookie:owner.cookie}));
+  assert.match(versions.revisions[0].prompt,new RegExp(commit));
+  assert.deepEqual((await json(await request(path+'/records',{cookie:owner.cookie}))).records,[record]);
+});
 
 test('new platform routes stay off on production defaults and public builder is preserved',async t=>{
   const {request}=await fixture(t,false);
@@ -221,6 +288,80 @@ test('project context survives restart, steers reviewed plans and invalidates ob
   assert.equal((await read()).decisions[1].text,'Use amber accents');
   await json(await request(app,action(owner,'DELETE')));
   assert.equal((await request(path,{cookie:owner.cookie})).status,404);
+});
+
+test('CRM repairs a controlled invalid draft, exports multiple files and preserves related records and context',async t=>{
+  const modelInputs=[];
+  const fetchImpl=async (_url,options)=>{
+    const payload=JSON.parse(JSON.parse(options.body).messages.find(item=>item.role==='user').content);
+    modelInputs.push(payload);
+    const draft=payload.current
+      ?{title:payload.current.title,crm:{...payload.current.crm,stages:{...payload.current.crm.stages,qualified:'Discovery'}}}
+      :{title:'Orbital Consulting CRM',crm:{currency:'JPY',stages:{...payload.example.crm.stages,qualified:''}}};
+    return Response.json({choices:[{message:{content:JSON.stringify(draft)},finish_reason:'stop'}],usage:{prompt_tokens:53,completion_tokens:29}});
+  };
+  const {request,account,restart}=await fixture(t,true,{COMPASS_DEMO_MODE:'live',LLM_PROVIDER:'generalcompute',GENERALCOMPUTE_API_KEY:'synthetic_fixture_only'},fetchImpl,undefined,true);
+  const owner=await account('crmowner'), outsider=await account('crmother');
+  const text='Build a professional AI consulting CRM with a client pipeline, contact management, follow-up tasks, proposal tracking, and a revenue dashboard.';
+  const mutation=(who,method,body,version=1,recordVersion)=>({method,cookie:who.cookie,body,headers:{'x-compass-app-version':String(version),...(recordVersion?{'x-compass-record-version':String(recordVersion)}:{})}});
+  const build=await json(await request('/api/account/apps',action(owner,'POST',{text},'create_crm_engine_qa')));
+  assert.equal(build.modelUsed,true);
+  assert.equal(build.buildReport.outcome,'repaired');
+  assert.equal(build.buildReport.diagnostics.length,2);
+  assert.equal(build.application.manifest.title,'Orbital Consulting CRM');
+  assert.equal(build.application.manifest.crm.currency,'USD');
+  assert.equal(build.application.manifest.crm.stages.qualified,'Qualified');
+  const app='/api/account/apps/'+build.application.id, records=app+'/crm/';
+  const save=async (entity,data)=> (await json(await request(records+entity,mutation(owner,'POST',{data})))).record;
+  const client=await save('clients',{name:'Synthetic Labs',industry:'Consulting'});
+  assert.equal((await request(records+'clients',mutation(outsider,'GET'))).status,404);
+  assert.equal((await request(records+'contacts',mutation(owner,'POST',{data:{name:'Honor',clientId:'crm_22222222-2222-2222-2222-222222222222'}}))).status,409);
+  assert.equal((await save('contacts',{name:'Synthetic Contact',clientId:client.id,email:'contact@example.test'})).data.clientId,client.id);
+  assert.equal((await save('tasks',{title:'Prepare proposal',clientId:client.id,status:'open'})).data.status,'open');
+  const deal=await save('deals',{title:'Strategy sprint',clientId:client.id,valueCents:250000,stage:'qualified'});
+  const proposal=await save('proposals',{title:'Discovery proposal',dealId:deal.id,status:'sent',valueCents:250000});
+  const won={...deal.data,stage:'won'};
+  const change=await json(await request(records+'deals/'+deal.id,mutation(owner,'PUT',{data:won,version:deal.version})));
+  assert.equal(change.record.version,2);
+  assert.equal((await request(records+'deals/'+deal.id,mutation(owner,'PUT',{data:deal.data,version:deal.version}))).status,409);
+  assert.equal((await request(records+'clients/'+client.id,mutation(owner,'DELETE',undefined,1,client.version))).status,409);
+  assert.equal((await request(records+'deals/'+deal.id,mutation(owner,'DELETE',undefined,1,2))).status,409);
+
+  const context=(await json(await request(app+'/context',{cookie:owner.cookie}))).context;
+  await json(await request(app+'/context',action(owner,'POST',{version:context.version,action:'decision',text:'Call qualified Discovery'})));
+  const edit={text:'Rename the active pipeline stage according to the project decision',version:1};
+  const plan=await json(await request(app+'/plan',action(owner,'POST',edit,'crm_engine_qa_stage_plan')));
+  assert.equal(plan.manifest.crm.stages.qualified,'Discovery');
+  assert.deepEqual(modelInputs[1].projectContext.decisions,['Call qualified Discovery']);
+  assert.doesNotMatch(JSON.stringify(modelInputs[1]),/Synthetic Labs|Synthetic Contact|Strategy sprint|Discovery proposal/);
+  const applied=await json(await request(app+'/build-plan',action(owner,'POST',{...edit,manifest:plan.manifest,contextVersion:plan.contextVersion},'crm_engine_qa_apply_plan')));
+  assert.equal(applied.application.version,2);
+  assert.equal((await request(records+'deals',mutation(owner,'GET'))).status,409);
+  const currency=await request(app+'/manifest',action(owner,'PUT',{version:2,manifest:{...plan.manifest,crm:{...plan.manifest.crm,currency:'EUR'}}}));
+  assert.equal(currency.status,409);
+  assert.equal((await currency.json()).error,'crm_currency_in_use');
+  const preview=await request(app+'/preview',{cookie:owner.cookie});
+  assert.equal(preview.status,200);
+  assert.match(await preview.text(),/id="crm-root"/);
+  assert.match(preview.headers.get('content-security-policy'),/sandbox allow-scripts/);
+  assert.equal((await request('/internal-crm/crm.js')).status,404);
+  const source=await json(await request(app+'/source',{cookie:owner.cookie}));
+  assert.equal(source.template,'compass-consulting-crm-v1');
+  assert.ok(['src/main.tsx','src/App.tsx','server.mjs','package-lock.json','manifest.json'].every(path=>source.files.some(file=>file.path===path)));
+  assert.doesNotMatch(JSON.stringify(source),/Synthetic Labs|Synthetic Contact/);
+  const zip=await request(app+'/export',{cookie:owner.cookie});
+  assert.equal(zip.status,200);
+  assert.equal(Buffer.from(await zip.arrayBuffer()).readUInt32LE(),0x04034b50);
+  await restart();
+  const after=await json(await request(app+'/data',{cookie:owner.cookie}));
+  assert.equal(after.records.deals[0].data.stage,'won');
+  assert.equal(after.records.deals[0].data.valueCents,250000);
+  assert.equal(after.records.proposals[0].id,proposal.id);
+  const history=await json(await request(app+'/revisions',{cookie:owner.cookie}));
+  assert.equal(history.revisions[1].buildReport.outcome,'repaired');
+  const restored=await json(await request(app+'/restore',action(owner,'POST',{version:1})));
+  assert.equal(restored.application.manifest.crm.stages.qualified,'Qualified');
+  assert.equal((await json(await request(records+'deals',mutation(owner,'GET',undefined,3)))).records[0].data.stage,'won');
 });
 
 test('publication opt-in is scriptless, owner-gated, revocable and never exposes private projects implicitly',async t=>{
