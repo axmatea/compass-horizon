@@ -96,6 +96,50 @@ test('real owner sessions protect app CRUD, records, revisions, idempotent gener
 
 function savedRevision(result){return {id:'revision_1',at:new Date().toISOString(),prompt:'A bright bakery website',number:1,plan:{intent:result.intent,version:result.version},render:{html:result.html,version:result.version,pending:[]},source:result.source,placeholder:result.placeholder}}
 
+test('reviewed plans leave projects untouched until apply and retain records across version conflicts and retries',async t=>{
+  const {request,account,restart}=await fixture(t);
+  const owner=await account('planowner'), outsider=await account('planother');
+  const base='/api/account/apps', idea={text:'A task tracker called Harbor QA'};
+  const planKey='plan_prepare_harbor_1234';
+  const prepare=action(owner,'POST',idea,planKey);
+  assert.equal((await request(base+'/plan',action(owner,'POST',idea))).status,400);
+  const proposed=await json(await request(base+'/plan',prepare));
+  assert.equal(proposed.manifest.title,'Harbor QA');
+  assert.equal(proposed.baseVersion,null);
+  assert.equal(proposed.modelUsed,false);
+  assert.deepEqual(await json(await request(base+'/plan',prepare)),proposed);
+  assert.deepEqual((await json(await request(base,{cookie:owner.cookie}))).applications,[]);
+  const reviewed={...idea,manifest:{...proposed.manifest,title:'Reviewed Harbor'}};
+  const create=action(owner,'POST',reviewed,'plan_apply_harbor_12345');
+  const created=await json(await request(base+'/build-plan',create));
+  const path=base+'/'+created.application.id;
+  assert.equal(created.application.manifest.title,'Reviewed Harbor');
+  const record=await json(await request(path+'/records',action(owner,'POST',{data:{title:'Pier inspection',status:'To do'}})));
+  const edit={text:'Add a due date field and use dark theme',version:1};
+  assert.equal((await request(path+'/plan',action(outsider,'POST',edit,'other_plan_harbor_1234'))).status,404);
+  const update=await json(await request(path+'/plan',action(owner,'POST',edit,'plan_edit_harbor_12345')));
+  assert.equal(update.manifest.theme.mode,'dark');
+  assert.ok(update.manifest.entity.fields.some(field=>field.key==='due_date'));
+  assert.equal(update.baseVersion,1);
+  assert.equal((await json(await request(path,{cookie:owner.cookie}))).application.version,1);
+  const next={...edit,manifest:update.manifest};
+  assert.equal((await request(path+'/build-plan',action(outsider,'POST',next,'other_apply_harbor_1234'))).status,404);
+  assert.equal((await request(path+'/build-plan',action(owner,'POST',{...next,manifest:{...next.manifest,script:'x'}},'invalid_apply_harbor_1234'))).status,400);
+  const apply=action(owner,'POST',next,'plan_edit_apply_harbor_1234');
+  const applied=await json(await request(path+'/build-plan',apply));
+  assert.equal(applied.application.version,2);
+  assert.equal(applied.changed,true);
+  assert.equal(applied.modelUsed,false);
+  assert.equal((await request(path+'/build-plan',action(owner,'POST',next,'stale_apply_harbor_1234'))).status,409);
+  assert.deepEqual((await json(await request(path+'/records',{cookie:owner.cookie}))).records,[record.record]);
+  const history=await json(await request(path+'/revisions',{cookie:owner.cookie}));
+  assert.equal(history.revisions[0].prompt,edit.text);
+  await restart();
+  assert.deepEqual(await json(await request(path+'/build-plan',apply)),applied);
+  assert.deepEqual(await json(await request(base+'/build-plan',create)),created);
+  assert.equal((await json(await request(base,{cookie:owner.cookie}))).applications.length,1);
+});
+
 test('publication opt-in is scriptless, owner-gated, revocable and never exposes private projects implicitly',async t=>{
   const {request,account}=await fixture(t);const a=await account('publisher'),b=await account('outsider');
   const build=await json(await request('/api/account/turn',action(a,'POST',{text:'A white bakery website called Orbit Bakery'},'publication_build_1234')));

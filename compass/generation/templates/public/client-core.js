@@ -21,6 +21,17 @@ function mountCrudApplication(manifest,request) {
   const inputs = new Map();
   let records = [], editing = null, busy = false;
   const node = (tag,text,className) => { const element = document.createElement(tag); if (text != null) element.textContent = String(text); if (className) element.className = className; return element; };
+  const search = $('record-search');
+  const statusFilter = $('record-filter');
+  const statusField = manifest.entity.fields.find(field => field.key === 'status' && field.type === 'select');
+  if (statusField) {
+    for (const value of statusField.options) {
+      const option = node('option', value);
+      option.value = value;
+      statusFilter.append(option);
+    }
+    statusFilter.hidden = false;
+  }
   const status = (text,error = false) => { $('app-status').textContent = text; $('app-status').dataset.error = String(error); };
   const lock = value => { busy = value; document.querySelectorAll('#record-form button,#record-form input,#record-form textarea,#record-form select,#records button,#refresh').forEach(element => {element.disabled = value;}); };
   for (const field of manifest.entity.fields) {
@@ -46,9 +57,19 @@ function mountCrudApplication(manifest,request) {
     $('save-record').textContent = 'Create ' + manifest.entity.singular.toLowerCase();
   }
   function render() {
-    $('records').replaceChildren(); $('record-count').textContent = String(records.length);
-    $('empty-state').hidden = records.length > 0;
-    for (const record of records) {
+    const query = search.value.trim().toLocaleLowerCase();
+    const selected = statusFilter.value;
+    const visible = records.filter(record => {
+      if (selected && record.data?.status !== selected) return false;
+      return !query || manifest.entity.fields.some(field =>
+        String(record.data?.[field.key] ?? '').toLocaleLowerCase().includes(query));
+    });
+    $('records').replaceChildren();
+    $('record-count').textContent = visible.length === records.length
+      ? String(records.length) : `${visible.length} of ${records.length}`;
+    $('empty-state').hidden = visible.length > 0;
+    $('empty-state').textContent = records.length ? 'No matching records.' : 'No records yet.';
+    for (const record of visible) {
       const card = node('article',null,'record');
       const fields = node('dl');
       for (const field of manifest.entity.fields) {
@@ -58,6 +79,7 @@ function mountCrudApplication(manifest,request) {
       }
       const actions = node('div',null,'record-actions');
       const edit = node('button','Edit'), remove = node('button','Delete'); edit.type = remove.type = 'button';
+      edit.disabled = remove.disabled = busy;
       edit.addEventListener('click',() => {
         if (busy) return; editing = record.id;
         for (const [key,input] of inputs) input.value = record.data?.[key] ?? '';
@@ -76,6 +98,8 @@ function mountCrudApplication(manifest,request) {
       actions.append(edit,remove); card.append(fields,actions); $('records').append(card);
     }
   }
+  search.addEventListener('input',render);
+  statusFilter.addEventListener('change',render);
   async function load() {
     const result = await request('list',{});
     if (!Array.isArray(result.records) || result.records.length > 200) throw Error('Invalid records');

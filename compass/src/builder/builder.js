@@ -87,7 +87,7 @@ let lastSavedSignature = ''
 let saveMessage = ''
 let historyKey = ''
 const requestControllers = new Set()
-let websitePaneLayout = accountMode ? null : mountPaneLayout({root:document.querySelector('.sd-shell'),owner:'device',scope:'websites',defaults:{conversation:320}})
+let websitePaneLayout = accountMode ? null : mountPaneLayout({root:document.querySelector('.sd-shell'),owner:'device',scope:'websites',defaults:{conversation:360}})
 const projectStore = createProjectStore()
 const projectName = document.querySelector('#project-name')
 const saveButton = document.querySelector('#save-project')
@@ -125,13 +125,18 @@ function applyEditedHtml(html) {
   if(state.busy || selectedRevision || !previewRender()?.html)return {ok:false,error:'Return to the current completed revision to edit.'}
   const plan=previewPlan(),render=previewRender()
   if(html===render.html)return {ok:true}
-  const base=documentEdit?.base || render.html
-  const revision=completedRevision({plan,render:{...render,html,pending:[]},source:'edited',documentBase:base},'Edited index.html')
+  // A template and the model renderer have different document structures.
+  // Keep edits in the template revision and let AI build a separate variation.
+  const template = history.at(-1)?.source === 'template'
+  const base = template ? null : documentEdit?.base || render.html
+  const source = template ? 'template' : 'edited'
+  const revision=completedRevision({plan,render:{...render,html,pending:[]},source,documentBase:base},'Edited index.html')
   if(!revision)return {ok:false,error:'This document could not be saved safely. Previous preview kept.'}
-  documentEdit={base,render:{...render,html,key:(state.render?.key || 0)+1}}
+  const key = (state.render?.key || 0) + 1
+  documentEdit = base ? { base, render: { ...render, html, key } } : null
   state.documentBase=base
-  state.render={...state.render,html,pending:[],key:documentEdit.render.key}
-  state.source='edited';state.sourcePending=false;state.remotePreviewCurrent=false
+  state.render={...state.render,html,pending:[],key}
+  state.source=source;state.sourcePending=false;state.remotePreviewCurrent=false
   history=appendRevision(history,revision)
   undoQueue=null
   latestReply='Code changes applied.';saveMessage='';tell(accountMode ? 'Code applied. Save to your account or this device to keep it.' : 'Code applied. Save to keep it on this device.')
@@ -294,7 +299,8 @@ function paintStage() {
     }
   }
   previewSource.hidden = state.sourcePending || (!state.source && !selectedRevision)
-  previewSource.textContent = selectedRevision || state.source === 'saved' ? 'Saved preview' : state.source === 'edited' ? 'Edited preview' : state.source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
+  const source = selectedRevision?.source || (state.source === 'saved' && !state.busy ? history.at(-1)?.source : state.source)
+  previewSource.textContent = source === 'template' ? 'Website template' : selectedRevision || state.source === 'saved' ? 'Saved preview' : source === 'edited' ? 'Edited preview' : source === 'model' && !state.placeholder ? 'Live model' : 'Prepared copy'
   if (!accountMode && state.sessionId && !selectedRevision && !state.busy && state.remotePreviewCurrent) {
     open.hidden = false
     open.href = '/api/site/session/' + encodeURIComponent(state.sessionId) + '/page'
@@ -308,7 +314,7 @@ function paintComposer() {
   const hasPage = Boolean(previewRender()?.html)
   const firstUse=document.querySelector('#builder-first-use');if(firstUse)firstUse.hidden=hasPage
   composerLabel.textContent = selectedRevision ? 'Reviewing an earlier version' : hasPage ? 'What would you change?' : 'What would you like to make?'
-  input.placeholder = hasPage ? 'Make it more minimal. Change the type. Add a section…' : 'Describe your next website…'
+  input.placeholder = hasPage ? 'Make it more minimal. Change the type. Add a section…' : 'A minimal website for an architecture studio…'
   examplePrompts.hidden = hasPage || state.busy || Boolean(selectedRevision)
   refinePrompts.hidden = !hasPage || state.busy || Boolean(selectedRevision)
   for (const button of document.querySelectorAll('[data-starter], [data-refine]')) button.disabled = state.busy || Boolean(selectedRevision)
@@ -685,7 +691,7 @@ function paintProject() {
   const readOnly = Boolean(selectedRevision)
   input.disabled = readOnly
   sendButton.disabled = readOnly || state.busy || !input.value.trim()
-  sendButton.textContent = state.busy ? 'Building…' : previewRender()?.html ? 'Update page' : 'Build page'
+  sendButton.textContent = state.busy ? 'Building…' : history.at(-1)?.source === 'template' ? 'Build variation' : previewRender()?.html ? 'Update page' : 'Build page'
   const cancel=document.querySelector('#cancel-build');if(cancel)cancel.hidden=!state.busy
   mic.disabled = readOnly || !dictation
   saveButton.disabled = readOnly || state.busy || !history.length || !isDirty()
@@ -868,7 +874,7 @@ const accountReady = accountMode ? mountAccountWorkspace({
   onMessage:message=>tell(message),
   initialDraft:handoffDraft,
   onDraftBuilt:id=>{if(handoffDraft?.id===id){clearDraft({id});handoffDraft=null;initialPreferences=null}},
-}).then(api=>{accountWorkspace=api;if(api?.userId){websitePaneLayout?.destroy();websitePaneLayout=mountPaneLayout({root:document.querySelector('.sd-shell'),owner:api.userId,scope:'websites',defaults:{conversation:320}})}paint(); return api}) : Promise.resolve(null)
+}).then(api=>{accountWorkspace=api;if(api?.userId){websitePaneLayout?.destroy();websitePaneLayout=mountPaneLayout({root:document.querySelector('.sd-shell'),owner:api.userId,scope:'websites',defaults:{conversation:360}})}paint(); return api}) : Promise.resolve(null)
 
 async function startDraft() {
   if (accountMode && !await accountReady) return
@@ -880,9 +886,36 @@ async function startDraft() {
   await submit(handoffDraft.prompt)
 }
 if (handoffDraft?.ready) void startDraft()
+const templateId = new URL(location.href).searchParams.get('template')
+if (!accountMode && !handoffDraft?.ready && !requestedProject && !starterId && templateId) {
+  const startupEpoch = epoch
+  const stillEmpty = () => epoch === startupEpoch && !state.busy && !state.turns && !input.value && !dictation?.active
+  tell('Opening website template…')
+  void (async () => {
+    try {
+      const { openWebsiteTemplate } = await import('./website-template.mjs')
+      const starter = await openWebsiteTemplate(templateId, { signal: AbortSignal.timeout(8000) })
+      if (!stillEmpty()) return
+      if (!starter) throw Error('Template unavailable')
+      const { name, revision } = starter
+      history = [revision]
+      state.plan = revision.plan
+      state.render = { ...revision.render, key: 1 }
+      state.source = revision.source
+      state.turns = 1
+      resumeIntent = revision.plan.intent
+      projectName.value = name
+      lastPrompt = revision.prompt
+      tell('Use Code to edit this template. Build variation creates a new revision from its brief.')
+      paint()
+    } catch {
+      if (stillEmpty()) tell('This website template could not be opened. Return to Templates or start from an idea.', 'error')
+    }
+  })()
+}
 // Older shared homepage links still open the reference planner in Builder.
 // Opening never writes a draft or starts generation.
-if(!accountMode && !handoffDraft?.ready && new URL(location.href).searchParams.get('start')==='app') {
+if(!accountMode && !handoffDraft?.ready && !templateId && new URL(location.href).searchParams.get('start')==='app') {
   const menu=referenceTrigger?.closest('details');if(menu)menu.open=true
   referenceTrigger?.focus();void referenceLauncher?.open()
 }

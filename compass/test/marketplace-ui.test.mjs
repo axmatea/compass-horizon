@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 import { TEMPLATE_CATALOG, getTemplate, filterTemplates } from '../marketplace/catalog.mjs'
+import { readDraft, validPrompt, writeDraft } from '../src/create/draft.mjs'
 
 const source = (await readFile(new URL('../src/marketplace/marketplace.mjs', import.meta.url), 'utf8'))
   .replace(/^import .+\n/gm, '').replace('export function', 'function')
@@ -45,7 +46,7 @@ class Element {
   close() { this.open = false }
 }
 
-function fixture({ url = 'https://mycompass.world/', request, mobile = false } = {}) {
+function fixture({ url = 'https://mycompass.world/', request, mobile = false, draftStorage, replaceIdea = true } = {}) {
   const calls = [], timers = new Map(), intersections = []
   let timerId = 0, clock = 0, currentURL = new URL(url)
   const doc = new Element('document', null); doc.doc = doc; doc.body = new Element('body', doc); doc.body.style.overflow = 'auto'; doc.append(doc.body)
@@ -53,11 +54,19 @@ function fixture({ url = 'https://mycompass.world/', request, mobile = false } =
   doc.getElementById = id => doc.all().find(node => node.id === id) || null
   const ids = ['template-catalog', 'template-search', 'template-empty', 'template-reset', 'market-status', 'template-link-error', 'film']
   for (const id of ids) { const node = doc.createElement(id === 'template-search' ? 'input' : id === 'template-reset' ? 'button' : id === 'film' ? 'details' : 'div'); node.id = id; doc.body.append(node) }
+  if (draftStorage) {
+    const start = doc.createElement('form'); start.id = 'market-start'; start.hidden = true
+    start.elements = { projectType: { value: 'app' } }
+    const idea = doc.createElement('textarea'); idea.id = 'market-idea'
+    const status = doc.createElement('p'); status.id = 'market-start-status'
+    start.append(idea, status); doc.body.append(start)
+  }
   for (const kind of ['all', 'website', 'mobile']) { const node = doc.createElement('button'); node.dataset.templateKind = kind; doc.body.append(node) }
   const filmLink = doc.createElement('a'); filmLink.dataset.openFilm = ''; doc.body.append(filmLink)
   const search = doc.getElementById('template-search'); search.focus()
   const view = new Element('window', doc)
-  view.location = { get href() { return currentURL.href }, get search() { return currentURL.search }, replace(path) { view.replaced = path } }
+  view.location = { get href() { return currentURL.href }, get search() { return currentURL.search }, replace(path) { view.replaced = path }, assign(path) { view.assigned = path } }
+  view.confirm = () => replaceIdea
   const entries = [{ url: currentURL.href, state: null }]; let position = 0
   view.history = {
     get state() { return entries[position].state },
@@ -77,7 +86,9 @@ function fixture({ url = 'https://mycompass.world/', request, mobile = false } =
   view.ResizeObserver = class { observe() {} disconnect() {} }
   view.matchMedia = () => ({ matches: mobile })
   const fetch = async (path, options) => { calls.push({ path, options }); return request ? request(path, options) : new Response(null, { headers: { 'content-type': 'text/html; charset=utf-8' } }) }
-  const context = { URL, URLSearchParams, AbortController, TEMPLATE_CATALOG, getTemplate, filterTemplates, globalThis: {} }
+  const context = { URL, URLSearchParams, AbortController, TEMPLATE_CATALOG, getTemplate, filterTemplates, validPrompt,
+    readDraft: () => readDraft({ storage: draftStorage }),
+    writeDraft: value => writeDraft(value, { storage: draftStorage }), globalThis: {} }
   vm.runInNewContext(source + ';globalThis.mount=mountMarketplace', context)
   const api = context.globalThis.mount({ document: doc, window: view, fetch })
   const elements = () => doc.body.all()
@@ -88,6 +99,47 @@ function fixture({ url = 'https://mycompass.world/', request, mobile = false } =
   const advance = async milliseconds => { clock += milliseconds; for (const [id, timer] of [...timers]) if (timer.at <= clock) { timers.delete(id); timer.work() } await flush() }
   return { api, doc, view, calls, entries, timers, search, elements, byClass, card, reveal, flush, advance, get url() { return currentURL } }
 }
+
+test('homepage keeps the exact idea in session storage and routes by the chosen project type', async () => {
+  const items = new Map()
+  const storage = { getItem: key => items.get(key), setItem: (key, value) => items.set(key, value), removeItem: key => items.delete(key) }
+  const ui = fixture({ draftStorage: storage })
+  const start = ui.doc.getElementById('market-start')
+  const idea = ui.doc.getElementById('market-idea')
+  assert.equal(start.hidden, false)
+  idea.value = 'ab'
+  await start.fire('submit')
+  assert.equal(items.size, 0)
+  assert.equal(ui.view.assigned, undefined)
+  idea.value = 'Project tracker\nfor a design studio'
+  await start.fire('submit')
+  assert.equal(ui.view.assigned, '/create?app=1')
+  assert.equal(readDraft({ storage }).prompt, idea.value)
+  assert.equal(readDraft({ storage }).ready, false)
+  assert.equal(readDraft({ storage }).preferences.projectType, 'internal-tool')
+  start.elements.projectType.value = 'website'
+  idea.value = 'Architecture studio website'
+  await start.fire('submit')
+  assert.equal(ui.view.assigned, '/create')
+  assert.equal(readDraft({ storage }).preferences.projectType, 'website')
+
+  const cancel = fixture({ draftStorage: storage, replaceIdea: false })
+  cancel.doc.getElementById('market-idea').value = 'A different idea'
+  await cancel.doc.getElementById('market-start').fire('submit')
+  assert.equal(cancel.view.assigned, undefined)
+  assert.equal(readDraft({ storage }).prompt, 'Architecture studio website')
+})
+
+test('only scriptless website starter products offer Open in Builder', () => {
+  const ui = fixture()
+  assert.equal(ui.api.open('atlas'), true)
+  const link = ui.byClass('market-use-template')
+  assert.equal(link.href, '/demo?template=atlas')
+  assert.equal(link.hidden, false)
+  assert.equal(ui.api.open('pulse'), true)
+  assert.equal(link.hidden, true)
+  assert.equal(link.href, undefined)
+})
 
 test('the storefront loads only visible public previews and keeps filters, search and reset usable', async () => {
   const ui = fixture()
@@ -233,7 +285,7 @@ test('modal keyboard focus stays contained, other dialogs do not stack, and film
   const dialog = ui.byClass('market-detail'), close = ui.byClass('market-close')
   close.focus(); const reverse = await dialog.fire('keydown', { key: 'Tab', shiftKey: true })
   assert.equal(reverse.defaultPrevented, true)
-  assert.equal(ui.doc.activeElement.tagName, 'IFRAME')
+  assert.equal(ui.doc.activeElement, ui.byClass('market-use-template'))
   const forward = await dialog.fire('keydown', { key: 'Tab' })
   assert.equal(forward.defaultPrevented, true); assert.equal(ui.doc.activeElement, close)
   assert.equal((await dialog.fire('keydown', { key: 'Enter', metaKey: true })).propagationStopped, true)

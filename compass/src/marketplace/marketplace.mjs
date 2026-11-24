@@ -1,4 +1,5 @@
 import { TEMPLATE_CATALOG, getTemplate, filterTemplates } from '../../marketplace/catalog.mjs'
+import { readDraft, validPrompt, writeDraft } from '../create/draft.mjs'
 
 const FORMAT_LABELS = { website: 'Website', 'mobile-web': 'Mobile web', 'ios-android': 'iOS & Android' }
 let instanceSequence = 0
@@ -47,6 +48,36 @@ export function mountMarketplace({
   function listen(node, type, callback) {
     node.addEventListener(type, callback)
     disposers.push(() => node.removeEventListener(type, callback))
+  }
+  const start = doc.getElementById('market-start')
+  if (start) {
+    const idea = doc.getElementById('market-idea')
+    const startStatus = doc.getElementById('market-start-status')
+    const projectType = () => start.elements.projectType.value
+    listen(start, 'change', () => {
+      idea.placeholder = projectType() === 'website'
+        ? 'A minimal website for an architecture studio…'
+        : 'A project tracker for a small design studio…'
+    })
+    listen(start, 'submit', event => {
+      event.preventDefault()
+      const prompt = idea.value
+      if (!validPrompt(prompt)) {
+        startStatus.textContent = 'Describe your project in 3–500 characters.'
+        idea.focus()
+        return
+      }
+      const app = projectType() === 'app'
+      const previous = readDraft()
+      if (previous && previous.prompt !== prompt && !view.confirm('Replace the idea you started in this tab?')) return
+      const handoff = writeDraft({
+        prompt, preferences: { projectType: app ? 'internal-tool' : 'website' },
+        ready: false, ownerId: null,
+      })
+      if (handoff.ok) view.location.assign(app ? '/create?app=1' : '/create')
+      else startStatus.textContent = 'Allow session storage to continue. Your idea is still here.'
+    })
+    start.hidden = false
   }
   function button(className, text, action) {
     const node = element('button', className, text)
@@ -284,11 +315,13 @@ export function mountMarketplace({
     const purchaseNote = element('p', 'market-purchase-note', 'Purchases open soon.')
     purchaseNote.id = `${instance}-purchase-note`
     purchase.setAttribute('aria-describedby', purchaseNote.id)
-    info.append(title, productCategory, description, includes, purchase, purchaseNote)
+    const useTemplate = element('a', 'market-use-template', 'Open in Builder ↗')
+    useTemplate.hidden = true
+    info.append(title, productCategory, description, includes, useTemplate, purchase, purchaseNote)
     body.append(visual, info)
     dialog.append(top, body)
     doc.body.append(dialog)
-    detail = { category, close, title, productCategory, description, formats, features, tabs, stage, previewLabel, previewLink }
+    detail = { category, close, title, productCategory, description, formats, features, tabs, stage, previewLabel, previewLink, useTemplate }
     listen(dialog, 'cancel', event => {
       event.preventDefault()
       closeTemplate()
@@ -378,6 +411,9 @@ export function mountMarketplace({
     detail.title.textContent = template.name
     detail.productCategory.textContent = template.category
     detail.description.textContent = template.description
+    detail.useTemplate.hidden = template.kind !== 'website'
+    if (template.kind === 'website') detail.useTemplate.href = `/demo?template=${template.id}`
+    else detail.useTemplate.removeAttribute('href')
     detail.formats.textContent = template.formats.map(format => FORMAT_LABELS[format]).join(' · ')
     detail.features.replaceChildren(...template.features.map(feature => element('li', '', feature)))
     detail.tabs.replaceChildren(...template.formats.map(format => {

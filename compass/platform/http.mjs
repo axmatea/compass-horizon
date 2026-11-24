@@ -22,6 +22,15 @@ export async function readBody(req,max=420000) {
   catch {fail(400,'invalid_json')}
 }
 const fields=(value,allowed)=>{if(Object.keys(value).some(key=>!allowed.includes(key)))fail(400,'invalid_input');return value};
+function applicationPrompt(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (text.length < 3 || text.length > 2000) fail(400, 'invalid_prompt');
+  return text;
+}
+function requireVersion(version) {
+  if (!Number.isSafeInteger(version) || version < 1) fail(400, 'version_required');
+  return version;
+}
 export const integrationCallback=pathname=>/^\/api\/account\/integrations\/(github|google-drive|google-sheets|gmail|google-calendar|notion|slack)\/callback$/.test(pathname);
 export const publicationPolicy="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox";
 
@@ -35,22 +44,31 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
   const storage=()=>inspectStorage(env);
   const isAdmin=owner=>adminIds.has(owner);
   const recordUsage=(owner,operation,event)=>{accountStore.recordUsage(owner,operation,event);billing.recordUsage(owner,operation,event)};
-  async function generate(owner,req,input,appId) {
-    fields(input,['text']);
-    const text=typeof input.text==='string'?input.text.trim():'';
-    if(text.length<3||text.length>2000)fail(400,'invalid_prompt');
+  async function generate(owner,req,input,appId,{previewPlan=false}={}) {
+    fields(input,previewPlan&&appId?['text','version']:['text']);
+    const text=applicationPrompt(input.text);
+    const version=previewPlan&&appId?requireVersion(input.version):null;
     // Receipts precede runtime/resource lookup, so lost replies replay after a
     // restart without charging again or creating a duplicate application.
-    const operation=accountStore.beginOperation(owner,req.headers['idempotency-key'],{kind:'application',appId:appId||null,text});
+    const operation=accountStore.beginOperation(owner,req.headers['idempotency-key'],
+      previewPlan?{kind:'application_plan',appId:appId||null,text,version}:{kind:'application',appId:appId||null,text});
     if(operation.replay)return operation.result;
     let reserved=false;
     try {
       const previous=appId?store.getApplication(owner,appId):null;
-      if(!previous)store.assertApplicationCapacity(owner);
+      if(version!==null&&previous.version!==version)fail(409,'version_conflict');
+      if(!previous&&!previewPlan)store.assertApplicationCapacity(owner);
       billing.reserve(owner,operation.id);reserved=true;
-      const plan=await withUsageTracking(event=>recordUsage(owner,operation.id,event),()=>applicationPlan({text,previous:previous?.manifest,preferences:accountStore.profile(owner).preferences,env,fetchImpl}));
+      const plan=await withUsageTracking(event=>recordUsage(owner,operation.id,event),()=>applicationPlan({text,previous:previous?.manifest,preferences:accountStore.profile(owner).preferences,env,fetchImpl,review:previewPlan}));
       let result;
       store.atomic(()=>{
+        if(previewPlan) {
+          if(previous&&store.getApplication(owner,appId).version!==version)fail(409,'version_conflict');
+          result={manifest:plan.manifest,source:plan.source,modelUsed:plan.modelUsed,baseVersion:previous?.version??null};
+          billing.settle(owner,operation.id,{success:plan.source==='model',infrastructureCostMicros:null});
+          accountStore.finishOperation(owner,operation.id,result);
+          return;
+        }
         const changed=!previous||plan.changed===true;
         let application;
         if(previous&&!changed){application=store.getApplication(owner,appId);if(application.version!==previous.version)fail(409,'version_conflict')}
@@ -67,6 +85,28 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
       if(reserved)billing.settle(owner,operation.id,{success:false,infrastructureCostMicros:null});
       store.event(owner,'application','build_failed');throw error;
     }
+  }
+  function applyPlan(owner,req,input,appId) {
+    fields(input,appId?['text','manifest','version']:['text','manifest']);
+    const text=applicationPrompt(input.text);
+    const manifest=validateApplicationManifest(input.manifest);
+    if(!manifest)fail(400,'invalid_manifest');
+    const version=appId?requireVersion(input.version):null;
+    // Applying a reviewed manifest needs no upstream call or credit hold.
+    // Record the receipt and revision in one transaction so retries are safe.
+    return store.atomic(()=>{
+      const operation=accountStore.beginOperation(owner,req.headers['idempotency-key'],
+        {kind:'application_apply_plan',appId:appId||null,text,manifest,version});
+      if(operation.replay)return operation.result;
+      const application=appId
+        ?store.updateApplication(owner,appId,manifest,text,'prepared',version)
+        :store.createApplication(owner,manifest,text,'prepared');
+      const changed=application.version!==version;
+      const result={application,source:'prepared',modelUsed:false,changed,
+        message:appId?(changed?'Plan applied.':'No changes to apply.'):'Application created.'};
+      accountStore.finishOperation(owner,operation.id,result);
+      return result;
+    });
   }
   function processMetrics() {
     const revision=env.RAILWAY_GIT_COMMIT_SHA||env.COMPASS_REVISION||'';
@@ -116,6 +156,13 @@ export function createPlatformApi({database,env,fetchImpl,accountStore}) {
       if(method==='GET')json(200,{applications:store.listApplications(owner)});
       else if(method==='POST')json(200,await generate(owner,req,await readBody(req,12000)));
       else json(405,{error:'method_not_allowed'});return true;
+    }
+    const planning=path.match(/^\/api\/account\/apps(?:\/([A-Za-z0-9_-]{1,80}))?\/(plan|build-plan)$/);
+    if(planning&&method==='POST'){
+      const [,id,action]=planning;
+      const input=await readBody(req,action==='plan'?12000:32768);
+      json(200,action==='plan'?await generate(owner,req,input,id,{previewPlan:true}):applyPlan(owner,req,input,id));
+      return true;
     }
     const app=path.match(/^\/api\/account\/apps\/([A-Za-z0-9_-]{1,80})(?:\/(refine|design|revisions|restore|records|preview|source|export|data|manifest|assets)(?:\/([A-Za-z0-9_-]{1,80}))?)?$/);
     if(!app)return false;

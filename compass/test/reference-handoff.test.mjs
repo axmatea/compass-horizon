@@ -44,7 +44,7 @@ async function createFixture({projectType='website',search='',signedIn=true,prof
   const context={URL,FormData:class {constructor(form){this.form=form}entries(){return[...this.form.querySelectorAll('input[type=radio]').filter(node=>node.checked),...this.form.querySelectorAll('select').filter(node=>node.value)].map(node=>[node.name,node.value])}},document:{getElementById:get,createElement:tag=>new Node(tag),querySelectorAll:()=>all,addEventListener(){}},window:{addEventListener(){}},
     location:{href:'https://compass.example/create'+search,search,assign:path=>navigations.push(path)},history:{replaceState(){}},
     createAccountApi:()=>api,createAccountViews:()=>({cancel(){},render(){}}),accountEntry,resolveCreateEntry,AccountRequestError,accountErrorText,isAccountChanged,allowedEmail,
-    applicationEntryPreferences,readDraft:()=>readDraft(options),writeDraft:value=>writeDraft(value,options),validPrompt,normalizePreferences,
+    applicationDraft,applicationEntryPreferences,readDraft:()=>readDraft(options),writeDraft:value=>writeDraft(value,options),validPrompt,normalizePreferences,
   }
   vm.runInNewContext(source,context);await context.started
   return{get,calls,navigations,storage,radios,read:()=>readDraft(options),blockStorage(){storageBlocked=true}}
@@ -128,8 +128,10 @@ test('skipping optional onboarding keeps a data-app reference while binding only
 })
 
 test('the explicit guest website fallback preserves reference text but cannot run a private data app',async()=>{
-  const ui=await createFixture({projectType:'internal-tool',search:'?app=1',signedIn:false})
+  // An OAuth callback may omit app=1, but the tab-local draft keeps the target.
+  const ui=await createFixture({projectType:'internal-tool',signedIn:false})
   assert.equal(ui.get('auth-step').hidden,false)
+  assert.equal(ui.get('continue-guest').textContent,'Try website demo instead')
   await ui.get('continue-guest').click()
   assert.equal(ui.get('onboarding-form').hidden,false)
   await ui.get('skip-onboarding').click()

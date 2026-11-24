@@ -62,6 +62,21 @@ test('explicit app plans skip configured providers while ordinary ideas and late
   assert.equal(calls,2);assert.equal(later.source,'model');assert.equal(later.manifest.title,'North operations')
 })
 
+test('review mode can propose a broader refinement while retaining only trusted asset references',async()=>{
+  const previous={...createApplicationManifest('A tracker called Harbor'),assets:{logo:'asset_saved'}};
+  const manifest={...previous,title:'Harbor Operations',assets:{logo:'asset_other'},theme:{...previous.theme,mode:'dark'}};
+  let calls=0;
+  const result=await applicationPlan({
+    text:'Make it dark and rename the app Harbor Operations',previous,review:true,env:mockEnv,
+    fetchImpl:async()=>{calls++;return response(manifest)},
+  });
+  assert.equal(calls,1);
+  assert.equal(result.source,'model');
+  assert.equal(result.manifest.title,'Harbor Operations');
+  assert.deepEqual(result.manifest.assets,previous.assets);
+  assert.equal(previous.title,'Harbor');
+});
+
 test('reference app previews and exported source show concise purpose descriptions with honest generation provenance',async()=>{
   for(const [kind,description] of [['tracker','Project tracker'],['crm','Contacts'],['booking','Booking records'],['inventory','Inventory']]) {
     const plan=compileReferenceBrief({reference:normalizeReference('Notion').value,type:kind,name:'North',features:BUILD_TYPES.find(type=>type.id===kind).defaultFeatures,notes:'Make it compact.'})

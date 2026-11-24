@@ -27,16 +27,29 @@ class Node {
   querySelectorAll(selector){if(selector==='[data-resize-pane]')return this.handles || [];const all=this.all();if(selector==='[data-restore-version]')return all.filter(node=>node.dataset.restoreVersion!=null);if(selector==='[data-asset-selected]')return all.filter(node=>node.dataset.assetSelected!=null);return []}
 }
 const tick=async()=>{for(let n=0;n<8;n++)await new Promise(resolve=>setImmediate(resolve))}
-async function fixture({confirm=()=>true}={}){
+async function fixture({confirm=()=>true,open=true}={}){
   const nodes=new Map(),container=new Node(),body=new Node(),layout=new Node(),events=new Map(),calls=[]
   layout.handles=['projects','conversation'].map(name=>{const node=new Node();node.dataset.resizePane=name;return node})
   Object.defineProperty(container,'innerHTML',{set(value){for(const match of value.matchAll(/<([a-z]+)([^>]*\bdata-aw="([^"]+)"[^>]*)>/g)){const node=new Node(match[1]);node.hidden=/\bhidden\b/.test(match[2]);nodes.set(match[3],node)}nodes.get('composer-label').append(new Node('span'));nodes.get('design-form').elements=Object.fromEntries(['mode','accent','font','density'].map(key=>[key,{value:''}]))}})
   container.querySelector=selector=>selector==='.aw-layout'?layout:nodes.get(selector.match(/data-aw="([^"]+)"/)?.[1])
   container.querySelectorAll=selector=>selector==='button,select,textarea,input'?[...nodes.values(),...container.all()].filter(node=>['BUTTON','SELECT','TEXTAREA','INPUT'].includes(node.tagName)):[...nodes.values()].flatMap(node=>node.querySelectorAll(selector))
-  let app={id:'app_fixture',version:1,source:'prepared',manifest:createApplicationManifest('A CRM called Forma')},failManifest=false
+  let app={id:'app_fixture',version:1,source:'prepared',manifest:createApplicationManifest('A CRM called Forma')},failManifest=false,failPlanApply='',planError=null
   let revisions=[{version:1,manifest:structuredClone(app.manifest),changes:[]}],assets=[]
   const request=async(path,options={})=>{
     calls.push({path,...options});const method=options.method || 'GET'
+    if(path.endsWith('/plan')){
+      if(planError)throw planError
+      const {text,version=null}=JSON.parse(options.body)
+      return {manifest:{...app.manifest,title:text},source:'model',modelUsed:true,baseVersion:version}
+    }
+    if(path.endsWith('/build-plan')){
+      if(failPlanApply)throw Error(failPlanApply)
+      const {manifest,version}=JSON.parse(options.body)
+      if(path!=='apps/build-plan')assert.equal(version,app.version)
+      app={...app,version:version ? version+1 : 1,manifest:structuredClone(manifest)}
+      revisions.push({version:app.version,manifest:structuredClone(app.manifest),changes:[]})
+      return {application:structuredClone(app),source:'prepared',modelUsed:false,changed:true}
+    }
     if(path==='apps')return {applications:[structuredClone(app)]}
     if(path==='apps/app_fixture' && method==='GET')return {application:structuredClone(app)}
     if(path.endsWith('/revisions'))return {revisions:structuredClone(revisions)}
@@ -56,8 +69,8 @@ async function fixture({confirm=()=>true}={}){
   }
   const context={console,document:{body,createElement:tag=>new Node(tag)},window:{addEventListener:(type,fn)=>events.set(type,fn),removeEventListener(){}},crypto:webcrypto,URL,Blob,Response,TextEncoder,AbortController,setTimeout,atob,structuredClone,confirm,navigator:{clipboard:{writeText:async()=>{}}},createDictation:()=>null,draftCanAutoBuild:()=>false,disarmDraft(){},validateApplicationManifest,validateApplicationBridgeMessage,applicationResultOutcome,requireApplicationVersion,mountPaneLayout}
   vm.runInNewContext(client+';globalThis.mount=mountApplicationWorkspace',context)
-  const api=await context.mount({container,request,requestRaw:raw,userId:'owner_fixture'});await api.open(app.id)
-  return {api,nodes,calls,events,container,get app(){return app},failManifest(value=true){failManifest=value},tick}
+  const api=await context.mount({container,request,requestRaw:raw,userId:'owner_fixture'});if(open)await api.open(app.id)
+  return {api,nodes,calls,events,container,get app(){return app},failManifest(value=true){failManifest=value},failPlanApply(message){failPlanApply=message},failPlanRequest(error){planError=error},tick}
 }
 
 test('new reference planning cannot leave an open application or its pending work without an explicit choice',async()=>{
@@ -69,6 +82,84 @@ test('new reference planning cannot leave an open application or its pending wor
   assert.equal(ui.nodes.get('input').value,'Keep this unsent change')
   assert.equal(ui.calls.length,before);assert.equal(prompts.length,1)
   assert.match(prompts[0],/records are kept/)
+})
+
+test('planning a new application saves only after an explicit build of the edited manifest',async()=>{
+  const ui=await fixture({open:false})
+  const node=key=>ui.nodes.get(key)
+  node('input').value='Project tracker for Forma'
+  await node('request-plan').fire('click');await tick()
+  assert.equal(ui.api.currentApplication,null)
+  assert.deepEqual(ui.calls.filter(call=>call.method==='POST').map(call=>call.path),['apps/plan'])
+  assert.equal(node('plan').hidden,false)
+  assert.equal(node('plan-source').textContent,'AI proposal')
+  assert.match(node('plan-fields').textContent,/Name/)
+  const manifest=JSON.parse(node('plan-editor').value)
+  node('plan-editor').value='{invalid'
+  await node('plan-editor').fire('input')
+  assert.equal(node('apply-plan').disabled,true)
+  assert.equal(node('plan-editor').getAttribute('aria-invalid'),'true')
+  manifest.title='Forma Studio'
+  node('plan-editor').value=JSON.stringify(manifest)
+  await node('plan-editor').fire('input')
+  assert.equal(node('plan-title').textContent,'Forma Studio')
+  assert.equal(node('apply-plan').disabled,false)
+  node('input').value='An unrelated next instruction'
+  await node('apply-plan').fire('click');await tick()
+  assert.equal(ui.api.currentApplication.manifest.title,'Forma Studio')
+  const saved=ui.calls.find(call=>call.path==='apps/build-plan')
+  assert.deepEqual(JSON.parse(saved.body),{text:'Project tracker for Forma',manifest})
+  assert.equal(node('plan').hidden,true)
+  assert.equal(node('input').value,'An unrelated next instruction')
+  ui.api.destroy()
+})
+
+test('reviewing and retrying an update keeps its base revision, preview and exact operation receipt',async()=>{
+  const ui=await fixture({confirm:()=>false})
+  const node=key=>ui.nodes.get(key)
+  const previousFrame=node('preview').children.at(-1)
+  node('input').value='Forma Studio'
+  await node('request-plan').fire('click');await tick()
+  assert.equal(ui.api.currentApplication.version,1)
+  assert.equal(node('preview').children.at(-1),previousFrame)
+  assert.deepEqual(JSON.parse(ui.calls.find(call=>call.path.endsWith('/plan')).body),{text:'Forma Studio',version:1})
+  await node('new').fire('click');await tick()
+  assert.equal(node('plan').hidden,false)
+  assert.equal(ui.api.currentApplication.version,1)
+  assert.equal(ui.api.canLeave(),false)
+  ui.failPlanApply('Connection interrupted.')
+  await node('apply-plan').fire('click');await tick()
+  assert.equal(node('preview').children.at(-1),previousFrame)
+  assert.equal(node('apply-plan').disabled,false)
+  ui.failPlanApply('The project changed. Your edits are kept.')
+  await node('apply-plan').fire('click');await tick()
+  const attempts=ui.calls.filter(call=>call.path.endsWith('/build-plan'))
+  assert.equal(attempts.length,2)
+  assert.equal(attempts[0].headers['idempotency-key'],attempts[1].headers['idempotency-key'])
+  assert.equal(JSON.parse(attempts[0].body).version,1)
+  assert.equal(node('apply-plan').disabled,true)
+  assert.equal(node('plan').hidden,false)
+  assert.match(node('plan-warning').textContent,/project changed/)
+  assert.match(node('plan-editor').value,/Forma Studio/)
+  assert.equal(node('preview').children.at(-1),previousFrame)
+  ui.api.destroy()
+})
+
+test('plan retries reuse receipts after connection errors and replace terminally failed receipts',async()=>{
+  const ui=await fixture({open:false})
+  const node=key=>ui.nodes.get(key)
+  node('input').value='Project tracker for Forma'
+  const submit=async()=>{await node('request-plan').fire('click');await tick()}
+  ui.failPlanRequest(Error('Connection interrupted.'));await submit()
+  ui.failPlanRequest(Object.assign(Error('Previous request failed.'),{code:'previous_build_failed'}));await submit()
+  ui.failPlanRequest(null);await submit()
+  const keys=ui.calls.filter(call=>call.path==='apps/plan').map(call=>call.headers['idempotency-key'])
+  assert.equal(keys.length,3)
+  assert.equal(keys[0],keys[1])
+  assert.notEqual(keys[1],keys[2])
+  assert.equal(node('plan').hidden,false)
+  assert.equal(ui.api.currentApplication,null)
+  ui.api.destroy()
 })
 
 test('manifest editor applies the exact expected version and retains the buffer and preview after failure',async()=>{
